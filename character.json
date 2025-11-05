@@ -1,0 +1,133 @@
+{
+    "$schema": "https://example.com/schemas/character.v3.schema.json",
+    "character": "<CHARACTER_ID>",
+    "inherits": "show_schema.json goes here",
+  
+    "metadata": {
+      "role": "<e.g., Protagonist | Supporting>",
+      "function": "<story function in one line>",
+      "tags": ["human", "dialogue"]
+    },
+  
+    "species": { "type": "human", "subtype": "live_action", "scale_ratio": 1.0 },
+  
+    "state": {
+      "baseline": "stable human",
+      "transformation_policy": {
+        "allowed": [],
+        "disallowed": ["snap_down","gradual_up","oscillate"],
+        "frequency_caps": { "snap_per_ep": 0, "gradual_per_ep": 0 }
+      }
+    },
+  
+    "biometrics": {
+      "age_years": { "value": 38, "approximate": false },
+      "ethnicity": "—",
+      "skin_color": { "hex": "#CDAA8D", "description": "warm light-tan" },
+      "eye_color": { "hex": "#4A3B2A", "description": "brown", "patterning": "" },
+  
+      "has_hair": true,
+      "hair": {
+        "style": "short side-part",
+        "color_hex": "#3B2F2F",
+        "color_description": "dark brown",
+        "length": "short",
+        "texture": "wavy"
+      },
+  
+      "facial_hair": { "has_facial_hair": false, "style": "", "density": "light" },
+  
+      "height": { "value": 180, "unit": "cm", "notes": "" },
+      "weight": { "value": 78, "unit": "kg", "notes": "" },
+      "build": { "body_type": "lean", "notes": "" },
+  
+      "voice": {
+        "descriptors": ["warm","measured","wry"],
+        "pitch_range": "mid",
+        "tempo": "moderate",
+        "timbre_notes": "slight rasp on emphasis"
+      },
+  
+      "accent": {
+        "style": "General North American",
+        "strength": "light",
+        "code_switching": "neutralizes in formal settings"
+      },
+  
+      "tics": {
+        "motor": ["pen tap"],
+        "verbal": ["soft 'hmm'"],
+        "frequency": "occasional"
+      }
+    },
+  
+    "look": {
+      "silhouette": "upright, relaxed shoulders",
+      "palette": { "anchors": ["#1E2A36","#5E6B73","#C9C3B8"], "notes": "deep neutrals + warm accents" },
+      "surface": {
+        "materials": "natural human skin",
+        "finish": "matte",
+        "texture_rules": "retain pore detail; control shine",
+        "prohibitions": ["beauty-blur","over-sharpening"]
+      },
+      "eyes": { "type": "human natural", "catchlight_shape": "round", "behaviors": ["clean key catchlight"] },
+      "face_system": { "modularity": "n/a", "mouths_phonemes": [], "mouths_gag": [], "eyelids": [] },
+      "wardrobe": {
+        "silhouette_rules": "smart-casual mentor",
+        "items": ["charcoal jacket","ecru open-collar shirt"],
+        "accessories": ["simple watch"],
+        "avoid": ["loud branding"]
+      }
+    },
+  
+    "rigging_and_build": {
+      "armature": "n/a",
+      "swap_systems": [],
+      "durability_notes": "n/a",
+      "scale_notes": "real-world scale"
+    },
+  
+    "performance": {
+      "pose_defaults": "slight lean-in; attentive",
+      "expression_set": ["half-smile","thoughtful listen","decisive nod"],
+      "gestural_loops": ["index card square-up"],
+      "animation_cadence": { "animate_fps": 24, "shutter_angle": 180, "hold_style": "natural live-action" }
+    },
+  
+    "scene_presence": {
+      "camera_override": { "lenses": ["50mm","65mm","85mm"], "framing": "chest-up", "movement": "slow push 6–10s", "dof": "T2.8–T4" },
+      "lighting_override": { "key": "soft window/book-light", "fill": "15–20% bounce", "edge": "subtle hair rim", "notes": "protect skin tone" },
+      "composition_override": { "symmetry_bias": "balanced thirds", "leading_lines": "table/board to eyes", "foreground": "OOF mug" },
+      "set_nook": { "location": "work table", "materials": ["wood","paper notes"], "props": ["notebook"], "signage": [] }
+    },
+  
+    "behavior_and_rules": {
+      "do": ["natural texture","purposeful props"],
+      "do_not": ["neon/sci-fi motifs","over-bloom"],
+      "interaction_readiness": {
+        "with_humans": "standard eyelines",
+        "with_puppets": "seat/lean to puppet eye plane",
+        "with_props": "believable, tactile handoffs"
+      }
+    },
+  
+    "sound": {
+      "ambience": "quiet room tone",
+      "fx": ["paper shuffle","pen tap"],
+      "dialog_policy": "dialog forward",
+      "music_tone": "subtle warm bed if needed"
+    },
+  
+    "validation_hooks": {
+      "assertions": ["camera_override.lenses contains '65mm'"],
+      "human_QC": ["catchlight direction consistent","no beauty-blur","skin IRE in safe range"]
+    },
+  
+    "delivery": {
+      "stills": ["hero_portrait_clean","hero_portrait_teaching"],
+      "motion_button": "6–8s: listen → nod → small smile",
+      "exports": ["TIFF 16-bit","PNG","EXR"],
+      "slate": "<CHARACTER_ID>_PORTRAIT_v1"
+    }
+  }
+  

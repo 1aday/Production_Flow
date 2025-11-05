@@ -1,0 +1,235 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://example.com/schemas/visual_aesthetics.schema.json",
+    "title": "Visual Aesthetics (Show-Agnostic)",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["visual_aesthetics"],
+    "properties": {
+      "visual_aesthetics": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "goal",
+          "pipeline",
+          "color",
+          "lighting",
+          "camera",
+          "composition",
+          "materials_and_textures",
+          "species_design",
+          "sets_and_prop_visuals",
+          "post_grade",
+          "export_specs",
+          "prohibitions_global"
+        ],
+        "properties": {
+          "goal": { "type": "string", "minLength": 3 },
+  
+          "pipeline": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["color_management", "frame_rates", "shutter_angle", "aspect_ratio", "highlight_rolloff", "black_floor", "grain_global"],
+            "properties": {
+              "color_management": { "type": "string" },
+              "frame_rates": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["animation_capture", "playback", "live_action_capture"],
+                "properties": {
+                  "animation_capture": { "type": "number", "minimum": 1 },
+                  "playback": { "type": "number", "minimum": 1 },
+                  "live_action_capture": { "type": "number", "minimum": 1 }
+                }
+              },
+              "shutter_angle": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["animation", "live_action"],
+                "properties": {
+                  "animation": { "type": "number", "minimum": 1, "maximum": 360 },
+                  "live_action": { "type": "number", "minimum": 1, "maximum": 360 }
+                }
+              },
+              "aspect_ratio": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?:1$|^[0-9]+:[0-9]+$" },
+              "highlight_rolloff": { "type": "string" },
+              "black_floor": { "type": "string" },
+              "grain_global": { "type": "string" },
+              "render_order": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+  
+          "color": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["palette_bias", "anchor_hex", "skin_protection"],
+            "properties": {
+              "palette_bias": { "type": "string" },
+              "anchor_hex": {
+                "type": "array",
+                "minItems": 3,
+                "items": { "type": "string", "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" },
+                "uniqueItems": true
+              },
+              "skin_protection": { "type": "string" },
+              "white_balance_baseline_K": { "type": "number", "minimum": 1000, "maximum": 20000 },
+              "prohibitions": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+  
+          "lighting": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["temperature_model", "key", "fill", "edge", "practicals_in_frame", "halation_policy"],
+            "properties": {
+              "temperature_model": { "type": "string" },
+              "key": { "type": "string" },
+              "fill": { "type": "string" },
+              "edge": { "type": "string" },
+              "practicals_in_frame": { "type": "boolean" },
+              "halation_policy": { "type": "string" },
+              "no_go": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+  
+          "camera": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sensor", "lens_family", "movement", "dof_guides", "coverage_rules"],
+            "properties": {
+              "sensor": { "type": "string" },
+              "lens_family": { "type": "array", "minItems": 1, "items": { "type": "string" }, "uniqueItems": true },
+              "movement": { "type": "array", "items": { "type": "string" } },
+              "dof_guides": { "type": "string" },
+              "coverage_rules": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+  
+          "composition": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["symmetry_bias", "leading_lines", "foreground_depth", "color_blocking"],
+            "properties": {
+              "symmetry_bias": { "type": "string" },
+              "leading_lines": { "type": "string" },
+              "foreground_depth": { "type": "string" },
+              "color_blocking": { "type": "string" }
+            }
+          },
+  
+          "materials_and_textures": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["human_textures", "set_surfaces", "patina"],
+            "properties": {
+              "human_textures": { "type": "string" },
+              "set_surfaces": { "type": "array", "items": { "type": "string" } },
+              "patina": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          },
+  
+          "species_design": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Define look rules for different performer/species types that may co-exist (e.g., humans, puppets, CG).",
+            "required": ["types"],
+            "properties": {
+              "types": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["name", "silhouette", "surface_finish", "eyes", "face_modularity"],
+                  "properties": {
+                    "name": { "type": "string" },
+                    "silhouette": { "type": "string" },
+                    "surface_finish": { "type": "string" },
+                    "materials": { "type": "string" },
+                    "eyes": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["catchlight_shape"],
+                      "properties": {
+                        "type": { "type": "string" },
+                        "catchlight_shape": { "type": "string" },
+                        "behaviors": { "type": "array", "items": { "type": "string" } }
+                      }
+                    },
+                    "face_modularity": { "type": "string" },
+                    "stress_cues": { "type": "string" },
+                    "palette": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "anchors": { "type": "array", "items": { "type": "string", "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" } },
+                        "notes": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+  
+          "sets_and_prop_visuals": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["primary_sets", "prop_style", "display_devices"],
+            "properties": {
+              "primary_sets": { "type": "array", "items": { "type": "string" } },
+              "prop_style": { "type": "string" },
+              "display_devices": { "type": "string", "description": "Diegetic screens/signage policy" },
+              "runner_gags_visual": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+  
+          "post_grade": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["curve", "lut", "grain", "halation"],
+            "properties": {
+              "curve": { "type": "string" },
+              "lut": { "type": "string" },
+              "grain": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "placement": { "type": "string" },
+                  "intensity": { "type": "string" }
+                }
+              },
+              "halation": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "scope": { "type": "string" },
+                  "strength": { "type": "string" }
+                }
+              }
+            }
+          },
+  
+          "export_specs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["stills", "video_intermediate", "delivery_color", "plates"],
+            "properties": {
+              "stills": { "type": "array", "items": { "type": "string" } },
+              "video_intermediate": { "type": "string" },
+              "delivery_color": { "type": "string" },
+              "plates": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+  
+          "prohibitions_global": {
+            "type": "array",
+            "minItems": 1,
+              "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+  
