@@ -141,12 +141,14 @@ export async function POST(request: Request) {
         model: "gpt-4o",
         input: [
           {
-            role: "system",
+            role: "system" as const,
+            type: "message" as const,
             content: `${systemDirective}
 Return JSON that adheres to the provided schema.`,
           },
           {
-            role: "user",
+            role: "user" as const,
+            type: "message" as const,
             content: `Schema:
 ${schemaText}
 
@@ -156,7 +158,7 @@ ${prompt}`,
         ],
         text: {
           format: {
-            type: "json_object",
+            type: "json_object" as const,
           },
         },
         temperature: 1,

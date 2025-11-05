@@ -139,12 +139,12 @@ Remember:
   try {
     const basePayload = {
       input: [
-        { role: "system", content: systemDirective },
-        { role: "user", content: userInstruction },
+        { role: "system" as const, content: systemDirective, type: "message" as const },
+        { role: "user" as const, content: userInstruction, type: "message" as const },
       ],
       text: {
         format: {
-          type: "json_object",
+          type: "json_object" as const,
         },
       },
     };
