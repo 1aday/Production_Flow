@@ -141,7 +141,7 @@ Remember:
       input: [
         { role: "system", content: systemDirective },
         { role: "user", content: userInstruction },
-      ] as OpenAI.ResponseCreateParams["input"],
+      ],
       text: {
         format: {
           type: "json_object",

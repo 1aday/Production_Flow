@@ -1272,29 +1272,14 @@ export default function Home() {
   );
 
   const generatePoster = useCallback(
-    async (value: string, showData: ShowBlueprint) => {
+    async (value: string) => {
       setPosterLoading(true);
       setPosterError(null);
 
       const pitch = value.trim();
-      const directive = showData.visual_aesthetics?.goal;
-      const anchorSwatch =
-        showData.visual_aesthetics?.color?.anchor_hex?.slice(0, 4) ?? [];
-
-      const posterPrompt = [
-        pitch ? `Original prompt: ${pitch}` : null,
-        directive ? `Look bible directive: ${directive}` : null,
-        anchorSwatch.length
-          ? `Palette anchors: ${anchorSwatch.join(", ")}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join("\n");
 
       const trimmedPrompt =
-        posterPrompt.length > 5000
-          ? `${posterPrompt.slice(0, 4950)}…`
-          : posterPrompt;
+        pitch.length > 5000 ? `${pitch.slice(0, 4950)}…` : pitch;
 
       try {
         const response = await fetch("/api/poster", {
@@ -1304,7 +1289,6 @@ export default function Home() {
           },
           body: JSON.stringify({
             prompt: trimmedPrompt || value.slice(0, 4950),
-            show: showData,
           }),
         });
 
@@ -1396,7 +1380,7 @@ export default function Home() {
         ];
 
         if (posterIsAvailable) {
-          tasks.push(generatePoster(value, result.data));
+          tasks.push(generatePoster(value));
         } else {
           setPosterLoading(false);
           setPosterError(null);

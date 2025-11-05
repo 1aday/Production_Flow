@@ -4,12 +4,10 @@ import Replicate from "replicate";
 
 type PosterBody = {
   prompt: string;
-  show: unknown;
 };
 
-const MAX_PROMPT_LENGTH = 22000;
-const MAX_USER_PROMPT = 6000;
-const MAX_SHOW_JSON = 12000;
+const MAX_PROMPT_LENGTH = 12000;
+const MAX_USER_PROMPT = 8000;
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
@@ -56,46 +54,12 @@ export async function POST(request: Request) {
     );
   }
 
-  if (typeof body.show !== "object" || body.show === null) {
-    return NextResponse.json(
-      { error: "Poster generation requires the show blueprint object." },
-      { status: 400 }
-    );
-  }
+  const userPrompt = trimWithEllipsis(body.prompt, MAX_USER_PROMPT);
 
-  let userPrompt = trimWithEllipsis(body.prompt, MAX_USER_PROMPT);
-  let showJson = trimWithEllipsis(JSON.stringify(body.show), MAX_SHOW_JSON);
-
-  const sections = [
-    BASE_PROMPT,
-    `User concept prompt: ${userPrompt}`,
-    `Show look bible JSON (truncated):\n${showJson}`,
-  ];
-
-  let compositePrompt = sections.join("\n\n");
-
-  if (compositePrompt.length > MAX_PROMPT_LENGTH) {
-    const overflow = compositePrompt.length - MAX_PROMPT_LENGTH;
-    const reducedShow = Math.max(2000, showJson.length - overflow - 1);
-    showJson = trimWithEllipsis(showJson, reducedShow);
-    sections[2] = `Show look bible JSON (truncated):\n${showJson}`;
-    compositePrompt = sections.join("\n\n");
-  }
-
-  if (compositePrompt.length > MAX_PROMPT_LENGTH) {
-    const overflow = compositePrompt.length - MAX_PROMPT_LENGTH;
-    const reducedPrompt = Math.max(1000, userPrompt.length - overflow - 1);
-    userPrompt = trimWithEllipsis(userPrompt, reducedPrompt);
-    sections[1] = `User concept prompt: ${userPrompt}`;
-    compositePrompt = sections.join("\n\n");
-  }
+  let compositePrompt = `${BASE_PROMPT}\n\nCharacter prompt:\n${userPrompt}`;
 
   if (compositePrompt.length > MAX_PROMPT_LENGTH) {
     compositePrompt = trimWithEllipsis(compositePrompt, MAX_PROMPT_LENGTH);
-  }
-  const promptLength = compositePrompt.length;
-  if (promptLength > MAX_PROMPT_LENGTH) {
-    compositePrompt = compositePrompt.slice(0, MAX_PROMPT_LENGTH);
   }
 
   try {
