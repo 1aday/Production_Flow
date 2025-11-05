@@ -487,7 +487,7 @@ function RawJsonPeek({ rawJson }: { rawJson?: string | null }) {
     "idle"
   );
   const [isJsonOpen, setIsJsonOpen] = useState(false);
-  const timeoutRef = useRef<number>();
+  const timeoutRef = useRef<number | undefined>(undefined);
 
   const formattedJson = useMemo(() => {
     if (!rawJson) return "";
