@@ -1113,11 +1113,13 @@ function ResultView({
   characterVideos: Record<string, string | null>;
   characterVideoLoading: Record<string, boolean>;
   characterVideoErrors: Record<string, string>;
+  editedVideoPrompts: Record<string, string>;
   onBuildCharacter: (seed: CharacterSeed) => void;
   onSelectCharacter: (characterId: string) => void;
   onClearActiveCharacter: () => void;
   onGeneratePortrait: (characterId: string) => void;
-  onGenerateVideo: (characterId: string) => void;
+  onGenerateVideo: (characterId: string, customPrompt?: string) => void;
+  onUpdateVideoPrompt: (characterId: string, prompt: string) => void;
   activeCharacterId: string | null;
   posterUrl: string | null;
   posterLoading: boolean;
@@ -2183,9 +2185,40 @@ function ResultView({
                       <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-foreground/45">
                         Showcase scene prompt
                       </p>
-                      <p className="whitespace-pre-wrap text-sm text-foreground/80">
-                        {doc.showcase_scene_prompt}
-                      </p>
+                      <Textarea
+                        value={editedVideoPrompts[seed.id] ?? doc.showcase_scene_prompt ?? ""}
+                        onChange={(e) => {
+                          setEditedVideoPrompts((prev) => ({
+                            ...prev,
+                            [seed.id]: e.target.value,
+                          }));
+                        }}
+                        placeholder="Describe the 8-second showcase scene..."
+                        className="min-h-[120px] text-sm"
+                        disabled={videoLoading}
+                      />
+                      {editedVideoPrompts[seed.id] && editedVideoPrompts[seed.id] !== doc.showcase_scene_prompt ? (
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditedVideoPrompts((prev) => {
+                                const next = { ...prev };
+                                delete next[seed.id];
+                                return next;
+                              });
+                            }}
+                            className="h-7 text-xs"
+                          >
+                            Reset
+                          </Button>
+                          <p className="flex-1 text-xs text-foreground/50">
+                            Prompt modified - will use custom version
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -2197,12 +2230,15 @@ function ResultView({
               </CardContent>
               <CardFooter className="border-t border-white/10 bg-black/40">
                 <Button
-                  type="button"
-                  className="w-full justify-center rounded-full"
-                  variant={videoUrl ? "outline" : "default"}
-                  onClick={() => onGenerateVideo(seed.id)}
-                  disabled={videoLoading || !canRender}
-                >
+                   type="button"
+                   className="w-full justify-center rounded-full"
+                   variant={videoUrl ? "outline" : "default"}
+                   onClick={() => {
+                     const customPrompt = editedVideoPrompts[seed.id];
+                     onGenerateVideo(seed.id, customPrompt);
+                   }}
+                   disabled={videoLoading || !canRender}
+                 >
                   {videoLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -2273,6 +2309,7 @@ export default function Home() {
   const [characterVideos, setCharacterVideos] = useState<Record<string, string | null>>({});
   const [characterVideoLoading, setCharacterVideoLoading] = useState<Record<string, boolean>>({});
   const [characterVideoErrors, setCharacterVideoErrors] = useState<Record<string, string>>({});
+  const [editedVideoPrompts, setEditedVideoPrompts] = useState<Record<string, string>>({});
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [posterLoading, setPosterLoading] = useState(false);
   const [posterError, setPosterError] = useState<string | null>(null);
@@ -2622,6 +2659,9 @@ export default function Home() {
           return next;
         });
         
+        // Play success sound
+        playSuccessChime();
+        
         // Trigger library poster generation after first portrait
         const completedPortraits = Object.values(characterPortraits).filter(url => url).length;
         if (completedPortraits === 0) { // This is the first portrait
@@ -2643,7 +2683,7 @@ export default function Home() {
   );
 
   const generateCharacterVideo = useCallback(
-    async (characterId: string) => {
+    async (characterId: string, customPrompt?: string) => {
       if (!posterAvailable) {
         setCharacterVideoErrors((prev) => ({
           ...prev,
@@ -2679,7 +2719,9 @@ export default function Home() {
         return;
       }
 
-      if (!doc.showcase_scene_prompt) {
+      const promptToUse = customPrompt || doc.showcase_scene_prompt;
+      
+      if (!promptToUse) {
         setCharacterVideoErrors((prev) => ({
           ...prev,
           [characterId]: "Character dossier missing showcase scene prompt.",
@@ -2695,6 +2737,12 @@ export default function Home() {
       });
 
       try {
+        // Use custom prompt if provided, otherwise use the one from the doc
+        const characterWithPrompt = customPrompt ? {
+          ...doc,
+          showcase_scene_prompt: customPrompt,
+        } : doc;
+        
         const response = await fetch("/api/characters/video", {
           method: "POST",
           headers: {
@@ -2702,7 +2750,7 @@ export default function Home() {
           },
           body: JSON.stringify({
             show: blueprint,
-            character: doc,
+            character: characterWithPrompt,
             portraitUrl,
           }),
         });
@@ -2724,6 +2772,9 @@ export default function Home() {
           ...prev,
           [characterId]: result.url ?? null,
         }));
+        
+        // Play success sound
+        playSuccessChime();
       } catch (err) {
         console.error(err);
         setCharacterVideoErrors((prev) => ({
@@ -3286,11 +3337,18 @@ export default function Home() {
             characterVideos={characterVideos}
             characterVideoLoading={characterVideoLoading}
             characterVideoErrors={characterVideoErrors}
+            editedVideoPrompts={editedVideoPrompts}
             onBuildCharacter={buildCharacter}
             onSelectCharacter={handleSelectCharacter}
             onClearActiveCharacter={handleClearActiveCharacter}
             onGeneratePortrait={generateCharacterPortrait}
             onGenerateVideo={generateCharacterVideo}
+            onUpdateVideoPrompt={(characterId, prompt) => {
+              setEditedVideoPrompts((prev) => ({
+                ...prev,
+                [characterId]: prompt,
+              }));
+            }}
             activeCharacterId={activeCharacterId}
             posterUrl={posterUrl}
             posterLoading={posterLoading}
