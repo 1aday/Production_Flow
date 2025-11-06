@@ -12,6 +12,7 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
+  CardFooter,
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -150,6 +151,8 @@ type VisualAesthetics = {
 };
 
 type ShowBlueprint = {
+  show_logline: string;
+  poster_description: string;
   visual_aesthetics: VisualAesthetics;
 };
 
@@ -162,6 +165,14 @@ type ApiResponse = {
   };
   error?: string;
   posterAvailable?: boolean;
+};
+
+type CharacterSeed = {
+  id: string;
+  name: string;
+  summary: string;
+  role?: string | null;
+  vibe?: string | null;
 };
 
 type CharacterDocument = {
@@ -287,7 +298,9 @@ type CharacterDocument = {
     motion_button?: string;
     slate?: string;
     stills?: string[];
+    exports?: string[];
   };
+  showcase_scene_prompt?: string;
   [key: string]: unknown;
 };
 
@@ -325,24 +338,31 @@ function useRotatingMessage(active: boolean, messages: readonly string[], interv
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (!active) {
-      setIndex(0);
+    if (!messages.length) {
       return;
     }
-    if (!messages.length) return;
-    const id = window.setInterval(() => {
+
+    if (!active) {
+      const resetId = window.requestAnimationFrame(() => {
+        setIndex(0);
+      });
+      return () => {
+        window.cancelAnimationFrame(resetId);
+      };
+    }
+
+    const resetId = window.requestAnimationFrame(() => {
+      setIndex(0);
+    });
+    const intervalId = window.setInterval(() => {
       setIndex((prev) => (prev + 1) % messages.length);
     }, intervalMs);
+
     return () => {
-      window.clearInterval(id);
+      window.cancelAnimationFrame(resetId);
+      window.clearInterval(intervalId);
     };
   }, [active, intervalMs, messages]);
-
-  useEffect(() => {
-    if (!active) {
-      setIndex(0);
-    }
-  }, [active]);
 
   return messages[index] ?? "";
 }
@@ -411,6 +431,337 @@ function SectionHeading({
       {description ? (
         <p className="text-sm text-foreground/65">{description}</p>
       ) : null}
+    </div>
+  );
+}
+
+function DossierSection({
+  title,
+  children,
+  defaultOpen = true,
+}: {
+  title: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="rounded-2xl border border-white/12 bg-black/35 shadow-[0_12px_32px_rgba(0,0,0,0.35)] transition-all duration-200">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium text-foreground/80 hover:bg-white/5 transition-colors duration-150 rounded-2xl"
+      >
+        <span>{title}</span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 text-foreground/55 transition-transform duration-300 ease-out",
+            open ? "rotate-180" : ""
+          )}
+        />
+      </button>
+      <div
+        className={cn(
+          "grid transition-all duration-300 ease-in-out",
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="border-t border-white/10 px-4 py-4 text-sm text-foreground/75">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CharacterDossierContent({
+  characterId,
+  metadata,
+  storyFunction,
+  species,
+  paletteAnchors,
+  wardrobe,
+  behavior,
+  doc,
+  quickFacts,
+  tags,
+  portraitUrl,
+  portraitError,
+  portraitLoading,
+  posterAvailable,
+  onGeneratePortrait,
+  onClear,
+}: {
+  characterId: string;
+  metadata: Record<string, unknown>;
+  storyFunction?: string;
+  species?: CharacterDocument["biometrics"] extends { species?: infer T } ? T : undefined;
+  paletteAnchors: string[];
+  wardrobe: CharacterDocument["look"] extends { wardrobe?: infer T } ? T : undefined;
+  behavior: CharacterDocument["behavior_and_rules"];
+  doc: CharacterDocument;
+  quickFacts: Array<{ label: string; value: string }>;
+  tags: string[];
+  portraitUrl: string | null | undefined;
+  portraitError?: string;
+  portraitLoading: boolean;
+  posterAvailable: boolean;
+  onGeneratePortrait: (characterId: string) => void;
+  onClear: () => void;
+}) {
+  const expressionSet = doc.performance?.expression_set ?? [];
+  const soundFx = doc.sound?.fx ?? [];
+  const hasSound =
+    Boolean(soundFx.length) || Boolean(doc.sound?.ambience) || Boolean(doc.sound?.music_tone);
+  const showcaseScenePrompt = doc.showcase_scene_prompt;
+
+  return (
+    <div className="mt-6 space-y-6 border-t border-white/10 pt-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+            Character dossier
+          </p>
+          <p className="text-sm text-foreground/50">{metadata.role ?? "Character"}</p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onClear}
+          className="rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground/70 hover:bg-white/10"
+        >
+          Collapse
+        </Button>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="space-y-4 text-sm text-foreground/75">
+          {storyFunction ? (
+            <DossierSection title="Story function">
+              <p className="text-base text-foreground/80">{storyFunction}</p>
+            </DossierSection>
+          ) : null}
+
+          {showcaseScenePrompt ? (
+            <DossierSection title="Showcase scene prompt" defaultOpen={false}>
+              <p className="whitespace-pre-wrap text-sm text-foreground/80">
+                {showcaseScenePrompt}
+              </p>
+            </DossierSection>
+          ) : null}
+
+          {quickFacts.length ? (
+            <DossierSection title="Quick facts">
+              <Table>
+                <TableBody>
+                  {quickFacts.map(({ label, value }) => (
+                    <TableRow key={label}>
+                      <TableCell className="text-[11px] uppercase tracking-[0.24em] text-foreground/45">
+                        {label}
+                      </TableCell>
+                      <TableCell className="text-sm text-foreground/80">{value}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </DossierSection>
+          ) : null}
+
+          {species ? (
+            <DossierSection title="Biometrics & species">
+              <div className="space-y-2">
+                {species.materiality ? (
+                  <p>
+                    <span className="font-medium text-foreground/80">Materiality:</span>{" "}
+                    {species.materiality}
+                  </p>
+                ) : null}
+                {species.physiology ? (
+                  <p>
+                    <span className="font-medium text-foreground/80">Physiology:</span>{" "}
+                    {species.physiology}
+                  </p>
+                ) : null}
+                {species.visual_markers ? (
+                  <p>
+                    <span className="font-medium text-foreground/80">Visual markers:</span>{" "}
+                    {species.visual_markers}
+                  </p>
+                ) : null}
+                {species.palette?.anchors?.length ? (
+                  <div className="space-y-2">
+                    <span className="font-medium text-foreground/80">Palette anchors</span>
+                    <ColorSwatches colors={species.palette.anchors} />
+                    {species.palette.notes ? (
+                      <p className="text-xs text-foreground/55">{species.palette.notes}</p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </DossierSection>
+          ) : null}
+
+          {wardrobe ? (
+            <DossierSection title="Wardrobe">
+              {wardrobe.silhouette_rules ? (
+                <p className="text-foreground/75">{wardrobe.silhouette_rules}</p>
+              ) : null}
+              {wardrobe.items?.length ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {wardrobe.items.map((item) => (
+                    <Badge key={item} variant="outline">
+                      {item}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+              {wardrobe.accessories?.length ? (
+                <p className="mt-2 text-xs text-foreground/60">
+                  Accessories: {wardrobe.accessories.join(", ")}
+                </p>
+              ) : null}
+            </DossierSection>
+          ) : null}
+
+          {behavior ? (
+            <DossierSection title="Behavioural rails">
+              {behavior.do?.length ? (
+                <p>
+                  <span className="font-medium text-foreground/80">Do:</span>{" "}
+                  {behavior.do.join(", ")}
+                </p>
+              ) : null}
+              {behavior.do_not?.length ? (
+                <p>
+                  <span className="font-medium text-foreground/80">Avoid:</span>{" "}
+                  {behavior.do_not.join(", ")}
+                </p>
+              ) : null}
+            </DossierSection>
+          ) : null}
+
+          {doc.look?.surface ? (
+            <DossierSection title="Surface treatment">
+              <p>
+                <span className="font-medium text-foreground/80">Materials:</span>{" "}
+                {doc.look.surface.materials}
+              </p>
+              <p>
+                <span className="font-medium text-foreground/80">Finish:</span>{" "}
+                {doc.look.surface.finish}
+              </p>
+              {doc.look.surface.texture_rules ? (
+                <p className="text-xs text-foreground/60">{doc.look.surface.texture_rules}</p>
+              ) : null}
+            </DossierSection>
+          ) : null}
+
+          {paletteAnchors.length ? (
+            <DossierSection title="Palette anchors">
+              <ColorSwatches colors={paletteAnchors} />
+              {doc.look?.palette?.notes ? (
+                <p className="mt-2 text-xs text-foreground/55">{doc.look.palette.notes}</p>
+              ) : null}
+            </DossierSection>
+          ) : null}
+
+          {tags.length ? (
+            <DossierSection title="Tags" defaultOpen={false}>
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <Badge key={tag} variant="outline">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </DossierSection>
+          ) : null}
+
+          {expressionSet.length ? (
+            <DossierSection title="Expression set" defaultOpen={false}>
+              <ArrayPills values={expressionSet} />
+            </DossierSection>
+          ) : null}
+
+          {hasSound ? (
+            <DossierSection title="Sound cues" defaultOpen={false}>
+              {doc.sound?.ambience ? (
+                <p>
+                  <span className="font-medium text-foreground/80">Ambience:</span>{" "}
+                  {doc.sound.ambience}
+                </p>
+              ) : null}
+              {soundFx.length ? <ArrayPills values={soundFx} /> : null}
+              {doc.sound?.music_tone ? (
+                <p className="text-xs text-foreground/60">
+                  Music tone: {doc.sound.music_tone}
+                </p>
+              ) : null}
+            </DossierSection>
+          ) : null}
+        </div>
+
+        <div className="space-y-4">
+          <DossierSection title="Portrait">
+            {posterAvailable ? (
+              <div className="space-y-3">
+                <div className="relative overflow-hidden rounded-3xl border border-white/12 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+                  <div className="relative h-0 w-full pb-[90%]">
+                    {portraitUrl ? (
+                      <Image
+                        src={portraitUrl}
+                        alt={`${doc.character} portrait`}
+                        fill
+                        className="object-cover"
+                        sizes="(min-width: 768px) 360px, 100vw"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(229,9,20,0.25),_transparent)]">
+                        <span className="text-xs uppercase tracking-[0.3em] text-foreground/45">
+                          Portrait pending
+                        </span>
+                      </div>
+                    )}
+                    {portraitLoading ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                {portraitError ? (
+                  <p className="text-xs text-red-300">{portraitError}</p>
+                ) : null}
+                <Button
+                  type="button"
+                  variant={portraitUrl ? "outline" : "default"}
+                  onClick={() => onGeneratePortrait(characterId)}
+                  disabled={portraitLoading}
+                  className="w-full justify-center rounded-full"
+                >
+                  {portraitLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Rendering portrait…
+                    </>
+                  ) : portraitUrl ? (
+                    "Re-render portrait"
+                  ) : (
+                    "Render portrait"
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-white/12 bg-black/35 p-4 text-xs text-foreground/55">
+                Add a Replicate token to enable per-character portraits.
+              </div>
+            )}
+          </DossierSection>
+        </div>
+      </div>
     </div>
   );
 }
@@ -667,9 +1018,20 @@ function ResultView({
   usage,
   rawJson,
   model,
-  characters,
+  characterSeeds,
   charactersLoading,
   charactersError,
+  characterDocs,
+  characterBuilding,
+  characterBuildErrors,
+  characterPortraits,
+  characterPortraitLoading,
+  characterPortraitErrors,
+  onBuildCharacter,
+  onSelectCharacter,
+  onClearActiveCharacter,
+  onGeneratePortrait,
+  activeCharacterId,
   posterUrl,
   posterLoading,
   posterError,
@@ -680,9 +1042,20 @@ function ResultView({
   usage?: ApiResponse["usage"];
   rawJson?: string | null;
   model: ModelId;
-  characters: CharacterDocument[] | null;
+  characterSeeds: CharacterSeed[] | null;
   charactersLoading: boolean;
   charactersError: string | null;
+  characterDocs: Record<string, CharacterDocument>;
+  characterBuilding: Record<string, boolean>;
+  characterBuildErrors: Record<string, string>;
+  characterPortraits: Record<string, string | null>;
+  characterPortraitLoading: Record<string, boolean>;
+  characterPortraitErrors: Record<string, string>;
+  onBuildCharacter: (seed: CharacterSeed) => void;
+  onSelectCharacter: (characterId: string) => void;
+  onClearActiveCharacter: () => void;
+  onGeneratePortrait: (characterId: string) => void;
+  activeCharacterId: string | null;
   posterUrl: string | null;
   posterLoading: boolean;
   posterError: string | null;
@@ -1175,7 +1548,7 @@ function ResultView({
       return (
         <div className="rounded-3xl border border-white/12 bg-black/45 px-6 py-4 text-sm text-foreground/70">
           <Loader2 className="mr-2 inline-block h-4 w-4 animate-spin text-primary" />
-          Building character bible…
+          Curating character lineup…
         </div>
       );
     }
@@ -1189,77 +1562,401 @@ function ResultView({
       );
     }
 
-    if (!characters || characters.length === 0) {
+    if (!characterSeeds || characterSeeds.length === 0) {
       return (
         <div className="rounded-3xl border border-dashed border-white/12 bg-black/45 p-6 text-center text-sm text-foreground/55">
-          No characters generated yet.
+          Generate a show brief to surface candidates.
         </div>
       );
     }
 
     return (
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {characters.map((characterDoc, index) => {
-          const role = characterDoc.metadata?.role;
-          const storyFunction = characterDoc.metadata?.function;
-          const tags = characterDoc.metadata?.tags ?? [];
-          const paletteAnchors = characterDoc.look?.palette?.anchors ?? [];
-          const wardrobe = characterDoc.look?.wardrobe;
-          const ageValue = characterDoc.biometrics?.age_years?.value;
-          const ethnicity = characterDoc.biometrics?.ethnicity;
+      <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-max">
+        {characterSeeds.map((seed) => {
+          const doc = characterDocs[seed.id];
+          const isBuilding = Boolean(characterBuilding[seed.id]);
+          const buildError = characterBuildErrors[seed.id];
+          const portraitUrl = characterPortraits[seed.id];
+          const portraitLoading = Boolean(characterPortraitLoading[seed.id]);
+          const portraitError = characterPortraitErrors[seed.id];
+          const isActive = Boolean(doc && activeCharacterId === seed.id);
+
+          const metadata = doc?.metadata ?? {};
+          const tags = metadata.tags ?? [];
+          const storyFunction = metadata.function;
+          const biometrics = doc?.biometrics;
+          const species = biometrics?.species;
+          const paletteAnchors = doc?.look?.palette?.anchors ?? [];
+          const wardrobe = doc?.look?.wardrobe;
+          const behavior = doc?.behavior_and_rules;
+
+          const quickFacts: Array<{ label: string; value: string }> = [];
+          if (isActive && species?.type) {
+            quickFacts.push({
+              label: "Species",
+              value: [species.type, species.subtype].filter(Boolean).join(" · "),
+            });
+          }
+          if (isActive && biometrics?.age_years?.value !== undefined) {
+            const approx = biometrics.age_years.approximate ? "≈" : "";
+            quickFacts.push({
+              label: "Age",
+              value: `${approx}${biometrics.age_years.value}`,
+            });
+          }
+          if (isActive && biometrics?.ethnicity) {
+            quickFacts.push({ label: "Ethnicity", value: biometrics.ethnicity });
+          }
+          if (
+            isActive &&
+            biometrics?.height &&
+            biometrics.height.value !== undefined
+          ) {
+            const { value, unit, notes } = biometrics.height;
+            quickFacts.push({
+              label: "Height",
+              value: `${value}${unit ? ` ${unit}` : ""}${notes ? ` (${notes})` : ""}`,
+            });
+          }
+          if (
+            isActive &&
+            biometrics?.weight &&
+            biometrics.weight.value !== undefined
+          ) {
+            const { value, unit, notes } = biometrics.weight;
+            quickFacts.push({
+              label: "Weight",
+              value: `${value}${unit ? ` ${unit}` : ""}${notes ? ` (${notes})` : ""}`,
+            });
+          }
+          if (isActive && biometrics?.build?.body_type) {
+            const buildNotes =
+              biometrics.build.notes && biometrics.build.notes.length
+                ? ` · ${biometrics.build.notes}`
+                : "";
+            quickFacts.push({
+              label: "Build",
+              value: `${biometrics.build.body_type}${buildNotes}`,
+            });
+          }
+          if (isActive && biometrics?.voice) {
+            const voiceParts = [
+              biometrics.voice.descriptors && biometrics.voice.descriptors.length
+                ? biometrics.voice.descriptors.join(", ")
+                : null,
+              biometrics.voice.pitch_range,
+              biometrics.voice.tempo,
+              biometrics.voice.timbre_notes,
+            ].filter(Boolean) as string[];
+            if (voiceParts.length) {
+              quickFacts.push({
+                label: "Voice",
+                value: voiceParts.join(" · "),
+              });
+            }
+          }
+          if (isActive && biometrics?.accent) {
+            const accentParts = [
+              biometrics.accent.style,
+              biometrics.accent.strength,
+              biometrics.accent.code_switching,
+            ].filter(Boolean) as string[];
+            if (accentParts.length) {
+              quickFacts.push({
+                label: "Accent",
+                value: accentParts.join(" · "),
+              });
+            }
+          }
+          if (isActive && biometrics?.tics) {
+            const ticsParts: string[] = [];
+            if (biometrics.tics.motor?.length) {
+              ticsParts.push(`Motor: ${biometrics.tics.motor.join(", ")}`);
+            }
+            if (biometrics.tics.verbal?.length) {
+              ticsParts.push(`Verbal: ${biometrics.tics.verbal.join(", ")}`);
+            }
+            if (biometrics.tics.frequency) {
+              ticsParts.push(biometrics.tics.frequency);
+            }
+            if (ticsParts.length) {
+              quickFacts.push({
+                label: "Tics",
+                value: ticsParts.join(" · "),
+              });
+            }
+          }
 
           return (
-            <Card key={characterDoc.character || `character-${index}`} className="h-full">
-              <CardHeader className="space-y-2">
+            <Card
+              key={seed.id}
+              className={cn(
+                'min-h-[240px] justify-between transition-all duration-500 ease-in-out overflow-hidden',
+                isActive ? 'md:col-span-2 scale-[1.01]' : 'scale-100',
+                !isActive && portraitUrl ? 'p-0' : ''
+              )}
+            >
+              {!isActive && portraitUrl ? (
+                <div className="relative overflow-hidden bg-black/60">
+                  <div className="relative h-0 w-full pb-[100%]">
+                    <Image
+                      src={portraitUrl}
+                      alt={`${seed.name} portrait`}
+                      fill
+                      className="object-cover object-center"
+                      style={{ objectPosition: 'center 30%' }}
+                      sizes="(min-width: 768px) 280px, 100vw"
+                    />
+                  </div>
+                </div>
+              ) : null}
+              <CardHeader className={cn('space-y-1', isActive ? 'gap-3' : '', !isActive && portraitUrl ? 'pt-4 px-6' : '')}>
                 <CardTitle className="text-lg font-semibold text-foreground">
-                  {characterDoc.character || "Unnamed character"}
+                  {seed.name}
                 </CardTitle>
-                <CardDescription className="text-sm text-foreground/55">
-                  {role || "Character"}
+                <CardDescription className="text-sm text-foreground/60">
+                  {seed.role ?? 'Character'}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4 text-sm text-foreground/70">
-                {storyFunction ? <p>{storyFunction}</p> : null}
-                {ageValue || ethnicity ? (
-                  <p className="text-[11px] uppercase tracking-[0.26em] text-foreground/45">
-                    {ageValue ? `Age ${ageValue}` : null}
-                    {ageValue && ethnicity ? " • " : ""}
-                    {ethnicity || null}
+              <CardContent className={cn('space-y-3 text-sm text-foreground/70', !isActive && portraitUrl ? 'px-6' : '')}>
+                {seed.summary ? (
+                  <p className="leading-relaxed text-foreground/75">{seed.summary}</p>
+                ) : null}
+                {seed.vibe ? (
+                  <Badge variant="outline" className="rounded-full border-white/20 bg-black/40 text-foreground/65">
+                    {seed.vibe}
+                  </Badge>
+                ) : null}
+                {doc ? (
+                  <p className="text-xs uppercase tracking-[0.26em] text-primary/70">
+                    Dossier ready
                   </p>
                 ) : null}
-                {tags.length ? (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {tags.map((tag) => (
-                      <Badge key={tag} variant="outline">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-                {paletteAnchors.length ? (
-                  <div className="space-y-2">
-                    <SectionHeading title="Palette" />
-                    <ColorSwatches colors={paletteAnchors} />
-                  </div>
-                ) : null}
-                {wardrobe ? (
-                  <div className="space-y-2">
-                    <SectionHeading title="Wardrobe" />
-                    {wardrobe.silhouette_rules ? (
-                      <p className="text-foreground/65">{wardrobe.silhouette_rules}</p>
-                    ) : null}
-                    {wardrobe.items && wardrobe.items.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {wardrobe.items.map((item) => (
-                          <Badge key={item} variant="outline">
-                            {item}
-                          </Badge>
-                        ))}
+
+                {isActive && doc ? (
+                  <div className="mt-6 space-y-4 border-t border-white/10 pt-6 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="space-y-4 text-sm text-foreground/75">
+                        {storyFunction ? (
+                          <DossierSection title="Story function" defaultOpen={false}>
+                            <p className="text-base text-foreground/80">{storyFunction}</p>
+                          </DossierSection>
+                        ) : null}
+
+                        {quickFacts.length ? (
+                          <DossierSection title="Quick facts" defaultOpen={false}>
+                            <Table>
+                              <TableBody>
+                                {quickFacts.map(({ label, value }) => (
+                                  <TableRow key={label}>
+                                    <TableCell className="text-[11px] uppercase tracking-[0.24em] text-foreground/45">
+                                      {label}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-foreground/75">
+                                      {value}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </DossierSection>
+                        ) : null}
+
+                        {species ? (
+                          <DossierSection title="Biometrics & species" defaultOpen={false}>
+                            <div className="space-y-2">
+                              {species.materiality ? (
+                                <p>
+                                  <span className="font-medium text-foreground/80">Materiality:</span>{' '}
+                                  {species.materiality}
+                                </p>
+                              ) : null}
+                              {species.physiology ? (
+                                <p>
+                                  <span className="font-medium text-foreground/80">Physiology:</span>{' '}
+                                  {species.physiology}
+                                </p>
+                              ) : null}
+                              {species.visual_markers ? (
+                                <p>
+                                  <span className="font-medium text-foreground/80">Visual markers:</span>{' '}
+                                  {species.visual_markers}
+                                </p>
+                              ) : null}
+                              {species.palette?.anchors?.length ? (
+                                <div className="space-y-2">
+                                  <span className="font-medium text-foreground/80">Palette anchors</span>
+                                  <ColorSwatches colors={species.palette.anchors} />
+                                  {species.palette.notes ? (
+                                    <p className="text-xs text-foreground/55">{species.palette.notes}</p>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
+                          </DossierSection>
+                        ) : null}
+
+                        {wardrobe ? (
+                          <DossierSection title="Wardrobe" defaultOpen={false}>
+                            {wardrobe.silhouette_rules ? <p>{wardrobe.silhouette_rules}</p> : null}
+                            {wardrobe.items?.length ? (
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {wardrobe.items.map((item) => (
+                                  <Badge key={item} variant="outline">
+                                    {item}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : null}
+                            {wardrobe.accessories?.length ? (
+                              <p className="text-xs text-foreground/60 mt-2">
+                                Accessories: {wardrobe.accessories.join(", ")}
+                              </p>
+                            ) : null}
+                          </DossierSection>
+                        ) : null}
+
+                        {behavior ? (
+                          <DossierSection title="Behavioural rails" defaultOpen={false}>
+                            {behavior.do?.length ? (
+                              <p>
+                                <span className="font-medium text-foreground/80">Do:</span>{" "}
+                                {behavior.do.join(", ")}
+                              </p>
+                            ) : null}
+                            {behavior.do_not?.length ? (
+                              <p className="mt-2">
+                                <span className="font-medium text-foreground/80">Avoid:</span>{" "}
+                                {behavior.do_not.join(", ")}
+                              </p>
+                            ) : null}
+                          </DossierSection>
+                        ) : null}
+
+                        {doc.look?.surface ? (
+                          <DossierSection title="Surface treatment" defaultOpen={false}>
+                            <p>
+                              <span className="font-medium text-foreground/80">Materials:</span>{' '}
+                              {doc.look.surface.materials}
+                            </p>
+                            <p className="mt-2">
+                              <span className="font-medium text-foreground/80">Finish:</span>{' '}
+                              {doc.look.surface.finish}
+                            </p>
+                            {doc.look.surface.texture_rules ? (
+                              <p className="text-xs text-foreground/60 mt-2">
+                                {doc.look.surface.texture_rules}
+                              </p>
+                            ) : null}
+                          </DossierSection>
+                        ) : null}
+
+                        {paletteAnchors.length ? (
+                          <DossierSection title="Palette anchors" defaultOpen={false}>
+                            <ColorSwatches colors={paletteAnchors} />
+                            {doc.look?.palette?.notes ? (
+                              <p className="mt-2 text-xs text-foreground/55">
+                                {doc.look.palette.notes}
+                              </p>
+                            ) : null}
+                          </DossierSection>
+                        ) : null}
+
+                        {tags.length ? (
+                          <DossierSection title="Tags" defaultOpen={false}>
+                            <div className="flex flex-wrap gap-2">
+                              {tags.map((tag) => (
+                                <Badge key={tag} variant="outline">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </DossierSection>
+                        ) : null}
+
+                        {doc.performance?.expression_set?.length ? (
+                          <DossierSection title="Expression set" defaultOpen={false}>
+                            <ArrayPills values={doc.performance.expression_set} />
+                          </DossierSection>
+                        ) : null}
+
+                        {doc.sound?.fx?.length || doc.sound?.ambience || doc.sound?.music_tone ? (
+                          <DossierSection title="Sound cues" defaultOpen={false}>
+                            {doc.sound?.ambience ? (
+                              <p>
+                                <span className="font-medium text-foreground/80">Ambience:</span>{" "}
+                                {doc.sound.ambience}
+                              </p>
+                            ) : null}
+                            {doc.sound?.fx?.length ? <ArrayPills values={doc.sound.fx} /> : null}
+                            {doc.sound?.music_tone ? (
+                              <p className="text-xs text-foreground/60 mt-2">
+                                Music tone: {doc.sound.music_tone}
+                              </p>
+                            ) : null}
+                          </DossierSection>
+                        ) : null}
                       </div>
-                    ) : null}
                   </div>
                 ) : null}
               </CardContent>
+              <CardFooter className={cn('flex flex-col gap-2', !isActive && portraitUrl ? 'px-6 pb-6' : '')}>
+                {buildError ? (
+                  <p className="text-xs text-red-300">{buildError}</p>
+                ) : null}
+                <Button
+                  type="button"
+                  variant={doc ? "default" : "outline"}
+                  onClick={() => {
+                    if (!doc) {
+                      onBuildCharacter(seed);
+                      return;
+                    }
+                    if (isActive) {
+                      onClearActiveCharacter();
+                    } else {
+                      onSelectCharacter(seed.id);
+                    }
+                  }}
+                  disabled={isBuilding}
+                  className="w-full justify-center rounded-full transition-all duration-200"
+                >
+                  {isBuilding ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Building…
+                    </>
+                  ) : doc ? (
+                    isActive ? "Hide dossier" : "View dossier"
+                  ) : (
+                    "Build dossier"
+                  )}
+                </Button>
+                {doc && posterAvailable ? (
+                  <Button
+                    type="button"
+                    variant={portraitUrl ? "outline" : "secondary"}
+                    onClick={() => {
+                      if (!isActive) {
+                        onSelectCharacter(seed.id);
+                      }
+                      onGeneratePortrait(seed.id);
+                    }}
+                    disabled={portraitLoading}
+                    className="w-full justify-center rounded-full text-sm transition-all duration-200"
+                  >
+                    {portraitLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Rendering…
+                      </>
+                    ) : portraitUrl ? (
+                      "Re-render portrait"
+                    ) : (
+                      "Render portrait"
+                    )}
+                  </Button>
+                ) : null}
+              </CardFooter>
             </Card>
           );
         })}
@@ -1300,13 +1997,26 @@ export default function Home() {
     () => MODEL_OPTIONS.find((option) => option.id === model) ?? MODEL_OPTIONS[0],
     [model]
   );
-  const [characters, setCharacters] = useState<CharacterDocument[] | null>(null);
+  const [characterSeeds, setCharacterSeeds] = useState<CharacterSeed[] | null>(null);
   const [charactersLoading, setCharactersLoading] = useState(false);
   const [charactersError, setCharactersError] = useState<string | null>(null);
+  const [characterDocs, setCharacterDocs] = useState<Record<string, CharacterDocument>>({});
+  const [characterBuilding, setCharacterBuilding] = useState<Record<string, boolean>>({});
+  const [characterBuildErrors, setCharacterBuildErrors] = useState<Record<string, string>>(
+    {}
+  );
+  const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
+  const [characterPortraits, setCharacterPortraits] = useState<Record<string, string | null>>({});
+  const [characterPortraitLoading, setCharacterPortraitLoading] = useState<Record<string, boolean>>({});
+  const [characterPortraitErrors, setCharacterPortraitErrors] = useState<Record<string, string>>({});
+  const [characterVideos, setCharacterVideos] = useState<Record<string, string | null>>({});
+  const [characterVideoLoading, setCharacterVideoLoading] = useState<Record<string, boolean>>({});
+  const [characterVideoErrors, setCharacterVideoErrors] = useState<Record<string, string>>({});
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [posterLoading, setPosterLoading] = useState(false);
   const [posterError, setPosterError] = useState<string | null>(null);
   const [posterAvailable, setPosterAvailable] = useState(false);
+  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1318,7 +2028,14 @@ export default function Home() {
         blueprint?: ShowBlueprint | null;
         usage?: ApiResponse["usage"];
         rawJson?: string | null;
-        characters?: CharacterDocument[] | null;
+        characterSeeds?: CharacterSeed[] | null;
+        characterDocs?: Record<string, CharacterDocument>;
+        activeCharacterId?: string | null;
+        lastPrompt?: string | null;
+        characterPortraits?: Record<string, string | null>;
+        characterPortraitErrors?: Record<string, string>;
+        characterVideos?: Record<string, string | null>;
+        characterVideoErrors?: Record<string, string>;
         posterUrl?: string | null;
         posterAvailable?: boolean;
       };
@@ -1336,8 +2053,29 @@ export default function Home() {
       if (parsed.rawJson) {
         setRawJson(parsed.rawJson);
       }
-      if (parsed.characters) {
-        setCharacters(parsed.characters);
+      if (parsed.characterSeeds) {
+        setCharacterSeeds(parsed.characterSeeds);
+      }
+      if (parsed.characterDocs) {
+        setCharacterDocs(parsed.characterDocs);
+      }
+      if (parsed.activeCharacterId) {
+        setActiveCharacterId(parsed.activeCharacterId);
+      }
+      if (parsed.lastPrompt) {
+        setLastPrompt(parsed.lastPrompt);
+      }
+      if (parsed.characterPortraits) {
+        setCharacterPortraits(parsed.characterPortraits);
+      }
+      if (parsed.characterPortraitErrors) {
+        setCharacterPortraitErrors(parsed.characterPortraitErrors);
+      }
+      if (parsed.characterVideos) {
+        setCharacterVideos(parsed.characterVideos);
+      }
+      if (parsed.characterVideoErrors) {
+        setCharacterVideoErrors(parsed.characterVideoErrors);
       }
       if (parsed.posterUrl) {
         setPosterUrl(parsed.posterUrl);
@@ -1358,12 +2096,9 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (
-      !blueprint &&
-      (!characters || characters.length === 0) &&
-      !posterUrl &&
-      !rawJson
-    ) {
+    const hasSeeds = !!(characterSeeds && characterSeeds.length > 0);
+
+    if (!blueprint && !hasSeeds && !posterUrl && !rawJson) {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
       return;
     }
@@ -1372,7 +2107,14 @@ export default function Home() {
       blueprint,
       usage,
       rawJson,
-      characters,
+      characterSeeds,
+      characterDocs,
+      activeCharacterId,
+      lastPrompt,
+      characterPortraits,
+      characterPortraitErrors,
+      characterVideos,
+      characterVideoErrors,
       posterUrl,
       posterAvailable,
     };
@@ -1381,20 +2123,35 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to persist session", error);
     }
-  }, [activeModel, blueprint, characters, posterAvailable, posterUrl, rawJson, usage]);
+  }, [
+    activeModel,
+    blueprint,
+    characterSeeds,
+    characterDocs,
+    activeCharacterId,
+    lastPrompt,
+    characterPortraits,
+    characterPortraitErrors,
+    characterVideos,
+    characterVideoErrors,
+    posterAvailable,
+    posterUrl,
+    rawJson,
+    usage,
+  ]);
 
   const canSubmit = useMemo(
     () => input.trim().length > 0 && !isLoading,
     [input, isLoading]
   );
 
-  const generateCharacters = useCallback(
+  const generateCharacterSeeds = useCallback(
     async (value: string, showData: ShowBlueprint, chosenModel: ModelId) => {
       setCharactersLoading(true);
       setCharactersError(null);
 
       try {
-        const response = await fetch("/api/characters", {
+        const response = await fetch("/api/characters/extract", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1411,10 +2168,21 @@ export default function Home() {
         }
 
         const result = (await response.json()) as {
-          characters?: CharacterDocument[];
+          characters?: CharacterSeed[];
         };
 
-        setCharacters(result.characters ?? []);
+        const seeds = result.characters ?? [];
+        setCharacterSeeds(seeds);
+        setCharacterDocs({});
+        setCharacterBuilding({});
+        setCharacterBuildErrors({});
+        setActiveCharacterId(null);
+        setCharacterPortraits({});
+        setCharacterPortraitLoading({});
+        setCharacterPortraitErrors({});
+        setCharacterVideos({});
+        setCharacterVideoLoading({});
+        setCharacterVideoErrors({});
       } catch (err) {
         console.error(err);
         setCharactersError(
@@ -1422,12 +2190,272 @@ export default function Home() {
             ? err.message
             : "Unable to generate characters."
         );
-        setCharacters(null);
+        setCharacterSeeds(null);
+        setCharacterDocs({});
+        setCharacterBuilding({});
+        setCharacterBuildErrors({});
+        setActiveCharacterId(null);
+        setCharacterPortraits({});
+        setCharacterPortraitLoading({});
+        setCharacterPortraitErrors({});
+        setCharacterVideos({});
+        setCharacterVideoLoading({});
+        setCharacterVideoErrors({});
       } finally {
         setCharactersLoading(false);
       }
     },
     []
+  );
+
+  const buildCharacter = useCallback(
+    async (seed: CharacterSeed) => {
+      if (!blueprint) {
+        setCharacterBuildErrors((prev) => ({
+          ...prev,
+          [seed.id]: "Blueprint missing for character build.",
+        }));
+        return;
+      }
+
+      const promptForCharacter = (lastPrompt ?? input).trim();
+      if (!promptForCharacter) {
+        setCharacterBuildErrors((prev) => ({
+          ...prev,
+          [seed.id]: "Original prompt unavailable. Regenerate the show briefing first.",
+        }));
+        return;
+      }
+
+      setCharacterBuilding((prev) => ({ ...prev, [seed.id]: true }));
+      setCharacterBuildErrors((prev) => {
+        const next = { ...prev };
+        delete next[seed.id];
+        return next;
+      });
+
+      try {
+        const response = await fetch("/api/characters/build", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: promptForCharacter,
+            show: blueprint,
+            seed,
+            model: activeModel,
+          }),
+        });
+
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          const fallback = `Failed to build character (${response.status}).`;
+          throw new Error(body?.error ?? fallback);
+        }
+
+        const result = (await response.json()) as {
+          character?: CharacterDocument;
+        };
+
+        if (!result.character) {
+          throw new Error("Build response missing character document.");
+        }
+
+        setCharacterDocs((prev) => ({
+          ...prev,
+          [seed.id]: result.character as CharacterDocument,
+        }));
+        setActiveCharacterId(seed.id);
+      } catch (err) {
+        console.error(err);
+        setCharacterBuildErrors((prev) => ({
+          ...prev,
+          [seed.id]:
+            err instanceof Error ? err.message : "Unable to build character.",
+        }));
+      } finally {
+        setCharacterBuilding((prev) => ({ ...prev, [seed.id]: false }));
+      }
+    },
+    [activeModel, blueprint, input, lastPrompt]
+  );
+
+  const generateCharacterPortrait = useCallback(
+    async (characterId: string) => {
+      if (!blueprint) {
+        setCharacterPortraitErrors((prev) => ({
+          ...prev,
+          [characterId]: "Blueprint missing for portrait generation.",
+        }));
+        return;
+      }
+
+      const doc = characterDocs[characterId];
+      if (!doc) {
+        setCharacterPortraitErrors((prev) => ({
+          ...prev,
+          [characterId]: "Build the character dossier first.",
+        }));
+        return;
+      }
+
+      setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: true }));
+      setCharacterPortraitErrors((prev) => {
+        const next = { ...prev };
+        delete next[characterId];
+        return next;
+      });
+
+      try {
+        const response = await fetch("/api/characters/portrait", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            show: blueprint,
+            character: doc,
+          }),
+        });
+
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          const fallback = `Failed to generate portrait (${response.status}).`;
+          throw new Error(body?.error ?? fallback);
+        }
+
+        const result = (await response.json()) as { url?: string };
+        if (!result.url) {
+          throw new Error("Portrait response missing URL.");
+        }
+
+        setCharacterPortraits((prev) => ({
+          ...prev,
+          [characterId]: result.url ?? null,
+        }));
+        setCharacterVideos((prev) => {
+          const next = { ...prev };
+          delete next[characterId];
+          return next;
+        });
+        setCharacterVideoErrors((prev) => {
+          const next = { ...prev };
+          delete next[characterId];
+          return next;
+        });
+      } catch (err) {
+        console.error(err);
+        setCharacterPortraitErrors((prev) => ({
+          ...prev,
+          [characterId]:
+            err instanceof Error ? err.message : "Unable to render portrait.",
+        }));
+      } finally {
+        setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+      }
+    },
+    [blueprint, characterDocs]
+  );
+
+  const generateCharacterVideo = useCallback(
+    async (characterId: string) => {
+      if (!posterAvailable) {
+        setCharacterVideoErrors((prev) => ({
+          ...prev,
+          [characterId]:
+            "Video generation requires a Replicate API token. Add one in the server environment.",
+        }));
+        return;
+      }
+
+      if (!blueprint) {
+        setCharacterVideoErrors((prev) => ({
+          ...prev,
+          [characterId]: "Blueprint missing for video generation.",
+        }));
+        return;
+      }
+
+      const doc = characterDocs[characterId];
+      if (!doc) {
+        setCharacterVideoErrors((prev) => ({
+          ...prev,
+          [characterId]: "Build the character dossier first.",
+        }));
+        return;
+      }
+
+      const portraitUrl = characterPortraits[characterId];
+      if (!portraitUrl) {
+        setCharacterVideoErrors((prev) => ({
+          ...prev,
+          [characterId]: "Render a portrait before generating video.",
+        }));
+        return;
+      }
+
+      if (!doc.showcase_scene_prompt) {
+        setCharacterVideoErrors((prev) => ({
+          ...prev,
+          [characterId]: "Character dossier missing showcase scene prompt.",
+        }));
+        return;
+      }
+
+      setCharacterVideoLoading((prev) => ({ ...prev, [characterId]: true }));
+      setCharacterVideoErrors((prev) => {
+        const next = { ...prev };
+        delete next[characterId];
+        return next;
+      });
+
+      try {
+        const response = await fetch("/api/characters/video", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            show: blueprint,
+            character: doc,
+            portraitUrl,
+          }),
+        });
+
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          const fallback = `Failed to generate video (${response.status}).`;
+          throw new Error(body?.error ?? fallback);
+        }
+
+        const result = (await response.json()) as { url?: string };
+        if (!result.url) {
+          throw new Error("Video response missing URL.");
+        }
+
+        setCharacterVideos((prev) => ({
+          ...prev,
+          [characterId]: result.url ?? null,
+        }));
+      } catch (err) {
+        console.error(err);
+        setCharacterVideoErrors((prev) => ({
+          ...prev,
+          [characterId]:
+            err instanceof Error ? err.message : "Unable to render video.",
+        }));
+      } finally {
+        setCharacterVideoLoading((prev) => ({ ...prev, [characterId]: false }));
+      }
+    },
+    [blueprint, characterDocs, characterPortraits, posterAvailable]
   );
 
   const generatePoster = useCallback(
@@ -1485,12 +2513,23 @@ export default function Home() {
       if (!value.trim()) return;
       setIsLoading(true);
       setError(null);
-      setCharacters(null);
+      setCharacterSeeds(null);
+      setCharacterDocs({});
+      setCharacterBuilding({});
+      setCharacterBuildErrors({});
+      setActiveCharacterId(null);
+      setCharacterPortraits({});
+      setCharacterPortraitLoading({});
+      setCharacterPortraitErrors({});
+      setCharacterVideos({});
+      setCharacterVideoLoading({});
+      setCharacterVideoErrors({});
       setCharactersError(null);
       setPosterUrl(null);
       setPosterError(null);
       setPosterLoading(false);
       setPosterAvailable(false);
+      setLastPrompt(null);
 
       try {
         const response = await fetch("/api/generate", {
@@ -1530,12 +2569,13 @@ export default function Home() {
         setUsage(result.usage);
         setRawJson(result.raw);
         setActiveModel(chosenModel);
+        setLastPrompt(value);
 
         const posterIsAvailable = Boolean(result.posterAvailable);
         setPosterAvailable(posterIsAvailable);
 
         const tasks: Array<Promise<void>> = [
-          generateCharacters(value, result.data, chosenModel),
+          generateCharacterSeeds(value, result.data, chosenModel),
         ];
 
         if (posterIsAvailable) {
@@ -1557,7 +2597,7 @@ export default function Home() {
         setIsLoading(false);
       }
     },
-    [generateCharacters, generatePoster]
+    [generateCharacterSeeds, generatePoster]
   );
 
   const handleSubmit = useCallback(
@@ -1568,10 +2608,18 @@ export default function Home() {
     [input, submitPrompt, model]
   );
 
+  const handleSelectCharacter = useCallback((id: string) => {
+    setActiveCharacterId(id);
+  }, []);
+
+  const handleClearActiveCharacter = useCallback(() => {
+    setActiveCharacterId(null);
+  }, []);
+
   return (
     <div className="flex min-h-screen flex-col bg-black text-foreground">
       <header className="border-b border-white/12 bg-black/90">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-5">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-4 px-6 py-5">
           <div className="flex items-center gap-3">
             <span className="text-lg font-semibold uppercase tracking-[0.32em] text-primary">
               Production Flow
@@ -1605,7 +2653,7 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 pb-32">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-6 py-10 pb-32">
           {error ? (
             <div className="space-y-2 rounded-3xl border border-red-500/40 bg-red-500/10 px-6 py-4 text-sm">
               <p className="font-semibold text-red-200">Request failed</p>
@@ -1618,9 +2666,20 @@ export default function Home() {
             usage={usage}
             rawJson={rawJson}
             model={activeModel}
-            characters={characters}
+            characterSeeds={characterSeeds}
             charactersLoading={charactersLoading}
             charactersError={charactersError}
+            characterDocs={characterDocs}
+            characterBuilding={characterBuilding}
+            characterBuildErrors={characterBuildErrors}
+            characterPortraits={characterPortraits}
+            characterPortraitLoading={characterPortraitLoading}
+            characterPortraitErrors={characterPortraitErrors}
+            onBuildCharacter={buildCharacter}
+            onSelectCharacter={handleSelectCharacter}
+            onClearActiveCharacter={handleClearActiveCharacter}
+            onGeneratePortrait={generateCharacterPortrait}
+            activeCharacterId={activeCharacterId}
             posterUrl={posterUrl}
             posterLoading={posterLoading}
             posterError={posterError}
@@ -1631,7 +2690,7 @@ export default function Home() {
       </main>
 
       <div className="sticky bottom-0 border-t border-white/12 bg-black/90 backdrop-blur">
-        <div className="mx-auto w-full max-w-6xl px-6 py-4">
+        <div className="mx-auto w-full max-w-[1600px] px-6 py-4">
           <form onSubmit={handleSubmit} className="space-y-3">
             <Textarea
               value={input}
@@ -1661,13 +2720,24 @@ export default function Home() {
                       setUsage(undefined);
                       setRawJson(null);
                       setActiveModel(model);
-                      setCharacters(null);
+                      setCharacterSeeds(null);
+                      setCharacterDocs({});
+                      setCharacterBuilding({});
+                      setCharacterBuildErrors({});
+                      setActiveCharacterId(null);
+                      setCharacterPortraits({});
+                      setCharacterPortraitLoading({});
+                      setCharacterPortraitErrors({});
+                      setCharacterVideos({});
+                      setCharacterVideoLoading({});
+                      setCharacterVideoErrors({});
                       setCharactersError(null);
                       setCharactersLoading(false);
                       setPosterUrl(null);
                       setPosterError(null);
                       setPosterLoading(false);
                       setPosterAvailable(false);
+                      setLastPrompt(null);
                       if (typeof window !== "undefined") {
                         window.localStorage.removeItem(SESSION_STORAGE_KEY);
                       }

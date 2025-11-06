@@ -76,6 +76,7 @@ export async function POST(request: Request) {
     "Create a highly art-directed 2:3 character portrait.",
     "Focus on cinematic lighting, intentional wardrobe, and expressive posture.",
     "Respect the show's aesthetic while capturing the essence of the character.",
+    "Every choice must adhere to the aesthetic, palette, lighting, and creative rules specified in the show blueprint JSON.",
     "",
     "Show blueprint JSON:",
     showJson,

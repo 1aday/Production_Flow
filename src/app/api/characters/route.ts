@@ -19,7 +19,8 @@ const SYSTEM_DIRECTIVE = `You are the casting director for a show. Your job:
 3. For each character, produce a detailed JSON object adhering to the supplied schema. Keep every field, even if you must infer tasteful, show-consistent values.
 4. The "character" field must be a unique, kebab-case identifier (e.g., "lex-montgomery").
 5. The "inherits" field MUST be the exact show blueprint string that is supplied to you—include it verbatim.
-6. If you invent characters, keep the cast cohesive with the show's world-building.
+6. Craft a "showcase_scene_prompt" that describes a 10 second solo scene with only the character on screen, showcasing their signature voice, action, and attitude.
+7. If you invent characters, keep the cast cohesive with the show's world-building.
 
 Always respond with structured JSON that matches the provided schema. If you refuse, emit a refusal message instead of invalid JSON.`;
 
@@ -219,7 +220,8 @@ ${characterTemplate}
 Remember:
 - Return { "characters": [ ... ] } only.
 - Extract all explicit characters from the user prompt. If none exist, invent exactly six.
-- Each character JSON must include every field from the template.`;
+- Each character JSON must include every field from the template.
+- Provide a showcase_scene_prompt describing a 10-second, character-only vignette with clear dialogue and actions emblematic of their persona.`;
 
   const basePayload = {
     input: [

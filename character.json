@@ -133,6 +133,7 @@
       "motion_button": "6–8s: listen → nod → small smile",
       "exports": ["TIFF 16-bit","PNG","EXR"],
       "slate": "<CHARACTER_ID>_PORTRAIT_v1"
-    }
+    },
+    "showcase_scene_prompt": "10-second solo scene prompt capturing this character's hallmark voice, action, and attitude."
   }
   
