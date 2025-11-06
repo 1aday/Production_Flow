@@ -2252,8 +2252,8 @@ export default function Home() {
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [model, setModel] = useState<ModelId>("gpt-5");
-  const [activeModel, setActiveModel] = useState<ModelId>("gpt-5");
+  const [model, setModel] = useState<ModelId>("gpt-4o");
+  const [activeModel, setActiveModel] = useState<ModelId>("gpt-4o");
   const selectedModelOption = useMemo(
     () => MODEL_OPTIONS.find((option) => option.id === model) ?? MODEL_OPTIONS[0],
     [model]
