@@ -26,17 +26,25 @@ type ShowMetadata = {
 // GET - List all shows
 export async function GET() {
   try {
+    console.time("Library GET - total");
     await ensureLibraryDir();
     
+    console.time("Read directory");
     const files = await readdir(LIBRARY_DIR);
     const jsonFiles = files.filter((f) => f.endsWith(".json"));
+    console.timeEnd("Read directory");
+    
+    console.log(`Found ${jsonFiles.length} show files`);
     
     const shows: ShowMetadata[] = [];
     
+    console.time("Parse all files");
     for (const file of jsonFiles) {
       try {
         const filePath = join(LIBRARY_DIR, file);
         const content = await readFile(filePath, "utf-8");
+        
+        // Only parse the fields we need for listing
         const data = JSON.parse(content);
         
         shows.push({
@@ -53,9 +61,14 @@ export async function GET() {
         console.error(`Failed to read ${file}:`, err);
       }
     }
+    console.timeEnd("Parse all files");
     
     // Sort by updated date, newest first
+    console.time("Sort shows");
     shows.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    console.timeEnd("Sort shows");
+    
+    console.timeEnd("Library GET - total");
     
     return NextResponse.json({ shows });
   } catch (error) {

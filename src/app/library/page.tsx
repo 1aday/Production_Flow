@@ -22,13 +22,17 @@ export default function LibraryPage() {
   const router = useRouter();
   const [shows, setShows] = useState<LibraryShow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [imageLoadCount, setImageLoadCount] = useState(0);
 
   const loadLibrary = async () => {
     setLoading(true);
     try {
+      console.time("Library load");
       const response = await fetch("/api/library");
       if (!response.ok) throw new Error("Failed to load library");
       const data = await response.json() as { shows: LibraryShow[] };
+      console.timeEnd("Library load");
+      console.log(`Loaded ${data.shows.length} shows`);
       setShows(data.shows);
     } catch (error) {
       console.error("Failed to load library:", error);
@@ -94,10 +98,11 @@ export default function LibraryPage() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1800px] px-6 py-12">
+      <main className="mx-auto w-full max-w-[1800px] px-4 sm:px-6 py-8 sm:py-12">
         {loading ? (
-          <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center justify-center gap-4 py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-foreground/60">Loading your library...</p>
           </div>
         ) : shows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -114,8 +119,15 @@ export default function LibraryPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {shows.map((show) => (
+          <>
+            {imageLoadCount < shows.length ? (
+              <div className="mb-4 flex items-center gap-2 text-xs text-foreground/50">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading posters... {imageLoadCount} of {shows.length}
+              </div>
+            ) : null}
+            <div className="grid gap-4 sm:gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            {shows.map((show, index) => (
               <div
                 key={show.id}
                 className="group relative overflow-hidden rounded-xl bg-black/50 shadow-[0_8px_32px_rgba(0,0,0,0.6)] transition-all duration-300 hover:scale-105 hover:shadow-[0_12px_48px_rgba(229,9,20,0.4)]"
@@ -132,7 +144,10 @@ export default function LibraryPage() {
                         alt={show.showTitle || show.title}
                         fill
                         className="object-cover transition-opacity duration-300 group-hover:opacity-75"
-                        sizes="(min-width: 1536px) 20vw, (min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        sizes="(min-width: 1536px) 16vw, (min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                        loading={index < 10 ? "eager" : "lazy"}
+                        quality={80}
+                        onLoad={() => setImageLoadCount(prev => prev + 1)}
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-transparent">
@@ -168,7 +183,8 @@ export default function LibraryPage() {
                 </Button>
               </div>
             ))}
-          </div>
+            </div>
+          </>
         )}
       </main>
     </div>

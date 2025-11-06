@@ -1160,13 +1160,41 @@ function ResultView({
     }
 
     return (
-      <div className="rounded-3xl border border-white/12 bg-black/45 p-12 text-center shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-foreground/55">
-          Ready when you are
-        </p>
-        <p className="mt-4 text-base text-foreground/70">
-          Drop a synopsis or tone brief and we’ll stage the entire look bible here.
-        </p>
+      <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-white/20 bg-gradient-to-br from-primary/5 via-black/50 to-black/45 p-8 sm:p-12 text-center shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+        <div className="max-w-2xl space-y-6">
+          <div className="space-y-3">
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+              Create Your Show Bible
+            </h2>
+            <p className="text-sm sm:text-base text-foreground/70">
+              Describe your show's premise, tone, or visual style below.
+              We'll generate a complete look bible with characters, color palettes, lighting plans, and more.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-4 text-xs text-foreground/50">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary font-semibold">
+                1
+              </span>
+              <span>Enter your brief</span>
+            </div>
+            <span className="text-foreground/30">→</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/5 text-foreground/50 font-semibold">
+                2
+              </span>
+              <span>Generate show bible</span>
+            </div>
+            <span className="text-foreground/30">→</span>
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/5 text-foreground/50 font-semibold">
+                3
+              </span>
+              <span className="hidden sm:inline">Build characters</span>
+              <span className="sm:hidden">Characters</span>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1271,19 +1299,19 @@ function ResultView({
   );
 
   const masterContent = (
-    <div className="space-y-8">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="space-y-6">
+    <div className="space-y-6 sm:space-y-8">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="space-y-4 sm:space-y-6">
           {loglinePanel}
           {posterBriefPanel}
           {directivePanel}
         </div>
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {posterSection}
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <div className="space-y-6">
           <CollapsibleSection
             title="Pipeline"
@@ -1654,9 +1682,9 @@ function ResultView({
     const anyPortraitLoading = Object.values(characterPortraitLoading).some(Boolean);
 
     return (
-      <div className="space-y-5">
+      <div className="space-y-4 sm:space-y-5">
         {characterSeeds.length > 0 ? (
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {unbuiltCharacters.length > 0 ? (
               <Button
                 type="button"
@@ -1707,7 +1735,7 @@ function ResultView({
             ) : null}
           </div>
         ) : null}
-        <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max">
+        <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max">
         {characterSeeds.map((seed) => {
           const doc = characterDocs[seed.id];
           const isBuilding = Boolean(characterBuilding[seed.id]);
@@ -1828,7 +1856,7 @@ function ResultView({
               key={seed.id}
               className={cn(
                 'min-h-[240px] justify-between transition-all duration-500 ease-in-out overflow-hidden',
-                isActive ? 'md:col-span-2 xl:col-span-3 scale-[1.01]' : 'scale-100',
+                isActive ? 'sm:col-span-2 xl:col-span-3 scale-[1.01]' : 'scale-100',
                 !isActive && portraitUrl ? 'p-0' : ''
               )}
             >
@@ -2117,7 +2145,7 @@ function ResultView({
     }
 
     return (
-      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {characterSeeds.map((seed) => {
           const doc = characterDocs[seed.id];
           const portraitUrl = characterPortraits[seed.id];
@@ -2318,21 +2346,21 @@ function ResultView({
 
   return (
     <Tabs defaultValue="master" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <TabsList>
-          <TabsTrigger value="master">Master</TabsTrigger>
-          <TabsTrigger value="characters">Characters</TabsTrigger>
-          <TabsTrigger value="videos">Videos</TabsTrigger>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="master" className="flex-1 sm:flex-none">Master</TabsTrigger>
+          <TabsTrigger value="characters" className="flex-1 sm:flex-none">Characters</TabsTrigger>
+          <TabsTrigger value="videos" className="flex-1 sm:flex-none">Videos</TabsTrigger>
         </TabsList>
         <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} />
       </div>
-      <TabsContent value="master" className="space-y-5 pb-32">
+      <TabsContent value="master" className="space-y-4 sm:space-y-5 pb-32">
         {masterContent}
       </TabsContent>
-      <TabsContent value="characters" className="space-y-5 pb-32">
+      <TabsContent value="characters" className="space-y-4 sm:space-y-5 pb-32">
         {charactersContent}
       </TabsContent>
-      <TabsContent value="videos" className="space-y-5 pb-32">
+      <TabsContent value="videos" className="space-y-4 sm:space-y-5 pb-32">
         {videosContent}
       </TabsContent>
     </Tabs>
@@ -3376,14 +3404,14 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col bg-black text-foreground">
       <header className="border-b border-white/12 bg-black/90">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-4 px-6 py-5">
-          <div className="flex items-center gap-3">
-            <span className="text-lg font-semibold uppercase tracking-[0.32em] text-primary">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 sm:px-6 py-4 sm:py-5">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="text-base sm:text-lg font-semibold uppercase tracking-[0.28em] sm:tracking-[0.32em] text-primary">
               Production Flow
             </span>
-            <span className="text-xs text-foreground/55">Look bible console</span>
+            <span className="hidden sm:inline text-xs text-foreground/55">Look bible console</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             {blueprint ? (
               <Button
                 type="button"
@@ -3407,7 +3435,7 @@ export default function Home() {
                 Show Library
               </Button>
             </Link>
-            <Badge variant="outline" className="text-[11px] font-semibold uppercase tracking-[0.26em]">
+            <Badge variant="outline" className="hidden sm:inline-flex text-[11px] font-semibold uppercase tracking-[0.26em]">
               {selectedModelOption.label}
             </Badge>
             <label
@@ -3420,7 +3448,7 @@ export default function Home() {
               id="model-select"
               value={model}
               onChange={(event) => setModel(event.target.value as ModelId)}
-              className="rounded-full border border-white/15 bg-black/60 px-4 py-2 text-sm text-foreground/75 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="rounded-full border border-white/15 bg-black/60 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-foreground/75 focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               {MODEL_OPTIONS.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -3433,11 +3461,11 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-6 py-10 pb-32">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 sm:gap-6 px-4 sm:px-6 py-6 sm:py-10 pb-32">
           {error ? (
-            <div className="space-y-2 rounded-3xl border border-red-500/40 bg-red-500/10 px-6 py-4 text-sm">
+            <div className="space-y-2 rounded-3xl border border-red-500/40 bg-red-500/10 px-4 sm:px-6 py-4 text-sm">
               <p className="font-semibold text-red-200">Request failed</p>
-              <p className="text-red-200/85">{error}</p>
+              <p className="text-red-200/85 break-words">{error}</p>
             </div>
           ) : null}
 
@@ -3477,14 +3505,23 @@ export default function Home() {
         </div>
       </main>
 
-      <div className="sticky bottom-0 z-40 border-t border-white/12 bg-black/90 backdrop-blur">
-        <div className="mx-auto w-full max-w-[1600px] px-6 py-4">
+      <div className={cn(
+        "sticky bottom-0 z-40 border-t backdrop-blur transition-all duration-300",
+        !blueprint 
+          ? "border-primary/30 bg-gradient-to-t from-primary/10 via-black/95 to-black/90" 
+          : "border-white/12 bg-black/90"
+      )}>
+        <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6 py-4">
           <form onSubmit={handleSubmit} className="space-y-3">
             <Textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Tell us what the show needs visually…"
-              className="overflow-hidden"
+              placeholder="Describe your show's premise, visual style, tone, or world..."
+              className={cn(
+                "overflow-hidden transition-all duration-300 resize-none text-base",
+                !blueprint && "ring-2 ring-primary/30 border-primary/20 focus:ring-primary/50 focus:border-primary/30"
+              )}
+              rows={!blueprint ? 4 : 3}
               onKeyDown={(event) => {
                 if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                   event.preventDefault();
@@ -3494,25 +3531,33 @@ export default function Home() {
                 }
               }}
             />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-foreground/55">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-xs text-foreground/55 order-2 sm:order-1">
                 Press ⌘⏎ / Ctrl⏎ to send instantly.
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 order-1 sm:order-2">
                 <Button
                   type="submit"
                   disabled={!canSubmit}
                   size="lg"
+                  className={cn(
+                    "w-full sm:w-auto gap-2 rounded-full font-semibold shadow-lg transition-all duration-200",
+                    "bg-primary hover:bg-primary/90 text-white",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                    !blueprint && canSubmit && "ring-2 ring-primary/30 shadow-[0_0_20px_rgba(229,9,20,0.3)]",
+                    canSubmit && "hover:shadow-[0_0_30px_rgba(229,9,20,0.4)] hover:scale-105"
+                  )}
                 >
                   {isLoading ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating…
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="hidden sm:inline">Generating…</span>
                     </>
                   ) : (
                     <>
-                      Send to {selectedModelOption.label}
-                      <SendHorizontal className="h-4 w-4" />
+                      <span className="hidden sm:inline">Send to {selectedModelOption.label}</span>
+                      <span className="sm:hidden">Generate Show Bible</span>
+                      <SendHorizontal className="h-5 w-5" />
                     </>
                   )}
                 </Button>
