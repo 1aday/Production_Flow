@@ -85,6 +85,8 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const title = blueprint.show_title || blueprint.show_logline?.slice(0, 100) || "Untitled Show";
     
+    const videosData = (characterVideos || {}) as Record<string, string[]>;
+    
     const showData = {
       id,
       title,
@@ -97,7 +99,7 @@ export async function POST(request: NextRequest) {
       characterSeeds: characterSeeds || [],
       characterDocs: characterDocs || {},
       characterPortraits: characterPortraits || {},
-      characterVideos: characterVideos || {},
+      characterVideos: videosData,
       posterUrl: posterUrl || null,
       libraryPosterUrl: libraryPosterUrl || null,
     };
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
     const filePath = join(LIBRARY_DIR, `${id}.json`);
     await writeFile(filePath, JSON.stringify(showData, null, 2), "utf-8");
     
-    const totalVideos = Object.values(showData.characterVideos).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+    const totalVideos = Object.values(videosData).reduce((sum, arr) => sum + (arr?.length || 0), 0);
     
     console.log("💾 Show saved to library:", {
       id,

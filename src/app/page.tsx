@@ -1088,6 +1088,7 @@ function ResultView({
   editedVideoPrompts,
   selectedVideoIndex,
   onSetSelectedVideoIndex,
+  onSetEditedVideoPrompt,
   onBuildCharacter,
   onSelectCharacter,
   onClearActiveCharacter,
@@ -1119,12 +1120,12 @@ function ResultView({
   editedVideoPrompts: Record<string, string>;
   selectedVideoIndex: Record<string, number>;
   onSetSelectedVideoIndex: (value: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void;
+  onSetEditedVideoPrompt: (value: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => void;
   onBuildCharacter: (seed: CharacterSeed) => void;
   onSelectCharacter: (characterId: string) => void;
   onClearActiveCharacter: () => void;
   onGeneratePortrait: (characterId: string) => void;
   onGenerateVideo: (characterId: string, customPrompt?: string) => void;
-  onUpdateVideoPrompt: (characterId: string, prompt: string) => void;
   activeCharacterId: string | null;
   posterUrl: string | null;
   posterLoading: boolean;
@@ -2247,7 +2248,7 @@ function ResultView({
                       <Textarea
                         value={editedVideoPrompts[seed.id] ?? doc.showcase_scene_prompt ?? ""}
                         onChange={(e) => {
-                          setEditedVideoPrompts((prev) => ({
+                          onSetEditedVideoPrompt((prev) => ({
                             ...prev,
                             [seed.id]: e.target.value,
                           }));
@@ -2263,7 +2264,7 @@ function ResultView({
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setEditedVideoPrompts((prev) => {
+                              onSetEditedVideoPrompt((prev) => {
                                 const next = { ...prev };
                                 delete next[seed.id];
                                 return next;
@@ -3416,17 +3417,12 @@ export default function Home() {
             editedVideoPrompts={editedVideoPrompts}
             selectedVideoIndex={selectedVideoIndex}
             onSetSelectedVideoIndex={setSelectedVideoIndex}
+            onSetEditedVideoPrompt={setEditedVideoPrompts}
             onBuildCharacter={buildCharacter}
             onSelectCharacter={handleSelectCharacter}
             onClearActiveCharacter={handleClearActiveCharacter}
             onGeneratePortrait={generateCharacterPortrait}
             onGenerateVideo={generateCharacterVideo}
-            onUpdateVideoPrompt={(characterId, prompt) => {
-              setEditedVideoPrompts((prev) => ({
-                ...prev,
-                [characterId]: prompt,
-              }));
-            }}
             activeCharacterId={activeCharacterId}
             posterUrl={posterUrl}
             posterLoading={posterLoading}
