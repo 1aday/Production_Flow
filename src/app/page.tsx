@@ -2434,7 +2434,18 @@ export default function Home() {
         setCharacterPortraitErrors(parsed.characterPortraitErrors);
       }
       if (parsed.characterVideos) {
-        setCharacterVideos(parsed.characterVideos);
+        // Migrate old format (string | null) to new format (string[])
+        const migratedVideos: Record<string, string[]> = {};
+        for (const [key, value] of Object.entries(parsed.characterVideos)) {
+          if (Array.isArray(value)) {
+            migratedVideos[key] = value;
+          } else if (value && typeof value === 'string') {
+            migratedVideos[key] = [value];
+          } else {
+            migratedVideos[key] = [];
+          }
+        }
+        setCharacterVideos(migratedVideos);
       }
       if (parsed.characterVideoErrors) {
         setCharacterVideoErrors(parsed.characterVideoErrors);
@@ -2447,6 +2458,12 @@ export default function Home() {
       }
       if (parsed.libraryPosterUrl) {
         setLibraryPosterUrl(parsed.libraryPosterUrl);
+      }
+      if (parsed.editedVideoPrompts) {
+        setEditedVideoPrompts(parsed.editedVideoPrompts);
+      }
+      if (parsed.selectedVideoIndex) {
+        setSelectedVideoIndex(parsed.selectedVideoIndex);
       }
     } catch (error) {
       console.error("Failed to restore session", error);
@@ -2480,6 +2497,8 @@ export default function Home() {
       characterPortraitErrors,
       characterVideos,
       characterVideoErrors,
+      editedVideoPrompts,
+      selectedVideoIndex,
       posterUrl,
       posterAvailable,
       libraryPosterUrl,
