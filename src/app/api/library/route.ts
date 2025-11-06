@@ -105,6 +105,8 @@ export async function POST(request: NextRequest) {
     const filePath = join(LIBRARY_DIR, `${id}.json`);
     await writeFile(filePath, JSON.stringify(showData, null, 2), "utf-8");
     
+    const totalVideos = Object.values(showData.characterVideos).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+    
     console.log("💾 Show saved to library:", {
       id,
       title,
@@ -112,7 +114,7 @@ export async function POST(request: NextRequest) {
       characterSeeds: showData.characterSeeds.length,
       characterDocs: Object.keys(showData.characterDocs).length,
       portraits: Object.keys(showData.characterPortraits).filter(k => showData.characterPortraits[k]).length,
-      videos: Object.keys(showData.characterVideos).filter(k => showData.characterVideos[k]).length,
+      videos: totalVideos,
       hasPoster: !!showData.posterUrl,
       hasLibraryPoster: !!showData.libraryPosterUrl,
     });

@@ -884,7 +884,7 @@ type SavedShow = {
   characterSeeds: CharacterSeed[];
   characterDocs: Record<string, CharacterDocument>;
   characterPortraits: Record<string, string | null>;
-  characterVideos: Record<string, string | null>;
+  characterVideos: Record<string, string[]>;
   posterUrl: string | null;
   libraryPosterUrl?: string | null;
 };
@@ -1085,6 +1085,9 @@ function ResultView({
   characterVideos,
   characterVideoLoading,
   characterVideoErrors,
+  editedVideoPrompts,
+  selectedVideoIndex,
+  onSetSelectedVideoIndex,
   onBuildCharacter,
   onSelectCharacter,
   onClearActiveCharacter,
@@ -1110,10 +1113,12 @@ function ResultView({
   characterPortraits: Record<string, string | null>;
   characterPortraitLoading: Record<string, boolean>;
   characterPortraitErrors: Record<string, string>;
-  characterVideos: Record<string, string | null>;
+  characterVideos: Record<string, string[]>;
   characterVideoLoading: Record<string, boolean>;
   characterVideoErrors: Record<string, string>;
   editedVideoPrompts: Record<string, string>;
+  selectedVideoIndex: Record<string, number>;
+  onSetSelectedVideoIndex: (value: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void;
   onBuildCharacter: (seed: CharacterSeed) => void;
   onSelectCharacter: (characterId: string) => void;
   onClearActiveCharacter: () => void;
@@ -2115,7 +2120,9 @@ function ResultView({
         {characterSeeds.map((seed) => {
           const doc = characterDocs[seed.id];
           const portraitUrl = characterPortraits[seed.id];
-          const videoUrl = characterVideos[seed.id];
+          const videoUrls = characterVideos[seed.id] || [];
+          const selectedIndex = selectedVideoIndex[seed.id] ?? 0;
+          const currentVideoUrl = videoUrls[selectedIndex];
           const videoLoading = Boolean(characterVideoLoading[seed.id]);
           const videoError = characterVideoErrors[seed.id];
           const hasShowcasePrompt = Boolean(doc?.showcase_scene_prompt);
@@ -2128,8 +2135,8 @@ function ResultView({
             actionLabel = "Render portrait first";
           } else if (!hasShowcasePrompt) {
             actionLabel = "Missing scene prompt";
-          } else if (videoUrl) {
-            actionLabel = "Re-render video";
+          } else if (videoUrls.length > 0) {
+            actionLabel = "Render new version";
           }
 
           return (
@@ -2157,14 +2164,14 @@ function ResultView({
                   <div className="space-y-4">
                     <div className="relative overflow-hidden rounded-2xl border border-white/12 bg-black/60 shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
                       <div className="relative h-0 w-full pb-[56.25%]">
-                        {videoUrl ? (
+                        {currentVideoUrl ? (
                           <video
-                            key={videoUrl}
+                            key={currentVideoUrl}
                             controls
                             className="absolute inset-0 h-full w-full rounded-2xl object-cover"
                             poster={portraitUrl ?? undefined}
                           >
-                            <source src={videoUrl} type="video/mp4" />
+                            <source src={currentVideoUrl} type="video/mp4" />
                             Your browser does not support the video tag.
                           </video>
                         ) : (
@@ -2180,7 +2187,59 @@ function ResultView({
                           </div>
                         ) : null}
                       </div>
+                      {videoUrls.length > 0 ? (
+                        <div className="absolute bottom-2 right-2 rounded-lg bg-black/60 px-2 py-1 text-xs text-foreground/80 backdrop-blur-sm">
+                          Version {selectedIndex + 1} of {videoUrls.length}
+                        </div>
+                      ) : null}
                     </div>
+                    {videoUrls.length > 1 ? (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-foreground/45">
+                          Previous versions
+                        </p>
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                          {videoUrls.map((url, index) => (
+                            <button
+                              key={url}
+                              type="button"
+                              onClick={() => {
+                                onSetSelectedVideoIndex((prev) => ({
+                                  ...prev,
+                                  [seed.id]: index,
+                                }));
+                              }}
+                              className={cn(
+                                "relative flex-shrink-0 overflow-hidden rounded-lg border transition-all duration-200",
+                                selectedIndex === index
+                                  ? "border-primary/60 ring-2 ring-primary/30"
+                                  : "border-white/20 hover:border-white/40"
+                              )}
+                            >
+                              <div className="relative h-16 w-28">
+                                <video
+                                  className="h-full w-full object-cover"
+                                  poster={portraitUrl ?? undefined}
+                                  preload="metadata"
+                                >
+                                  <source src={url} type="video/mp4" />
+                                </video>
+                                {selectedIndex === index ? (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
+                                    <span className="text-xs font-bold text-foreground">
+                                      ▶
+                                    </span>
+                                  </div>
+                                ) : null}
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-0.5 text-center text-[10px] text-foreground/70">
+                                  V{index + 1}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="space-y-2 rounded-2xl border border-white/10 bg-black/35 p-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-foreground/45">
                         Showcase scene prompt
@@ -2232,7 +2291,7 @@ function ResultView({
                 <Button
                    type="button"
                    className="w-full justify-center rounded-full"
-                   variant={videoUrl ? "outline" : "default"}
+                   variant={currentVideoUrl ? "outline" : "default"}
                    onClick={() => {
                      const customPrompt = editedVideoPrompts[seed.id];
                      onGenerateVideo(seed.id, customPrompt);
@@ -2306,10 +2365,11 @@ export default function Home() {
   const [characterPortraits, setCharacterPortraits] = useState<Record<string, string | null>>({});
   const [characterPortraitLoading, setCharacterPortraitLoading] = useState<Record<string, boolean>>({});
   const [characterPortraitErrors, setCharacterPortraitErrors] = useState<Record<string, string>>({});
-  const [characterVideos, setCharacterVideos] = useState<Record<string, string | null>>({});
+  const [characterVideos, setCharacterVideos] = useState<Record<string, string[]>>({});
   const [characterVideoLoading, setCharacterVideoLoading] = useState<Record<string, boolean>>({});
   const [characterVideoErrors, setCharacterVideoErrors] = useState<Record<string, string>>({});
   const [editedVideoPrompts, setEditedVideoPrompts] = useState<Record<string, string>>({});
+  const [selectedVideoIndex, setSelectedVideoIndex] = useState<Record<string, number>>({});
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [posterLoading, setPosterLoading] = useState(false);
   const [posterError, setPosterError] = useState<string | null>(null);
@@ -2768,9 +2828,18 @@ export default function Home() {
           throw new Error("Video response missing URL.");
         }
 
-        setCharacterVideos((prev) => ({
+        setCharacterVideos((prev) => {
+          const existing = prev[characterId] || [];
+          return {
+            ...prev,
+            [characterId]: [result.url ?? "", ...existing].filter(Boolean),
+          };
+        });
+        
+        // Set the new video as selected (index 0, latest)
+        setSelectedVideoIndex((prev) => ({
           ...prev,
-          [characterId]: result.url ?? null,
+          [characterId]: 0,
         }));
         
         // Play success sound
@@ -3000,6 +3069,8 @@ export default function Home() {
     setCharacterVideos({});
     setCharacterVideoLoading({});
     setCharacterVideoErrors({});
+    setEditedVideoPrompts({});
+    setSelectedVideoIndex({});
     setCharactersError(null);
     setCharactersLoading(false);
     setPosterUrl(null);
@@ -3023,13 +3094,15 @@ export default function Home() {
       const data = await response.json() as { show: SavedShow };
       const show = data.show;
 
+      const totalVideos = Object.values(show.characterVideos || {}).reduce((sum, arr) => sum + arr.length, 0);
+      
       console.log("📂 Loading show:", {
         id: show.id,
         hasBlueprint: !!show.blueprint,
         characterCount: show.characterSeeds?.length || 0,
         builtDossiers: Object.keys(show.characterDocs || {}).length,
         portraitCount: Object.keys(show.characterPortraits || {}).filter(k => show.characterPortraits[k]).length,
-        videoCount: Object.keys(show.characterVideos || {}).filter(k => show.characterVideos[k]).length,
+        videoCount: totalVideos,
         hasPoster: !!show.posterUrl,
         hasLibraryPoster: !!show.libraryPosterUrl,
       });
@@ -3044,6 +3117,7 @@ export default function Home() {
       setCharacterDocs(show.characterDocs || {});
       setCharacterPortraits(show.characterPortraits || {});
       setCharacterVideos(show.characterVideos || {});
+      setSelectedVideoIndex({});
       setPosterUrl(show.posterUrl || null);
       setLibraryPosterUrl(show.libraryPosterUrl || null);
       setPosterAvailable(true);
@@ -3193,11 +3267,13 @@ export default function Home() {
         libraryPosterUrl: finalLibraryPosterUrl || null,
       };
       
+      const totalVideos = Object.values(characterVideos || {}).reduce((sum, arr) => sum + arr.length, 0);
+      
       console.log(`💾 Updating show ${currentShowId}:`, {
         characters: characterSeeds?.length || 0,
         dossiers: Object.keys(characterDocs || {}).length,
         portraits: Object.keys(characterPortraits || {}).filter(k => characterPortraits[k]).length,
-        videos: Object.keys(characterVideos || {}).filter(k => characterVideos[k]).length,
+        videos: totalVideos,
         hasLibraryPoster: !!finalLibraryPosterUrl,
       });
       
@@ -3338,6 +3414,8 @@ export default function Home() {
             characterVideoLoading={characterVideoLoading}
             characterVideoErrors={characterVideoErrors}
             editedVideoPrompts={editedVideoPrompts}
+            selectedVideoIndex={selectedVideoIndex}
+            onSetSelectedVideoIndex={setSelectedVideoIndex}
             onBuildCharacter={buildCharacter}
             onSelectCharacter={handleSelectCharacter}
             onClearActiveCharacter={handleClearActiveCharacter}
