@@ -3,39 +3,77 @@ import OpenAI from "openai";
 import { promises as fs } from "fs";
 import path from "path";
 
+import { CHARACTER_PAYLOAD_SCHEMA } from "@/lib/character-schema";
+
 type ModelId = "gpt-5" | "gpt-4o";
 
-type CharactersResponseBody = {
+type CharactersRequest = {
   prompt: string;
   show: unknown;
   model?: string;
 };
 
-const systemDirective = `You are the casting director for a show. Your job:
-1. Read the user's prompt and the supplied show blueprint.
-2. Identify every unique character explicitly mentioned by name in the prompt. When no characters are mentioned at all, invent exactly six compelling characters that fit the show's tone.
-3. For each character, produce a JSON object that mirrors the provided character template. Keep every field, even if you must infer or invent tasteful, show-consistent values.
-4. The "character" field should be a unique, kebab-case identifier (e.g., "lex-montgomery").
+const SYSTEM_DIRECTIVE = `You are the casting director for a show. Your job:
+1. Read the user's prompt and the supplied show blueprint JSON.
+2. Identify every unique character explicitly mentioned by name in the prompt. When no characters are mentioned, invent exactly six compelling characters aligned with the show's tone.
+3. For each character, produce a detailed JSON object adhering to the supplied schema. Keep every field, even if you must infer tasteful, show-consistent values.
+4. The "character" field must be a unique, kebab-case identifier (e.g., "lex-montgomery").
 5. The "inherits" field MUST be the exact show blueprint string that is supplied to you—include it verbatim.
-6. If you invent characters, keep the cast diverse and aligned with the show's world-building.
+6. If you invent characters, keep the cast cohesive with the show's world-building.
 
-Return your work as a JSON object with a single key "characters" whose value is an array of character documents. Do not add extra top-level keys.`;
+Always respond with structured JSON that matches the provided schema. If you refuse, emit a refusal message instead of invalid JSON.`;
 
 async function loadCharacterTemplate() {
   const templatePath = path.resolve(process.cwd(), "character.json");
   return fs.readFile(templatePath, "utf8");
 }
 
-function ensureCharactersArray(payload: unknown): Array<Record<string, unknown>> {
-  if (
-    typeof payload !== "object" ||
-    payload === null ||
-    !("characters" in payload) ||
-    !Array.isArray((payload as { characters: unknown }).characters)
-  ) {
-    throw new Error("Model response missing 'characters' array.");
+type OutputFragment = {
+  type: string;
+  [key: string]: unknown;
+};
+
+const extractCharacters = (
+  payload: unknown
+): Array<Record<string, unknown>> => {
+  if (Array.isArray(payload)) {
+    return payload.map((entry) => {
+      if (typeof entry === "string") {
+        try {
+          const parsed = JSON.parse(entry);
+          if (parsed && typeof parsed === "object") {
+            return parsed as Record<string, unknown>;
+          }
+        } catch {
+          /* fall through */
+        }
+      }
+
+      if (entry && typeof entry === "object") {
+        return entry as Record<string, unknown>;
+      }
+
+      throw new Error("Character entry could not be parsed.");
+    });
   }
-  return (payload as { characters: Array<Record<string, unknown>> }).characters;
+
+  if (typeof payload === "string") {
+    try {
+      const parsed = JSON.parse(payload);
+      return extractCharacters(parsed);
+    } catch {
+      throw new Error("Characters payload returned as string but failed to parse.");
+    }
+  }
+
+  if (payload && typeof payload === "object") {
+    if ("characters" in payload) {
+      // @ts-expect-error runtime narrowing
+      return extractCharacters(payload.characters);
+    }
+  }
+
+  throw new Error("Model response missing 'characters' array.");
 }
 
 function safeParseJson(text: string): unknown {
@@ -51,7 +89,7 @@ function safeParseJson(text: string): unknown {
         try {
           return JSON.parse(fenced);
         } catch {
-          // fall through to next strategy
+          /* continue */
         }
       }
     }
@@ -71,6 +109,46 @@ function safeParseJson(text: string): unknown {
   }
 }
 
+const collectTextFragments = (value: unknown): string[] => {
+  if (!value) return [];
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => collectTextFragments(entry));
+  }
+  if (typeof value === "object") {
+    return Object.values(value).flatMap((entry) => collectTextFragments(entry));
+  }
+  return [];
+};
+
+const getOutputText = (response: unknown): string => {
+  if (
+    response &&
+    typeof response === "object" &&
+    "output_text" in response &&
+    typeof (response as { output_text: unknown }).output_text === "string"
+  ) {
+    const text = ((response as { output_text: string }).output_text || "").trim();
+    if (text.length) return text;
+  }
+
+  if (
+    response &&
+    typeof response === "object" &&
+    "output" in response
+  ) {
+    const fragments = collectTextFragments(
+      (response as { output: unknown }).output
+    );
+    const combined = fragments.join("").trim();
+    if (combined.length) {
+      return combined;
+    }
+  }
+
+  return "";
+};
+
 export async function POST(request: Request) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
@@ -79,14 +157,11 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: CharactersResponseBody;
+  let body: CharactersRequest;
   try {
-    body = (await request.json()) as CharactersResponseBody;
+    body = (await request.json()) as CharactersRequest;
   } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON body." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
   if (
@@ -117,10 +192,20 @@ export async function POST(request: Request) {
   }
 
   const selectedModel = body.model as ModelId;
-
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
   const showBlueprintString = JSON.stringify(body.show, null, 2);
-  const characterTemplate = await loadCharacterTemplate();
+  const characterTemplateRaw = await loadCharacterTemplate();
+  let characterTemplate = characterTemplateRaw;
+  try {
+    const parsed = JSON.parse(characterTemplateRaw);
+    if (parsed && typeof parsed === "object" && "$schema" in parsed) {
+      delete (parsed as Record<string, unknown> & { $schema?: string }).$schema;
+    }
+    characterTemplate = JSON.stringify(parsed);
+  } catch {
+    characterTemplate = characterTemplateRaw.replace(/\s+/g, " ");
+  }
 
   const userInstruction = `User prompt:
 ${body.prompt}
@@ -136,33 +221,62 @@ Remember:
 - Extract all explicit characters from the user prompt. If none exist, invent exactly six.
 - Each character JSON must include every field from the template.`;
 
-  try {
-    const basePayload = {
-      input: [
-        { role: "system" as const, content: systemDirective, type: "message" as const },
-        { role: "user" as const, content: userInstruction, type: "message" as const },
-      ],
-      text: {
-        format: {
-          type: "json_object" as const,
-        },
+  const basePayload = {
+    input: [
+      { role: "system" as const, content: SYSTEM_DIRECTIVE, type: "message" as const },
+      { role: "user" as const, content: userInstruction, type: "message" as const },
+    ],
+    text: {
+      format: {
+        type: "json_schema" as const,
+        name: "character_payload",
+        schema: CHARACTER_PAYLOAD_SCHEMA,
+        strict: true,
       },
-    };
+    },
+  };
 
-    if (selectedModel === "gpt-4o") {
-      const response = await client.responses.create({
-        ...basePayload,
-        model: "gpt-4o",
-        temperature: 1,
-        top_p: 1,
-        max_output_tokens: 2048,
-        reasoning: {},
-        tools: [],
-        store: false,
-      });
+  try {
+    const response =
+      selectedModel === "gpt-4o"
+        ? await client.responses.create({
+            ...basePayload,
+            model: "gpt-4o",
+            temperature: 1,
+            top_p: 1,
+            max_output_tokens: 2400,
+            reasoning: {},
+            tools: [],
+            store: false,
+          })
+        : await client.responses.create({
+            ...basePayload,
+            model: "gpt-5",
+            reasoning: { effort: "low" },
+          });
 
-      const outputText = (response.output_text || "").trim();
-      let parsed: unknown;
+    const fragments = Array.isArray(response.output)
+      ? (response.output as Array<{ content?: OutputFragment[] }>)
+          .flatMap((node) => node.content ?? [])
+      : [];
+
+    const schemaFragment = fragments.find(
+      (fragment) => fragment?.type === "output_json_schema"
+    ) as OutputFragment | undefined;
+
+    let parsed: unknown;
+
+    if (schemaFragment && "parsed" in schemaFragment) {
+      parsed = (schemaFragment as { parsed: unknown }).parsed;
+    } else {
+      const outputText = getOutputText(response);
+      if (!outputText) {
+        return NextResponse.json(
+          { error: "Character model returned no content." },
+          { status: 502 }
+        );
+      }
+
       try {
         parsed = safeParseJson(outputText);
       } catch {
@@ -174,55 +288,11 @@ Remember:
           { status: 502 }
         );
       }
-
-      let characters: Array<Record<string, unknown>>;
-      try {
-        characters = ensureCharactersArray(parsed);
-      } catch (err) {
-        return NextResponse.json(
-          {
-            error:
-              err instanceof Error ? err.message : "Invalid character payload.",
-            details: parsed,
-          },
-          { status: 502 }
-        );
-      }
-
-      const normalized = characters.map((character) => ({
-        ...character,
-        inherits: showBlueprintString,
-      }));
-
-      return NextResponse.json(
-        { characters: normalized, usage: response.usage },
-        { status: 200 }
-      );
-    }
-
-    const response = await client.responses.create({
-      ...basePayload,
-      model: "gpt-5",
-      reasoning: { effort: "low" },
-    });
-
-    const outputText = (response.output_text || "").trim();
-    let parsed: unknown;
-    try {
-      parsed = safeParseJson(outputText);
-    } catch {
-      return NextResponse.json(
-        {
-          error: "Failed to parse character model output as JSON.",
-          details: outputText,
-        },
-        { status: 502 }
-      );
     }
 
     let characters: Array<Record<string, unknown>>;
     try {
-      characters = ensureCharactersArray(parsed);
+      characters = extractCharacters(parsed);
     } catch (err) {
       return NextResponse.json(
         {

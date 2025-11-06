@@ -1,14 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Copy, Loader2, SendHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -171,12 +164,6 @@ type ApiResponse = {
   posterAvailable?: boolean;
 };
 
-const examples = [
-  "Animated noir set in a vertical eco-city where memories are traded as currency.",
-  "Children's puppet space opera about a misfit crew restoring forgotten planets.",
-  "A grounded docu-style drama about climate mediators balancing tech and tradition.",
-];
-
 type CharacterDocument = {
   character: string;
   inherits: string;
@@ -186,20 +173,120 @@ type CharacterDocument = {
     tags?: string[];
   };
   biometrics?: {
+    species?: {
+      type?: string;
+      subtype?: string;
+      scale_ratio?: number | string;
+      visual_markers?: string;
+      materiality?: string;
+      physiology?: string;
+    };
     age_years?: { value?: number; approximate?: boolean };
     ethnicity?: string;
+    skin_color?: { hex?: string; description?: string };
+    eye_color?: { hex?: string; description?: string; patterning?: string };
+    has_hair?: boolean;
+    hair?: {
+      style?: string;
+      color_hex?: string;
+      color_description?: string;
+      length?: string;
+      texture?: string;
+    };
+    facial_hair?: { has_facial_hair?: boolean; style?: string; density?: string };
+    height?: { value?: number; unit?: string; notes?: string };
+    weight?: { value?: number; unit?: string; notes?: string };
+    build?: { body_type?: string; notes?: string };
+    voice?: {
+      descriptors?: string[];
+      pitch_range?: string;
+      tempo?: string;
+      timbre_notes?: string;
+    };
+    accent?: { style?: string; strength?: string; code_switching?: string };
+    tics?: { motor?: string[]; verbal?: string[]; frequency?: string };
   };
   look?: {
     silhouette?: string;
     palette?: { anchors?: string[]; notes?: string };
+    surface?: {
+      materials?: string;
+      finish?: string;
+      texture_rules?: string;
+      prohibitions?: string[];
+    };
+    eyes?: {
+      type?: string;
+      catchlight_shape?: string;
+      behaviors?: string[];
+    };
+    face_system?: {
+      modularity?: string;
+      mouths_phonemes?: string[];
+      mouths_gag?: string[];
+      eyelids?: string[];
+    };
     wardrobe?: {
       silhouette_rules?: string;
       items?: string[];
       accessories?: string[];
+      avoid?: string[];
     };
   };
   performance?: {
+    pose_defaults?: string;
     expression_set?: string[];
+    gestural_loops?: string[];
+    animation_cadence?: {
+      animate_fps?: number;
+      shutter_angle?: number;
+      hold_style?: string;
+    };
+  };
+  scene_presence?: {
+    camera_override?: {
+      lenses?: string[];
+      framing?: string;
+      movement?: string;
+      dof?: string;
+    };
+    lighting_override?: {
+      key?: string;
+      fill?: string;
+      edge?: string;
+      notes?: string;
+    };
+    composition_override?: {
+      symmetry_bias?: string;
+      leading_lines?: string;
+      foreground?: string;
+    };
+    set_nook?: {
+      location?: string;
+      materials?: string[];
+      props?: string[];
+      signage?: string[];
+    };
+  };
+  behavior_and_rules?: {
+    do?: string[];
+    do_not?: string[];
+    interaction_readiness?: {
+      with_humans?: string;
+      with_puppets?: string;
+      with_props?: string;
+    };
+  };
+  sound?: {
+    ambience?: string;
+    fx?: string[];
+    dialog_policy?: string;
+    music_tone?: string;
+  };
+  delivery?: {
+    motion_button?: string;
+    slate?: string;
+    stills?: string[];
   };
   [key: string]: unknown;
 };
@@ -210,23 +297,55 @@ const MODEL_OPTIONS: Array<{
   id: ModelId;
   label: string;
   helper: string;
-  badgeClass: string;
 }> = [
   {
     id: "gpt-5",
     label: "GPT-5",
     helper: "High-reasoning structured output",
-    badgeClass: "bg-[#6B5B95]/10 text-[#4C3F84]",
   },
   {
     id: "gpt-4o",
     label: "GPT-4o",
     helper: "Fast JSON mode responses",
-    badgeClass: "bg-[#2F95A5]/10 text-[#1E6D76]",
   },
 ];
 
 let cachedAudioContext: AudioContext | null = null;
+
+const LOADING_MESSAGES = [
+  "Locking show_logline and tone directives",
+  "Sequencing biometrics & species detail maps",
+  "Balancing lighting matrices with camera grammar",
+  "Curating wardrobe silhouettes and texture palettes",
+  "Authoring behavioral rails & scene presence cues",
+  "Scoring delivery exports and validation hooks",
+] as const;
+
+function useRotatingMessage(active: boolean, messages: readonly string[], intervalMs = 1600) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (!active) {
+      setIndex(0);
+      return;
+    }
+    if (!messages.length) return;
+    const id = window.setInterval(() => {
+      setIndex((prev) => (prev + 1) % messages.length);
+    }, intervalMs);
+    return () => {
+      window.clearInterval(id);
+    };
+  }, [active, intervalMs, messages]);
+
+  useEffect(() => {
+    if (!active) {
+      setIndex(0);
+    }
+  }, [active]);
+
+  return messages[index] ?? "";
+}
 
 const ensureAudioContext = () => {
   if (typeof window === "undefined") return null;
@@ -286,11 +405,11 @@ function SectionHeading({
 }) {
   return (
     <div className="space-y-1">
-      <h3 className="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.22em] text-foreground/55">
         {title}
       </h3>
       {description ? (
-        <p className="text-sm text-neutral-600">{description}</p>
+        <p className="text-sm text-foreground/65">{description}</p>
       ) : null}
     </div>
   );
@@ -306,15 +425,15 @@ function KeyValueTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white/70">
+    <div className="overflow-hidden rounded-xl border border-white/12 bg-black/40">
       <Table className="w-full">
         <TableBody>
           {items.map((item) => (
-            <TableRow key={item.label} className="even:bg-neutral-50/70">
-              <TableCell className="w-48 whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+            <TableRow key={item.label} className="even:bg-black/30/70">
+              <TableCell className="w-48 whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-foreground/55">
                 {item.label}
               </TableCell>
-              <TableCell className="max-w-[0] break-words px-4 py-3 text-sm text-neutral-800 whitespace-pre-wrap">
+              <TableCell className="max-w-[0] break-words px-4 py-3 text-sm text-foreground/85 whitespace-pre-wrap">
                 {item.value ?? "—"}
               </TableCell>
             </TableRow>
@@ -334,7 +453,7 @@ function ArrayPills({ values }: { values?: string[] }) {
         <Badge
           key={value}
           variant="outline"
-          className="rounded-full border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-700 break-words"
+          className="rounded-full border-white/12 bg-black/30 text-xs font-medium text-foreground/75 break-words"
         >
           {value}
         </Badge>
@@ -349,11 +468,11 @@ function ColorSwatches({ colors }: { colors: string[] }) {
       {colors.map((hex) => (
         <div key={hex} className="flex items-center gap-2">
           <span
-            className="h-7 w-7 rounded-full border border-neutral-200 shadow-inner"
+            className="h-7 w-7 rounded-full border border-white/12 shadow-inner"
             style={{ backgroundColor: hex }}
             aria-hidden
           />
-          <span className="text-xs font-medium uppercase tracking-wide text-neutral-600">
+          <span className="text-xs font-medium uppercase tracking-wide text-foreground/65">
             {hex}
           </span>
         </div>
@@ -362,47 +481,17 @@ function ColorSwatches({ colors }: { colors: string[] }) {
   );
 }
 
+const SESSION_STORAGE_KEY = "production-flow.session.v1";
+
 const accentVariants = {
-  iris: {
-    container:
-      "border-[#6B5B95]/30 bg-gradient-to-r from-[#f4f1ff] via-white to-white",
-    indicator: "bg-[#6B5B95]",
-  },
-  lagoon: {
-    container:
-      "border-[#2F95A5]/25 bg-gradient-to-r from-[#ecfbff] via-white to-white",
-    indicator: "bg-[#2F95A5]",
-  },
-  amber: {
-    container:
-      "border-[#D48A1E]/25 bg-gradient-to-r from-[#fff7eb] via-white to-white",
-    indicator: "bg-[#D48A1E]",
-  },
-  moss: {
-    container:
-      "border-[#3F7F4C]/25 bg-gradient-to-r from-[#eef9f0] via-white to-white",
-    indicator: "bg-[#3F7F4C]",
-  },
-  blush: {
-    container:
-      "border-[#C75C8F]/25 bg-gradient-to-r from-[#fff0f6] via-white to-white",
-    indicator: "bg-[#C75C8F]",
-  },
-  coral: {
-    container:
-      "border-[#E6695B]/25 bg-gradient-to-r from-[#fff1ed] via-white to-white",
-    indicator: "bg-[#E6695B]",
-  },
-  sand: {
-    container:
-      "border-[#CF9F69]/25 bg-gradient-to-r from-[#fff7ec] via-white to-white",
-    indicator: "bg-[#CF9F69]",
-  },
-  slate: {
-    container:
-      "border-[#4B5563]/20 bg-gradient-to-r from-[#f5f7fa] via-white to-white",
-    indicator: "bg-[#4B5563]",
-  },
+  iris: { indicator: "bg-white/30", border: "border-white/15" },
+  lagoon: { indicator: "bg-white/20", border: "border-white/12" },
+  amber: { indicator: "bg-white/18", border: "border-white/12" },
+  moss: { indicator: "bg-white/14", border: "border-white/12" },
+  blush: { indicator: "bg-white/16", border: "border-white/12" },
+  coral: { indicator: "bg-primary/70", border: "border-primary/40" },
+  sand: { indicator: "bg-white/22", border: "border-white/12" },
+  slate: { indicator: "bg-white/12", border: "border-white/12" },
 };
 
 type AccentVariant = keyof typeof accentVariants;
@@ -430,35 +519,38 @@ function CollapsibleSection({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border shadow-sm transition",
-        variant.container,
+        "relative overflow-hidden rounded-3xl border border-white/12 bg-[#111]/70 p-[1px] shadow-[0_18px_60px_rgba(0,0,0,0.65)] transition-colors",
+        variant.border,
         className
       )}
     >
+      <div className="absolute inset-0 bg-black/30" aria-hidden />
       <span
         aria-hidden
         className={cn(
-          "pointer-events-none absolute inset-y-0 left-0 w-1",
+          "pointer-events-none absolute inset-y-6 left-6 h-7 w-7 rounded-full blur-sm",
           variant.indicator
         )}
       />
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left transition hover:bg-white/60"
+        className="relative z-10 flex w-full items-center justify-between gap-5 rounded-[28px] bg-black/40 px-8 py-6 text-left transition-colors hover:bg-black/55"
       >
         <div className="flex items-start gap-3">
           <span
             aria-hidden
             className={cn(
-              "mt-1 h-2.5 w-2.5 rounded-full transition",
+              "mt-1.5 h-2.5 w-2.5 rounded-full transition",
               variant.indicator
             )}
           />
           <div className="space-y-1">
-            <p className="text-base font-semibold text-neutral-900">{title}</p>
+            <p className="text-lg font-semibold tracking-[0.02em] text-foreground">
+              {title}
+            </p>
             {description ? (
-              <p className="text-sm text-neutral-600">{description}</p>
+              <p className="text-sm text-foreground/65">{description}</p>
             ) : null}
           </div>
         </div>
@@ -466,7 +558,7 @@ function CollapsibleSection({
           {metadata}
           <ChevronDown
             className={cn(
-              "h-4 w-4 flex-shrink-0 text-neutral-500 transition-transform duration-200",
+              "h-5 w-5 flex-shrink-0 text-foreground/50 transition-transform duration-300",
               isOpen ? "rotate-180" : ""
             )}
             aria-hidden
@@ -474,8 +566,8 @@ function CollapsibleSection({
         </div>
       </button>
       {isOpen ? (
-        <div className="border-t border-white/60 bg-white/75">
-          <div className="px-6 py-5">{children}</div>
+        <div className="relative border-t border-white/12 bg-black/55 px-8 py-6 text-sm text-foreground/75">
+          {children}
         </div>
       ) : null}
     </div>
@@ -536,33 +628,33 @@ function RawJsonPeek({ rawJson }: { rawJson?: string | null }) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white/80 px-3 py-1.5 text-xs text-neutral-600 shadow-sm">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2 rounded-full border border-white/15 bg-black/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/60">
         <Button
           type="button"
           variant="ghost"
           onClick={handleCopy}
-          className="h-7 gap-1 rounded-full px-3 text-xs font-medium text-neutral-600 hover:bg-neutral-100"
+          className="h-8 gap-1 rounded-full px-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground/75 hover:bg-white/10"
         >
-          <Copy className="h-3.5 w-3.5" />
+          <Copy className="h-3.5 w-3.5 text-foreground/55" />
           {copyState === "copied"
             ? "Copied!"
             : copyState === "error"
               ? "Copy failed"
               : "Copy JSON"}
         </Button>
-        <span className="inline-block h-3 w-px bg-neutral-200" />
+        <span className="inline-block h-3 w-px bg-white/15" />
         <Button
           type="button"
           variant="ghost"
           onClick={() => setIsJsonOpen((value) => !value)}
-          className="h-7 rounded-full px-3 text-xs font-medium text-neutral-600 hover:bg-neutral-100"
+          className="h-8 rounded-full px-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground/75 hover:bg-white/10"
         >
           {isJsonOpen ? "Hide JSON" : "View JSON"}
         </Button>
       </div>
       {isJsonOpen ? (
-        <div className="max-h-72 overflow-auto rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4 text-xs leading-relaxed text-neutral-800 shadow-inner">
+        <div className="max-h-72 overflow-auto rounded-3xl border border-white/15 bg-black/55 p-5 text-xs leading-relaxed text-foreground/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
           <pre className="whitespace-pre-wrap break-words">{formattedJson}</pre>
         </div>
       ) : null}
@@ -582,6 +674,7 @@ function ResultView({
   posterLoading,
   posterError,
   posterAvailable,
+  isLoading,
 }: {
   blueprint: ShowBlueprint | null;
   usage?: ApiResponse["usage"];
@@ -594,38 +687,50 @@ function ResultView({
   posterLoading: boolean;
   posterError: string | null;
   posterAvailable: boolean;
+  isLoading: boolean;
 }) {
+  const loaderActive = !blueprint && isLoading;
+  const loaderMessage = useRotatingMessage(loaderActive, LOADING_MESSAGES, 1700);
+
   if (!blueprint) {
+    if (isLoading) {
+      return (
+        <div className="flex min-h-[420px] w-full flex-col items-center justify-center gap-7 rounded-3xl bg-black/50 p-12 text-center shadow-[0_20px_65px_rgba(0,0,0,0.7)]">
+          <div className="netflix-loader netflix-loader-lg" aria-hidden>
+            {Array.from({ length: 12 }).map((_, index) => (
+              <span
+                key={index}
+                className="netflix-loader-bar"
+                style={{ animationDelay: `${index * 0.06}s` }}
+              />
+            ))}
+          </div>
+          <p
+            className="text-xs font-semibold uppercase tracking-[0.3em] text-foreground/55 transition-opacity duration-300"
+            aria-live="polite"
+          >
+            {loaderMessage}
+          </p>
+        </div>
+      );
+    }
+
     return (
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold text-neutral-900">
-            Nothing generated yet
-          </CardTitle>
-          <CardDescription className="text-sm text-neutral-500">
-            Drop a synopsis, a tone brief, or a fragment of script below. The
-            assistant will reply with a complete look bible that matches your
-            schema.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm text-neutral-600">
-          <p>Helpful prompts include:</p>
-          <ul className="list-disc space-y-2 pl-5">
-            <li>What is the emotional arc or pacing of the show?</li>
-            <li>Who are the key characters or archetypes in play?</li>
-            <li>Any anchors for palette, lighting, or camera references?</li>
-          </ul>
-        </CardContent>
-      </Card>
+      <div className="rounded-3xl border border-white/12 bg-black/45 p-12 text-center shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-foreground/55">
+          Ready when you are
+        </p>
+        <p className="mt-4 text-base text-foreground/70">
+          Drop a synopsis or tone brief and we’ll stage the entire look bible here.
+        </p>
+      </div>
     );
   }
 
   const data = blueprint.visual_aesthetics;
-  const modelConfig =
-    MODEL_OPTIONS.find((option) => option.id === model) ?? MODEL_OPTIONS[0];
   const usageBadge =
     usage?.input_tokens !== undefined ? (
-      <Badge className={`border-none ${modelConfig.badgeClass}`}>
+      <Badge variant="outline">
         input {usage.input_tokens} · output {usage.output_tokens ?? "—"}
       </Badge>
     ) : null;
@@ -634,38 +739,29 @@ function ResultView({
     posterLoading || posterError || posterUrl ? (
       <CollapsibleSection
         title="Poster concept"
-        description="Key art generated from the look bible."
+        description="Key art pulled directly from the latest look bible."
         accent="iris"
         defaultOpen
       >
         {posterLoading ? (
-          <Card className="border border-neutral-200 bg-white/70">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-                <Loader2 className="h-4 w-4 animate-spin" /> Generating poster…
-              </CardTitle>
-            </CardHeader>
-          </Card>
+          <div className="flex items-center gap-3 rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/70">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            Generating poster…
+          </div>
         ) : posterError ? (
-          <Card className="border border-red-200 bg-red-50">
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-red-700">
-                Poster generation failed
-              </CardTitle>
-              <CardDescription className="text-sm text-red-600">
-                {posterError}
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          <div className="space-y-3 rounded-3xl border border-red-500/40 bg-red-500/10 px-5 py-4 text-sm">
+            <p className="font-semibold text-red-200">Poster generation failed</p>
+            <p className="text-red-200/80">{posterError}</p>
+          </div>
         ) : posterUrl ? (
-          <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-900/70">
-            <div className="relative h-0 w-full pb-[66%]">
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+            <div className="relative h-0 w-full pb-[80%]">
               <Image
                 src={posterUrl}
                 alt="Generated poster concept"
                 fill
                 className="object-cover"
-                sizes="(min-width: 768px) 600px, 100vw"
+                sizes="(min-width: 768px) 560px, 100vw"
                 priority
               />
             </div>
@@ -680,259 +776,348 @@ function ResultView({
       accent="iris"
       defaultOpen={false}
     >
-      <Card className="border border-neutral-200 bg-neutral-50/80">
-        <CardHeader>
-          <CardTitle className="text-sm font-semibold text-neutral-700">
-            Poster generation unavailable
-          </CardTitle>
-          <CardDescription className="text-sm text-neutral-600">
-            Provide a Replicate API token to enable automatic key art.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/65">
+        Poster generation is disabled. Add a Replicate token to unlock one-click key art.
+      </div>
     </CollapsibleSection>
   );
 
+  const loglinePanel = (
+    <div className="rounded-3xl border border-white/12 bg-black/45 p-6 space-y-4 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+          Series logline
+        </p>
+        {usageBadge}
+      </div>
+      <p className="text-base leading-relaxed text-foreground/80 whitespace-pre-wrap">
+        {blueprint.show_logline}
+      </p>
+    </div>
+  );
+
+  const posterBriefPanel = (
+    <div className="rounded-3xl border border-white/12 bg-black/45 p-6 space-y-3 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+        Poster direction
+      </p>
+      <p className="text-base leading-relaxed text-foreground/80 whitespace-pre-wrap">
+        {blueprint.poster_description}
+      </p>
+    </div>
+  );
+
+  const directivePanel = (
+    <div className="rounded-3xl border border-white/12 bg-black/45 p-6 space-y-3 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+        Look bible directive
+      </p>
+      <p className="text-lg font-semibold text-foreground">{data.goal}</p>
+      <p className="text-xs text-foreground/45">
+        {model === "gpt-4o"
+          ? "Generated with GPT-4o in JSON mode"
+          : "Generated with GPT-5 · reasoning effort low"}
+      </p>
+    </div>
+  );
+
   const masterContent = (
-    <>
-      <CollapsibleSection
-        title="Look bible directive"
-        description={data.goal}
-        accent="iris"
-        metadata={usageBadge}
-      >
-        <div className="space-y-3 text-sm leading-relaxed text-neutral-600">
-          <p className="text-base font-medium text-neutral-900">{data.goal}</p>
-          <p className="text-xs text-neutral-500">
-            {model === "gpt-4o"
-              ? "Generated with GPT-4o in JSON mode (temperature 1, top_p 1)."
-              : "Generated with GPT-5 · Reasoning effort: low · Verbosity: medium"}
-          </p>
+    <div className="space-y-8">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="space-y-6">
+          {loglinePanel}
+          {posterBriefPanel}
+          {directivePanel}
         </div>
-      </CollapsibleSection>
+        <div className="space-y-6">
+          {posterSection}
+        </div>
+      </div>
 
-      {posterSection}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <div className="space-y-6">
+          <CollapsibleSection
+            title="Pipeline"
+            description="Capture and finishing guardrails."
+            accent="lagoon"
+          >
+            <div className="space-y-6">
+              <KeyValueTable
+                items={[
+                  { label: "Color management", value: data.pipeline.color_management },
+                  { label: "Aspect ratio", value: data.pipeline.aspect_ratio },
+                  { label: "Highlight rolloff", value: data.pipeline.highlight_rolloff },
+                  { label: "Black floor", value: data.pipeline.black_floor },
+                  { label: "Grain", value: data.pipeline.grain_global },
+                ]}
+              />
+              <SectionHeading title="Frame rates" />
+              <KeyValueTable
+                items={[
+                  {
+                    label: "Animation",
+                    value: `${data.pipeline.frame_rates.animation_capture} fps`,
+                  },
+                  {
+                    label: "Playback",
+                    value: `${data.pipeline.frame_rates.playback} fps`,
+                  },
+                  {
+                    label: "Live action",
+                    value: `${data.pipeline.frame_rates.live_action_capture} fps`,
+                  },
+                ]}
+              />
+              <SectionHeading title="Shutter angle" />
+              <KeyValueTable
+                items={[
+                  {
+                    label: "Animation",
+                    value: `${data.pipeline.shutter_angle.animation}°`,
+                  },
+                  {
+                    label: "Live action",
+                    value: `${data.pipeline.shutter_angle.live_action}°`,
+                  },
+                ]}
+              />
+              {data.pipeline.render_order && data.pipeline.render_order.length ? (
+                <>
+                  <SectionHeading title="Render order" />
+                  <ArrayPills values={data.pipeline.render_order} />
+                </>
+              ) : null}
+            </div>
+          </CollapsibleSection>
 
-      <div className="grid gap-4 md:grid-cols-2 items-start">
-        <CollapsibleSection
-          title="Pipeline"
-          description="Capture and finishing guardrails."
-          accent="lagoon"
-        >
-          <div className="space-y-6">
+          <CollapsibleSection
+            title="Lighting plan"
+            description="Mood, contrast, and practical policy."
+            accent="amber"
+          >
+            <div className="space-y-6">
+              <KeyValueTable
+                items={[
+                  { label: "Temperature model", value: data.lighting.temperature_model },
+                  { label: "Key", value: data.lighting.key },
+                  { label: "Fill", value: data.lighting.fill },
+                  { label: "Edge", value: data.lighting.edge },
+                  {
+                    label: "Practicals",
+                    value: data.lighting.practicals_in_frame ? "Encouraged" : "Limit",
+                  },
+                  { label: "Halation", value: data.lighting.halation_policy },
+                ]}
+              />
+              {data.lighting.no_go && data.lighting.no_go.length ? (
+                <>
+                  <SectionHeading title="No-go" />
+                  <ArrayPills values={data.lighting.no_go} />
+                </>
+              ) : null}
+            </div>
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            title="Composition"
+            description="Framing habits to keep scenes cohesive."
+            accent="sand"
+          >
             <KeyValueTable
               items={[
-                { label: "Color management", value: data.pipeline.color_management },
-                { label: "Aspect ratio", value: data.pipeline.aspect_ratio },
-                { label: "Highlight rolloff", value: data.pipeline.highlight_rolloff },
-                { label: "Black floor", value: data.pipeline.black_floor },
-                { label: "Grain", value: data.pipeline.grain_global },
-              ]}
-            />
-            <SectionHeading title="Frame rates" />
-            <KeyValueTable
-              items={[
+                { label: "Symmetry bias", value: data.composition.symmetry_bias },
+                { label: "Leading lines", value: data.composition.leading_lines },
                 {
-                  label: "Animation",
-                  value: `${data.pipeline.frame_rates.animation_capture} fps`,
+                  label: "Foreground depth",
+                  value: data.composition.foreground_depth,
                 },
                 {
-                  label: "Playback",
-                  value: `${data.pipeline.frame_rates.playback} fps`,
-                },
-                {
-                  label: "Live action",
-                  value: `${data.pipeline.frame_rates.live_action_capture} fps`,
+                  label: "Color blocking",
+                  value: data.composition.color_blocking,
                 },
               ]}
             />
-            <SectionHeading title="Shutter angle" />
-            <KeyValueTable
-              items={[
-                {
-                  label: "Animation",
-                  value: `${data.pipeline.shutter_angle.animation}°`,
-                },
-                {
-                  label: "Live action",
-                  value: `${data.pipeline.shutter_angle.live_action}°`,
-                },
-              ]}
-            />
-            {data.pipeline.render_order && data.pipeline.render_order.length ? (
-              <>
-                <SectionHeading title="Render order" />
-                <ArrayPills values={data.pipeline.render_order} />
-              </>
-            ) : null}
-          </div>
-        </CollapsibleSection>
+          </CollapsibleSection>
 
-        <CollapsibleSection
-          title="Color direction"
-          description="Palette anchors and restrictions."
-          accent="blush"
-        >
-          <div className="space-y-6">
-            <KeyValueTable
-              items={[
-                { label: "Palette bias", value: data.color.palette_bias },
-                { label: "Skin protection", value: data.color.skin_protection },
-                {
-                  label: "White balance",
-                  value: data.color.white_balance_baseline_K
-                    ? `${data.color.white_balance_baseline_K}K`
-                    : undefined,
-                },
-              ]}
-            />
-            <SectionHeading title="Anchor hex" />
-            <ColorSwatches colors={data.color.anchor_hex} />
-            {data.color.prohibitions && data.color.prohibitions.length ? (
-              <>
-                <Separator />
-                <SectionHeading title="Avoid" />
-                <ArrayPills values={data.color.prohibitions} />
-              </>
-            ) : null}
-          </div>
-        </CollapsibleSection>
+          <CollapsibleSection
+            title="Sets & props"
+            description="Environment staging and recurring gags."
+            accent="lagoon"
+          >
+            <div className="space-y-6">
+              <SectionHeading title="Primary sets" />
+              <ArrayPills values={data.sets_and_prop_visuals.primary_sets} />
+              <KeyValueTable
+                items={[
+                  { label: "Prop style", value: data.sets_and_prop_visuals.prop_style },
+                  { label: "Displays", value: data.sets_and_prop_visuals.display_devices },
+                ]}
+              />
+              {data.sets_and_prop_visuals.runner_gags_visual?.length ? (
+                <>
+                  <SectionHeading title="Recurring gags" />
+                  <ArrayPills values={data.sets_and_prop_visuals.runner_gags_visual} />
+                </>
+              ) : null}
+            </div>
+          </CollapsibleSection>
+        </div>
 
-        <CollapsibleSection
-          title="Lighting plan"
-          description="Mood, contrast, and practical policy."
-          accent="amber"
-        >
-          <div className="space-y-6">
-            <KeyValueTable
-              items={[
-                { label: "Temperature model", value: data.lighting.temperature_model },
-                { label: "Key", value: data.lighting.key },
-                { label: "Fill", value: data.lighting.fill },
-                { label: "Edge", value: data.lighting.edge },
-                {
-                  label: "Practicals",
-                  value: data.lighting.practicals_in_frame ? "Encouraged" : "Limit",
-                },
-                { label: "Halation", value: data.lighting.halation_policy },
-              ]}
-            />
-            {data.lighting.no_go && data.lighting.no_go.length ? (
-              <>
-                <Separator />
-                <SectionHeading title="No-go" />
-                <ArrayPills values={data.lighting.no_go} />
-              </>
-            ) : null}
-          </div>
-        </CollapsibleSection>
+        <div className="space-y-6">
+          <CollapsibleSection
+            title="Color direction"
+            description="Palette anchors and restrictions."
+            accent="blush"
+          >
+            <div className="space-y-6">
+              <KeyValueTable
+                items={[
+                  { label: "Palette bias", value: data.color.palette_bias },
+                  { label: "Skin protection", value: data.color.skin_protection },
+                  {
+                    label: "White balance",
+                    value: data.color.white_balance_baseline_K
+                      ? `${data.color.white_balance_baseline_K}K`
+                      : undefined,
+                  },
+                ]}
+              />
+              <SectionHeading title="Anchor hex" />
+              <ColorSwatches colors={data.color.anchor_hex} />
+              {data.color.prohibitions && data.color.prohibitions.length ? (
+                <>
+                  <SectionHeading title="Avoid" />
+                  <ArrayPills values={data.color.prohibitions} />
+                </>
+              ) : null}
+            </div>
+          </CollapsibleSection>
 
-        <CollapsibleSection
-          title="Camera grammar"
-          description="Preferred glass, movement, and coverage."
-          accent="moss"
-        >
-          <div className="space-y-6">
-            <KeyValueTable
-              items={[
-                { label: "Sensor", value: data.camera.sensor },
-                { label: "DOF guides", value: data.camera.dof_guides },
-              ]}
-            />
-            <SectionHeading title="Lens family" />
-            <ArrayPills values={data.camera.lens_family} />
-            {data.camera.movement && data.camera.movement.length ? (
-              <>
-                <Separator />
-                <SectionHeading title="Movement" />
-                <ArrayPills values={data.camera.movement} />
-              </>
-            ) : null}
-            {data.camera.coverage_rules && data.camera.coverage_rules.length ? (
-              <>
-                <Separator />
-                <SectionHeading title="Coverage rules" />
-                <ArrayPills values={data.camera.coverage_rules} />
-              </>
-            ) : null}
-          </div>
-        </CollapsibleSection>
+          <CollapsibleSection
+            title="Camera grammar"
+            description="Glass, movement, and coverage preferences."
+            accent="iris"
+          >
+            <div className="space-y-6">
+              <KeyValueTable
+                items={[
+                  { label: "Sensor", value: data.camera.sensor },
+                  { label: "Depth of field", value: data.camera.dof_guides },
+                ]}
+              />
+              <SectionHeading title="Lens family" />
+              <ArrayPills values={data.camera.lens_family} />
+              {data.camera.movement && data.camera.movement.length ? (
+                <>
+                  <SectionHeading title="Movement" />
+                  <ArrayPills values={data.camera.movement} />
+                </>
+              ) : null}
+              {data.camera.coverage_rules && data.camera.coverage_rules.length ? (
+                <>
+                  <SectionHeading title="Coverage rules" />
+                  <ArrayPills values={data.camera.coverage_rules} />
+                </>
+              ) : null}
+            </div>
+          </CollapsibleSection>
 
-        <CollapsibleSection
-          title="Composition"
-          description="Framing habits to keep scenes cohesive."
-          accent="sand"
-        >
-          <KeyValueTable
-            items={[
-              { label: "Symmetry bias", value: data.composition.symmetry_bias },
-              { label: "Leading lines", value: data.composition.leading_lines },
-              {
-                label: "Foreground depth",
-                value: data.composition.foreground_depth,
-              },
-              {
-                label: "Color blocking",
-                value: data.composition.color_blocking,
-              },
-            ]}
-          />
-        </CollapsibleSection>
+          <CollapsibleSection
+            title="Materials & textures"
+            description="Surface language for cast and environments."
+            accent="moss"
+          >
+            <div className="space-y-6">
+              <KeyValueTable
+                items={[
+                  {
+                    label: "Human textures",
+                    value: data.materials_and_textures.human_textures,
+                  },
+                  { label: "Patina", value: data.materials_and_textures.patina },
+                  { label: "Notes", value: data.materials_and_textures.notes },
+                ]}
+              />
+              <SectionHeading title="Set surfaces" />
+              <ArrayPills values={data.materials_and_textures.set_surfaces} />
+            </div>
+          </CollapsibleSection>
 
-        <CollapsibleSection
-          title="Materials & textures"
-          description="Surface language for cast and environments."
-          accent="sand"
-        >
-          <div className="space-y-6">
-            <KeyValueTable
-              items={[
-                {
-                  label: "Human textures",
-                  value: data.materials_and_textures.human_textures,
-                },
-                { label: "Patina", value: data.materials_and_textures.patina },
-                { label: "Notes", value: data.materials_and_textures.notes },
-              ]}
-            />
-            <SectionHeading title="Set surfaces" />
-            <ArrayPills values={data.materials_and_textures.set_surfaces} />
-          </div>
-        </CollapsibleSection>
+          <CollapsibleSection
+            title="Post & delivery"
+            description="Finishing expectations."
+            accent="slate"
+          >
+            <div className="space-y-6">
+              <SectionHeading title="Post grade" />
+              <KeyValueTable
+                items={[
+                  { label: "Curve", value: data.post_grade.curve },
+                  { label: "LUT", value: data.post_grade.lut },
+                  { label: "Grain placement", value: data.post_grade.grain?.placement },
+                  { label: "Grain intensity", value: data.post_grade.grain?.intensity },
+                  { label: "Halation scope", value: data.post_grade.halation?.scope },
+                  { label: "Halation strength", value: data.post_grade.halation?.strength },
+                ]}
+              />
+              <SectionHeading title="Export specs" />
+              <div className="space-y-3 text-sm text-foreground/65">
+                <div>
+                  <p className="font-medium text-foreground/70">Stills</p>
+                  <ArrayPills values={data.export_specs.stills} />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground/70">Video intermediate</p>
+                  <p>{data.export_specs.video_intermediate}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-foreground/70">Delivery color</p>
+                  <p>{data.export_specs.delivery_color}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-foreground/70">Plates</p>
+                  <ArrayPills values={data.export_specs.plates} />
+                </div>
+              </div>
+            </div>
+          </CollapsibleSection>
+        </div>
       </div>
 
       <CollapsibleSection
         title="Species design"
         description="Character sheets for every performer type."
-        accent="coral"
+        accent="slate"
       >
         <div className="grid gap-4 md:grid-cols-2">
           {data.species_design.types.map((type) => (
             <div
               key={type.name}
-              className="rounded-xl border border-neutral-200/80 bg-white/80 p-4 shadow-sm"
+              className="rounded-2xl border border-white/12 bg-black/40 p-4 shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-base font-semibold text-neutral-900">
+                <p className="text-base font-semibold text-foreground">
                   {type.name}
                 </p>
-                <Badge className="border-none bg-[#E6695B]/10 text-[#CF4F43]">
+                <Badge className="border-white/20 bg-black/50 text-foreground/70">
                   {type.surface_finish}
                 </Badge>
               </div>
-              <p className="mt-2 text-sm text-neutral-600">{type.silhouette}</p>
-              <Separator className="my-4" />
-              <div className="space-y-3 text-sm text-neutral-600">
+              <p className="mt-2 text-sm text-foreground/65">{type.silhouette}</p>
+              <Separator className="my-4 border-white/10" />
+              <div className="space-y-3 text-sm text-foreground/65">
                 {type.materials ? (
                   <p>
-                    <span className="font-medium text-neutral-700">
+                    <span className="font-medium text-foreground/70">
                       Materials:
                     </span>{" "}
                     {type.materials}
                   </p>
                 ) : null}
                 <p>
-                  <span className="font-medium text-neutral-700">Eyes:</span>{" "}
+                  <span className="font-medium text-foreground/70">
+                    Eyes:
+                  </span>{" "}
                   {[
                     type.eyes.type,
                     `Catchlight ${type.eyes.catchlight_shape}`,
@@ -944,14 +1129,14 @@ function ResultView({
                   <ArrayPills values={type.eyes.behaviors} />
                 ) : null}
                 <p>
-                  <span className="font-medium text-neutral-700">
+                  <span className="font-medium text-foreground/70">
                     Face modularity:
                   </span>{" "}
                   {type.face_modularity}
                 </p>
                 {type.stress_cues ? (
                   <p>
-                    <span className="font-medium text-neutral-700">
+                    <span className="font-medium text-foreground/70">
                       Stress cues:
                     </span>{" "}
                     {type.stress_cues}
@@ -959,12 +1144,12 @@ function ResultView({
                 ) : null}
                 {type.palette?.anchors && type.palette.anchors.length ? (
                   <div className="space-y-2">
-                    <span className="font-medium text-neutral-700">
+                    <span className="font-medium text-foreground/70">
                       Palette anchors
                     </span>
                     <ColorSwatches colors={type.palette.anchors} />
                     {type.palette.notes ? (
-                      <p className="text-xs text-neutral-500">
+                      <p className="text-xs text-foreground/55">
                         {type.palette.notes}
                       </p>
                     ) : null}
@@ -976,76 +1161,6 @@ function ResultView({
         </div>
       </CollapsibleSection>
 
-      <div className="grid gap-4 md:grid-cols-2 items-start">
-        <CollapsibleSection
-          title="Sets & props"
-          description="Environmental guardrails."
-          accent="lagoon"
-        >
-          <div className="space-y-6">
-            <SectionHeading title="Primary sets" />
-            <ArrayPills values={data.sets_and_prop_visuals.primary_sets} />
-            <KeyValueTable
-              items={[
-                { label: "Prop style", value: data.sets_and_prop_visuals.prop_style },
-                {
-                  label: "Display devices",
-                  value: data.sets_and_prop_visuals.display_devices,
-                },
-              ]}
-            />
-            {data.sets_and_prop_visuals.runner_gags_visual &&
-            data.sets_and_prop_visuals.runner_gags_visual.length ? (
-              <>
-                <Separator />
-                <SectionHeading title="Recurring gags" />
-                <ArrayPills values={data.sets_and_prop_visuals.runner_gags_visual} />
-              </>
-            ) : null}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          title="Post & delivery"
-          description="Finishing expectations."
-          accent="slate"
-        >
-          <div className="space-y-6">
-            <SectionHeading title="Post grade" />
-            <KeyValueTable
-              items={[
-                { label: "Curve", value: data.post_grade.curve },
-                { label: "LUT", value: data.post_grade.lut },
-                { label: "Grain placement", value: data.post_grade.grain?.placement },
-                { label: "Grain intensity", value: data.post_grade.grain?.intensity },
-                { label: "Halation scope", value: data.post_grade.halation?.scope },
-                { label: "Halation strength", value: data.post_grade.halation?.strength },
-              ]}
-            />
-            <Separator />
-            <SectionHeading title="Export specs" />
-            <div className="space-y-3 text-sm text-neutral-600">
-              <div>
-                <p className="font-medium text-neutral-700">Stills</p>
-                <ArrayPills values={data.export_specs.stills} />
-              </div>
-              <div>
-                <p className="font-medium text-neutral-700">Video intermediate</p>
-                <p>{data.export_specs.video_intermediate}</p>
-              </div>
-              <div>
-                <p className="font-medium text-neutral-700">Delivery color</p>
-                <p>{data.export_specs.delivery_color}</p>
-              </div>
-              <div>
-                <p className="font-medium text-neutral-700">Plates</p>
-                <ArrayPills values={data.export_specs.plates} />
-              </div>
-            </div>
-          </div>
-        </CollapsibleSection>
-      </div>
-
       <CollapsibleSection
         title="Global prohibitions"
         description="Do-not-cross guardrails to keep the look coherent."
@@ -1053,47 +1168,37 @@ function ResultView({
       >
         <ArrayPills values={data.prohibitions_global} />
       </CollapsibleSection>
-    </>
+    </div>
   );
-
   const charactersContent = (() => {
     if (charactersLoading) {
       return (
-        <Card className="border border-neutral-200 bg-white/70">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
-              <Loader2 className="h-4 w-4 animate-spin" /> Generating character bible…
-            </CardTitle>
-          </CardHeader>
-        </Card>
+        <div className="rounded-3xl border border-white/12 bg-black/45 px-6 py-4 text-sm text-foreground/70">
+          <Loader2 className="mr-2 inline-block h-4 w-4 animate-spin text-primary" />
+          Building character bible…
+        </div>
       );
     }
 
     if (charactersError) {
       return (
-        <Card className="border border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold text-red-700">
-              Character request failed
-            </CardTitle>
-            <CardDescription className="text-sm text-red-600">
-              {charactersError}
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="space-y-2 rounded-3xl border border-red-500/40 bg-red-500/10 px-6 py-4 text-sm">
+          <p className="font-semibold text-red-200">Character request failed</p>
+          <p className="text-red-200/80">{charactersError}</p>
+        </div>
       );
     }
 
     if (!characters || characters.length === 0) {
       return (
-        <div className="rounded-2xl border border-dashed border-neutral-200 bg-white/60 p-6 text-sm text-neutral-500">
+        <div className="rounded-3xl border border-dashed border-white/12 bg-black/45 p-6 text-center text-sm text-foreground/55">
           No characters generated yet.
         </div>
       );
     }
 
     return (
-      <div className="grid gap-4 md:grid-cols-2 items-start">
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {characters.map((characterDoc, index) => {
           const role = characterDoc.metadata?.role;
           const storyFunction = characterDoc.metadata?.function;
@@ -1104,37 +1209,28 @@ function ResultView({
           const ethnicity = characterDoc.biometrics?.ethnicity;
 
           return (
-            <Card
-              key={characterDoc.character || `character-${index}`}
-              className="rounded-2xl border border-neutral-200 bg-white/80 shadow-sm"
-            >
-              <CardHeader className="space-y-1">
-                <CardTitle className="text-lg font-semibold text-neutral-900">
+            <Card key={characterDoc.character || `character-${index}`} className="h-full">
+              <CardHeader className="space-y-2">
+                <CardTitle className="text-lg font-semibold text-foreground">
                   {characterDoc.character || "Unnamed character"}
                 </CardTitle>
-                <CardDescription className="text-sm text-neutral-600">
+                <CardDescription className="text-sm text-foreground/55">
                   {role || "Character"}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4 text-sm text-neutral-700">
-                {storyFunction ? (
-                  <p className="text-neutral-600">{storyFunction}</p>
-                ) : null}
+              <CardContent className="space-y-4 text-sm text-foreground/70">
+                {storyFunction ? <p>{storyFunction}</p> : null}
                 {ageValue || ethnicity ? (
-                  <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
+                  <p className="text-[11px] uppercase tracking-[0.26em] text-foreground/45">
                     {ageValue ? `Age ${ageValue}` : null}
                     {ageValue && ethnicity ? " • " : ""}
                     {ethnicity || null}
                   </p>
                 ) : null}
                 {tags.length ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     {tags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="outline"
-                        className="rounded-full border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-700"
-                      >
+                      <Badge key={tag} variant="outline">
                         {tag}
                       </Badge>
                     ))}
@@ -1150,18 +1246,12 @@ function ResultView({
                   <div className="space-y-2">
                     <SectionHeading title="Wardrobe" />
                     {wardrobe.silhouette_rules ? (
-                      <p className="text-neutral-600">
-                        {wardrobe.silhouette_rules}
-                      </p>
+                      <p className="text-foreground/65">{wardrobe.silhouette_rules}</p>
                     ) : null}
                     {wardrobe.items && wardrobe.items.length ? (
                       <div className="flex flex-wrap gap-2">
                         {wardrobe.items.map((item) => (
-                          <Badge
-                            key={item}
-                            variant="outline"
-                            className="rounded-full border-neutral-200 bg-neutral-50 text-xs font-medium text-neutral-700"
-                          >
+                          <Badge key={item} variant="outline">
                             {item}
                           </Badge>
                         ))}
@@ -1186,10 +1276,10 @@ function ResultView({
         </TabsList>
         <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} />
       </div>
-      <TabsContent value="master" className="space-y-5">
+      <TabsContent value="master" className="space-y-5 pb-32">
         {masterContent}
       </TabsContent>
-      <TabsContent value="characters" className="space-y-5">
+      <TabsContent value="characters" className="space-y-5 pb-32">
         {charactersContent}
       </TabsContent>
     </Tabs>
@@ -1219,10 +1309,79 @@ export default function Home() {
   const [posterAvailable, setPosterAvailable] = useState(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as {
+        model?: ModelId;
+        blueprint?: ShowBlueprint | null;
+        usage?: ApiResponse["usage"];
+        rawJson?: string | null;
+        characters?: CharacterDocument[] | null;
+        posterUrl?: string | null;
+        posterAvailable?: boolean;
+      };
+
+      if (parsed.model) {
+        setModel(parsed.model);
+        setActiveModel(parsed.model);
+      }
+      if (parsed.blueprint) {
+        setBlueprint(parsed.blueprint);
+      }
+      if (parsed.usage) {
+        setUsage(parsed.usage);
+      }
+      if (parsed.rawJson) {
+        setRawJson(parsed.rawJson);
+      }
+      if (parsed.characters) {
+        setCharacters(parsed.characters);
+      }
+      if (parsed.posterUrl) {
+        setPosterUrl(parsed.posterUrl);
+      }
+      if (typeof parsed.posterAvailable === "boolean") {
+        setPosterAvailable(parsed.posterAvailable);
+      }
+    } catch (error) {
+      console.error("Failed to restore session", error);
+    }
+  }, []);
+
+  useEffect(() => {
     if (blueprint) {
       playSuccessChime();
     }
   }, [blueprint]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (
+      !blueprint &&
+      (!characters || characters.length === 0) &&
+      !posterUrl &&
+      !rawJson
+    ) {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      return;
+    }
+    const payload = {
+      model: activeModel,
+      blueprint,
+      usage,
+      rawJson,
+      characters,
+      posterUrl,
+      posterAvailable,
+    };
+    try {
+      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+    } catch (error) {
+      console.error("Failed to persist session", error);
+    }
+  }, [activeModel, blueprint, characters, posterAvailable, posterUrl, rawJson, usage]);
 
   const canSubmit = useMemo(
     () => input.trim().length > 0 && !isLoading,
@@ -1409,86 +1568,49 @@ export default function Home() {
     [input, submitPrompt, model]
   );
 
-  const handleExample = useCallback(
-    (example: string) => {
-      setInput(example);
-    },
-    []
-  );
-
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-50 text-neutral-900">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="text-xs font-medium">
-                {selectedModelOption.label}
-              </Badge>
-              <span className="text-xs text-neutral-500">
-                {selectedModelOption.helper}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="model-select"
-                className="text-xs font-semibold uppercase tracking-wide text-neutral-500"
-              >
-                Model
-              </label>
-              <select
-                id="model-select"
-                value={model}
-                onChange={(event) => setModel(event.target.value as ModelId)}
-                className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
-              >
-                {MODEL_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+    <div className="flex min-h-screen flex-col bg-black text-foreground">
+      <header className="border-b border-white/12 bg-black/90">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <span className="text-lg font-semibold uppercase tracking-[0.32em] text-primary">
+              Production Flow
+            </span>
+            <span className="text-xs text-foreground/55">Look bible console</span>
           </div>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold text-neutral-900">
-              Show bible visualizer
-            </h1>
-            <p className="max-w-3xl text-sm text-neutral-600">
-              Paste your concept and we will surface character-driven visual
-              direction aligned to the provided schema. Clean, ready for review,
-              and easy to tweak.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {examples.map((example) => (
-              <Button
-                key={example}
-                type="button"
-                variant="outline"
-                onClick={() => handleExample(example)}
-                className="border-neutral-200 text-xs text-neutral-700 hover:bg-neutral-100"
-              >
-                {example}
-              </Button>
-            ))}
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="text-[11px] font-semibold uppercase tracking-[0.26em]">
+              {selectedModelOption.label}
+            </Badge>
+            <label
+              htmlFor="model-select"
+              className="sr-only"
+            >
+              Model
+            </label>
+            <select
+              id="model-select"
+              value={model}
+              onChange={(event) => setModel(event.target.value as ModelId)}
+              className="rounded-full border border-white/15 bg-black/60 px-4 py-2 text-sm text-foreground/75 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              {MODEL_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </header>
 
       <main className="flex-1">
-        <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 pb-32">
           {error ? (
-            <Card className="border border-red-200 bg-red-50">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold text-red-700">
-                  Request failed
-                </CardTitle>
-                <CardDescription className="text-sm text-red-600">
-                  {error}
-                </CardDescription>
-              </CardHeader>
-            </Card>
+            <div className="space-y-2 rounded-3xl border border-red-500/40 bg-red-500/10 px-6 py-4 text-sm">
+              <p className="font-semibold text-red-200">Request failed</p>
+              <p className="text-red-200/85">{error}</p>
+            </div>
           ) : null}
 
           <ResultView
@@ -1498,23 +1620,24 @@ export default function Home() {
             model={activeModel}
             characters={characters}
             charactersLoading={charactersLoading}
-          charactersError={charactersError}
-          posterUrl={posterUrl}
-          posterLoading={posterLoading}
-          posterError={posterError}
-          posterAvailable={posterAvailable}
-        />
+            charactersError={charactersError}
+            posterUrl={posterUrl}
+            posterLoading={posterLoading}
+            posterError={posterError}
+            posterAvailable={posterAvailable}
+            isLoading={isLoading}
+          />
         </div>
       </main>
 
-      <div className="sticky bottom-0 border-t border-neutral-200 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-4">
+      <div className="sticky bottom-0 border-t border-white/12 bg-black/90 backdrop-blur">
+        <div className="mx-auto w-full max-w-6xl px-6 py-4">
           <form onSubmit={handleSubmit} className="space-y-3">
             <Textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Describe the show tone, key characters, and any must-hit visual notes..."
-              className="min-h-[120px] max-h-60 resize-none overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-1 focus-visible:ring-neutral-400"
+              placeholder="Tell us what the show needs visually…"
+              className="overflow-hidden"
               onKeyDown={(event) => {
                 if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                   event.preventDefault();
@@ -1525,14 +1648,14 @@ export default function Home() {
               }}
             />
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-foreground/55">
                 Press ⌘⏎ / Ctrl⏎ to send instantly.
               </p>
               <div className="flex items-center gap-2">
                 {blueprint ? (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => {
                       setBlueprint(null);
                       setUsage(undefined);
@@ -1545,8 +1668,10 @@ export default function Home() {
                       setPosterError(null);
                       setPosterLoading(false);
                       setPosterAvailable(false);
+                      if (typeof window !== "undefined") {
+                        window.localStorage.removeItem(SESSION_STORAGE_KEY);
+                      }
                     }}
-                    className="border-neutral-200 text-neutral-600 hover:bg-neutral-100"
                   >
                     Clear result
                   </Button>
@@ -1554,7 +1679,7 @@ export default function Home() {
                 <Button
                   type="submit"
                   disabled={!canSubmit}
-                  className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-5 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-60"
+                  size="lg"
                 >
                   {isLoading ? (
                     <>

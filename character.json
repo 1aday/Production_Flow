@@ -8,9 +8,6 @@
       "function": "<story function in one line>",
       "tags": ["human", "dialogue"]
     },
-  
-    "species": { "type": "human", "subtype": "live_action", "scale_ratio": 1.0 },
-  
     "state": {
       "baseline": "stable human",
       "transformation_policy": {
@@ -21,6 +18,14 @@
     },
   
     "biometrics": {
+      "species": {
+        "type": "human",
+        "subtype": "live_action",
+        "scale_ratio": 1.0,
+        "visual_markers": "baseline human presentation",
+        "materiality": "organic flesh-and-blood performer",
+        "physiology": "standard human anatomy"
+      },
       "age_years": { "value": 38, "approximate": false },
       "ethnicity": "—",
       "skin_color": { "hex": "#CDAA8D", "description": "warm light-tan" },

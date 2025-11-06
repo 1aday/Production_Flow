@@ -4,8 +4,18 @@
     "title": "Visual Aesthetics (Show-Agnostic)",
     "type": "object",
     "additionalProperties": false,
-    "required": ["visual_aesthetics"],
+    "required": ["visual_aesthetics", "show_logline", "poster_description"],
     "properties": {
+      "show_logline": {
+        "type": "string",
+        "minLength": 20,
+        "description": "One or two sentence pitch describing premise, leads, conflict, and visual tone."
+      },
+      "poster_description": {
+        "type": "string",
+        "minLength": 120,
+        "description": "Detailed description of an iconic poster for this show, summarising composition, characters and their appearance, palette, lighting, and scene elements."
+      },
       "visual_aesthetics": {
         "type": "object",
         "additionalProperties": false,
