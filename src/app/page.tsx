@@ -2341,6 +2341,7 @@ function ResultView({
 }
 
 export default function Home() {
+  const [isLoadingShow, setIsLoadingShow] = useState(false);
   const [currentShowId, setCurrentShowId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [blueprint, setBlueprint] = useState<ShowBlueprint | null>(null);
@@ -2400,6 +2401,8 @@ export default function Home() {
         posterUrl?: string | null;
         posterAvailable?: boolean;
         libraryPosterUrl?: string | null;
+        editedVideoPrompts?: Record<string, string>;
+        selectedVideoIndex?: Record<string, number>;
       };
 
       if (parsed.model) {
@@ -3108,6 +3111,7 @@ export default function Home() {
   }, [model]);
 
   const loadShow = useCallback(async (showId: string) => {
+    setIsLoadingShow(true);
     try {
       const response = await fetch(`/api/library/${showId}`);
       if (!response.ok) throw new Error("Failed to load show");
@@ -3128,6 +3132,12 @@ export default function Home() {
       });
       
       // Load ALL saved data
+      console.log("Loading data from show object:");
+      console.log("  - Portraits:", Object.keys(show.characterPortraits || {}).length);
+      console.log("  - Videos:", Object.keys(show.characterVideos || {}).length);
+      console.log("  - Portrait URLs:", show.characterPortraits);
+      console.log("  - Video arrays:", show.characterVideos);
+      
       setBlueprint(show.blueprint);
       setRawJson(show.rawJson || null);
       setUsage(show.usage);
@@ -3143,6 +3153,9 @@ export default function Home() {
       setPosterAvailable(true);
       setCurrentShowId(show.id);
       
+      console.log("State updated - portraits now:", Object.keys(show.characterPortraits || {}).length);
+      console.log("State updated - videos now:", Object.keys(show.characterVideos || {}).length);
+      
       // Clear any loading/error states
       setCharacterBuilding({});
       setCharacterBuildErrors({});
@@ -3154,9 +3167,13 @@ export default function Home() {
       setError(null);
       
       console.log("✅ Show loaded successfully");
+      
+      // Small delay to ensure state has propagated before allowing saves
+      setTimeout(() => setIsLoadingShow(false), 1000);
     } catch (error) {
       console.error("Failed to load show:", error);
       setError("Failed to load show from library");
+      setIsLoadingShow(false);
     }
   }, []);
 
@@ -3257,6 +3274,10 @@ export default function Home() {
   const saveCurrentShow = useCallback(async (forceLibraryPoster = false) => {
     if (!blueprint) return;
     if (!currentShowId) return; // Don't save if no ID yet
+    if (isLoadingShow) {
+      console.log("⏸️ Skipping save - show is currently loading");
+      return;
+    }
 
     // Generate library poster ONLY if forced or meets all requirements
     let finalLibraryPosterUrl = libraryPosterUrl;
@@ -3288,14 +3309,18 @@ export default function Home() {
       };
       
       const totalVideos = Object.values(characterVideos || {}).reduce((sum, arr) => sum + arr.length, 0);
+      const portraitCount = Object.keys(characterPortraits || {}).filter(k => characterPortraits[k]).length;
       
       console.log(`💾 Updating show ${currentShowId}:`, {
         characters: characterSeeds?.length || 0,
         dossiers: Object.keys(characterDocs || {}).length,
-        portraits: Object.keys(characterPortraits || {}).filter(k => characterPortraits[k]).length,
+        portraits: portraitCount,
         videos: totalVideos,
         hasLibraryPoster: !!finalLibraryPosterUrl,
       });
+      
+      console.log("  Portrait data being saved:", characterPortraits);
+      console.log("  Video data being saved:", characterVideos);
       
       const response = await fetch("/api/library", {
         method: "POST",
@@ -3308,7 +3333,7 @@ export default function Home() {
     } catch (error) {
       console.error("❌ Failed to save show:", error);
     }
-  }, [blueprint, rawJson, usage, activeModel, characterSeeds, characterDocs, characterPortraits, characterVideos, posterUrl, libraryPosterUrl, currentShowId, generateLibraryPoster, canGenerateLibraryPoster]);
+  }, [blueprint, rawJson, usage, activeModel, characterSeeds, characterDocs, characterPortraits, characterVideos, posterUrl, libraryPosterUrl, currentShowId, isLoadingShow, generateLibraryPoster, canGenerateLibraryPoster]);
 
 
   // Auto-save when character data changes
