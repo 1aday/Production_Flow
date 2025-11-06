@@ -69,8 +69,8 @@ const extractCharacters = (
 
   if (payload && typeof payload === "object") {
     if ("characters" in payload) {
-      // @ts-expect-error runtime narrowing
-      return extractCharacters(payload.characters);
+      const withCharacters = payload as { characters?: unknown };
+      return extractCharacters(withCharacters.characters);
     }
   }
 
@@ -269,7 +269,7 @@ Remember:
     let parsed: unknown;
 
     if (schemaFragment && "parsed" in schemaFragment) {
-      parsed = (schemaFragment as { parsed: unknown }).parsed;
+      parsed = schemaFragment["parsed"];
     } else {
       const outputText = getOutputText(response);
       if (!outputText) {

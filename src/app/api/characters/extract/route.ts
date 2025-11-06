@@ -156,38 +156,39 @@ export async function POST(request: Request) {
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  try {
-    if (model === "gpt-5") {
-      const response = await client.responses.parse({
-        model: "gpt-5",
-        input: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: context },
-        ],
-        reasoning: { effort: "low" },
-        text: {
-          verbosity: "low",
-          format: {
-            type: "json_schema",
-            name: "character_seeds",
-            strict: true,
-            schema: structuredSchema,
-          },
+  const runWithGpt5 = async () => {
+    const response = await client.responses.parse({
+      model: "gpt-5",
+      input: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: context },
+      ],
+      reasoning: { effort: "low" },
+      text: {
+        verbosity: "low",
+        format: {
+          type: "json_schema",
+          name: "character_seeds",
+          strict: true,
+          schema: structuredSchema,
         },
-      });
+      },
+    });
 
-      const parsed = response.output_parsed as { characters?: unknown[] } | null;
-      if (!parsed || !Array.isArray(parsed.characters)) {
-        return NextResponse.json(
-          { error: "Failed to extract characters." },
-          { status: 502 }
-        );
-      }
-
-      const seeds = normalizeSeeds(parsed.characters);
-      return NextResponse.json({ characters: seeds }, { status: 200 });
+    if (response.status === "incomplete") {
+      const reason = response.incomplete_details?.reason ?? "unknown";
+      throw new Error(`gpt-5 request incomplete (${reason})`);
     }
 
+    const parsed = response.output_parsed as { characters?: unknown[] } | null;
+    if (!parsed || !Array.isArray(parsed.characters) || parsed.characters.length === 0) {
+      throw new Error("gpt-5 returned no characters");
+    }
+
+    return normalizeSeeds(parsed.characters);
+  };
+
+  const runWithGpt4o = async () => {
     const response = await client.responses.create({
       model: "gpt-4o",
       input: [
@@ -211,31 +212,47 @@ export async function POST(request: Request) {
     try {
       parsed = JSON.parse(outputText);
     } catch {
-      return NextResponse.json(
-        {
-          error: "Failed to parse character extraction output.",
-          details: outputText,
-        },
-        { status: 502 }
-      );
+      console.error("[characters/extract] gpt-4o JSON parse failed:", outputText);
+      throw new Error("Failed to parse character extraction output.");
     }
 
     const characters = Array.isArray((parsed as { characters?: unknown[] }).characters)
       ? (parsed as { characters: unknown[] }).characters
       : [];
     if (!characters.length) {
-      return NextResponse.json(
-        { error: "No characters returned by the model." },
-        { status: 502 }
-      );
+      throw new Error("No characters returned by the backup model.");
     }
 
-    const seeds = normalizeSeeds(characters);
+    return normalizeSeeds(characters);
+  };
+
+  try {
+    if (model === "gpt-5") {
+      try {
+        const seeds = await runWithGpt5();
+        return NextResponse.json({ characters: seeds }, { status: 200 });
+      } catch (error) {
+        console.warn(
+          "[characters/extract] gpt-5 parse failed, falling back to gpt-4o",
+          error
+        );
+        // Attempt fallback below.
+      }
+    }
+
+    const seeds = await runWithGpt4o();
     return NextResponse.json({ characters: seeds }, { status: 200 });
   } catch (error) {
     console.error("[characters/extract] Unexpected error", error);
     const message =
       error instanceof Error ? error.message : "Failed to contact OpenAI.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status =
+      typeof message === "string" &&
+      (/parse character extraction output/i.test(message) ||
+        /no characters returned/i.test(message) ||
+        /gpt-5 request incomplete/i.test(message))
+        ? 502
+        : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

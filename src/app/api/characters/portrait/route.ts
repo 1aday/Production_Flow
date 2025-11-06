@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   const characterJson = trimJson(body.character);
 
   const prompt = [
-    "Create a highly art-directed 2:3 character portrait.",
+    "Create a highly art-directed 1:1 square character portrait.",
     "Focus on cinematic lighting, intentional wardrobe, and expressive posture.",
     "Respect the show's aesthetic while capturing the essence of the character.",
     "Every choice must adhere to the aesthetic, palette, lighting, and creative rules specified in the show blueprint JSON.",
@@ -86,11 +86,13 @@ export async function POST(request: Request) {
   ].join("\n");
 
   try {
+    console.log("🎨 Generating 1:1 character portrait...");
+    
     const result = (await replicate.run("openai/gpt-image-1", {
       input: {
         prompt,
         quality: "high",
-        aspect_ratio: "2:3",
+        aspect_ratio: "1:1",
         background: "auto",
         number_of_images: 1,
         openai_api_key: process.env.OPENAI_API_KEY,

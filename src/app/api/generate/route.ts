@@ -8,7 +8,7 @@ const validate = ajv.compile(schema);
 
 const systemDirective = `You are a visual development director creating a show look bible.
 Return a single JSON object that conforms to the provided schema. Do not add properties. Infer thoughtful defaults when details are missing.
-Include a cinematic "show_logline" that names and describes key characters and conflict, and a richly detailed "poster_description" that paints an iconic one-sheet—specify composition, character appearances, palette, lighting, and featured scenes.`;
+Include a catchy "show_title", a cinematic "show_logline" that names and describes key characters and conflict, and a richly detailed "poster_description" that paints an iconic one-sheet—specify composition, character appearances, palette, lighting, and featured scenes.`;
 
 type JSONSchemaNode = {
   type?: string | string[];

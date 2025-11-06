@@ -13,7 +13,7 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
-const BASE_PROMPT = `Design a theatrical 3:2 movie poster for a prestige streaming series. Capture the tone, palette, lighting, and iconography from the show's visual bible. Focus on cinematic composition, premium typography, and evocative mood.`;
+const BASE_PROMPT = `Design a theatrical 2:3 portrait movie poster for a prestige streaming series. Capture the tone, palette, lighting, and iconography from the show's visual bible. Focus on cinematic composition, premium typography, and evocative mood.`;
 
 const trimWithEllipsis = (value: string, limit: number) => {
   if (limit <= 0) return "";
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       input: {
         prompt: compositePrompt,
         quality: "high",
-        aspect_ratio: "3:2",
+        aspect_ratio: "2:3",
         background: "auto",
         number_of_images: 1,
         openai_api_key: process.env.OPENAI_API_KEY,

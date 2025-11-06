@@ -1,0 +1,272 @@
+import { NextResponse } from "next/server";
+import Replicate from "replicate";
+
+export const maxDuration = 300; // 5 minutes for video generation
+
+type VideoBody = {
+  show: unknown;
+  character: unknown;
+  portraitUrl?: string | null;
+};
+
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+});
+
+const MAX_JSON_LENGTH = 20000;
+
+const trimJson = (value: unknown, limit = MAX_JSON_LENGTH) => {
+  try {
+    const text = JSON.stringify(value);
+    if (text.length <= limit) return text;
+    return `${text.slice(0, limit - 1)}…`;
+  } catch {
+    return "";
+  }
+};
+
+const extractString = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  return "";
+};
+
+const resolveUrl = async (value: unknown): Promise<string | undefined> => {
+  if (!value) return undefined;
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value instanceof Uint8Array) {
+    return undefined;
+  }
+
+  if (typeof value === "function") {
+    const maybe = (value as () => unknown)();
+    if (typeof maybe === "string") return maybe;
+    if (maybe && typeof (maybe as Promise<unknown>).then === "function") {
+      const awaited = await (maybe as Promise<unknown>);
+      return resolveUrl(awaited);
+    }
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const candidate = await resolveUrl(entry);
+      if (candidate) return candidate;
+    }
+    return undefined;
+  }
+
+  if (typeof value === "object") {
+    const objectValue = value as Record<string, unknown>;
+
+    if ("url" in objectValue) {
+      const candidate = objectValue.url;
+      if (typeof candidate === "string") return candidate;
+      if (typeof candidate === "function") {
+        return resolveUrl(candidate);
+      }
+      return resolveUrl(candidate);
+    }
+
+    if ("video" in objectValue) {
+      return resolveUrl(objectValue.video);
+    }
+
+    if ("videos" in objectValue) {
+      return resolveUrl(objectValue.videos);
+    }
+
+    if ("output" in objectValue) {
+      return resolveUrl(objectValue.output);
+    }
+  }
+
+  return undefined;
+};
+
+export async function POST(request: Request) {
+  if (!process.env.REPLICATE_API_TOKEN) {
+    return NextResponse.json(
+      { error: "Missing REPLICATE_API_TOKEN environment variable." },
+      { status: 500 }
+    );
+  }
+
+  let body: VideoBody;
+  try {
+    body = (await request.json()) as VideoBody;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  if (!body || typeof body !== "object") {
+    return NextResponse.json(
+      { error: "Video generation requires 'show' and 'character' payloads." },
+      { status: 400 }
+    );
+  }
+
+  if (typeof body.show !== "object" || body.show === null) {
+    return NextResponse.json(
+      { error: "Video generation requires the show blueprint object." },
+      { status: 400 }
+    );
+  }
+
+  if (typeof body.character !== "object" || body.character === null) {
+    return NextResponse.json(
+      { error: "Video generation requires the character blueprint object." },
+      { status: 400 }
+    );
+  }
+
+  const portraitUrl = extractString(body.portraitUrl);
+  if (!portraitUrl) {
+    return NextResponse.json(
+      { error: "Character portrait URL missing. Render a portrait before attempting video." },
+      { status: 400 }
+    );
+  }
+
+  const showJson = trimJson(body.show);
+  const characterJson = trimJson(body.character);
+
+  const showcasePrompt =
+    typeof body.character === "object" && body.character !== null
+      ? extractString(
+          (body.character as Record<string, unknown>).showcase_scene_prompt
+        )
+      : "";
+
+  if (!showcasePrompt) {
+    return NextResponse.json(
+      {
+        error:
+          "Character dossier missing a showcase scene prompt. Regenerate the character JSON and try again.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const showLogline =
+    typeof body.show === "object" && body.show !== null
+      ? extractString((body.show as Record<string, unknown>).show_logline)
+      : "";
+
+  const characterName =
+    typeof body.character === "object" && body.character !== null
+      ? extractString((body.character as Record<string, unknown>).character)
+      : "";
+
+  const prompt = [
+    "Produce an 8-second, 16:9 cinematic showcase featuring ONLY the specified character.",
+    "Anchor every creative choice in the show blueprint's visual rules and the character dossier.",
+    "The scene must embody their hallmark voice, action, and attitude described in the showcase prompt.",
+    "",
+    "Series logline:",
+    showLogline || "N/A",
+    "",
+    "Character identifier:",
+    characterName || "Unknown",
+    "",
+    "Showcase scene prompt:",
+    showcasePrompt,
+    "",
+    "Character dossier JSON:",
+    characterJson,
+    "",
+    "Show blueprint JSON:",
+    showJson,
+  ].join("\n");
+
+  try {
+    console.log("=== VIDEO GENERATION ===");
+    console.log("Character:", characterName);
+    console.log("Portrait URL:", portraitUrl);
+    
+    // Use raw fetch API to bypass any SDK transformations
+    const inputPayload = {
+      prompt,
+      reference_images: [portraitUrl],
+      aspect_ratio: "16:9",
+      duration: 8,
+      resolution: "1080p",
+      generate_audio: true,
+    };
+    
+    console.log("Input payload (before JSON.stringify):", inputPayload);
+    console.log("reference_images is Array?", Array.isArray(inputPayload.reference_images));
+    console.log("reference_images[0] type:", typeof inputPayload.reference_images[0]);
+    
+    const requestBody = JSON.stringify({
+      input: inputPayload,
+    });
+    
+    console.log("Request body being sent:", requestBody);
+    
+    const createResponse = await fetch("https://api.replicate.com/v1/models/google/veo-3.1/predictions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: requestBody,
+    });
+    
+    if (!createResponse.ok) {
+      const errorBody = await createResponse.text();
+      console.error("Replicate API error response:", errorBody);
+      throw new Error(`Failed to create prediction: ${createResponse.status} - ${errorBody}`);
+    }
+    
+    const prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+    console.log("Prediction created:", prediction.id, "Status:", prediction.status);
+    
+    // Wait for completion
+    let result = prediction;
+    while (result.status === "starting" || result.status === "processing") {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+        headers: {
+          "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+        },
+      });
+      
+      result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+      console.log("Status:", result.status);
+    }
+    
+    if (result.status === "failed") {
+      throw new Error(result.error || "Video generation failed");
+    }
+    
+    if (result.status === "canceled") {
+      throw new Error("Video generation was canceled");
+    }
+
+    const url = await resolveUrl(result.output);
+
+    if (!url) {
+      return NextResponse.json(
+        {
+          error: "Unexpected video response format.",
+          details: result.output,
+        },
+        { status: 502 }
+      );
+    }
+
+    console.log("✅ Video generated successfully:", url);
+    return NextResponse.json({ url });
+  } catch (error) {
+    console.error("[characters/video] Unexpected error", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to generate video.";
+
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

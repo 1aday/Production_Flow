@@ -4,8 +4,14 @@
     "title": "Visual Aesthetics (Show-Agnostic)",
     "type": "object",
     "additionalProperties": false,
-    "required": ["visual_aesthetics", "show_logline", "poster_description"],
+    "required": ["visual_aesthetics", "show_title", "show_logline", "poster_description"],
     "properties": {
+      "show_title": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 80,
+        "description": "The show's title. Should be catchy, memorable, and evocative of the show's tone and premise."
+      },
       "show_logline": {
         "type": "string",
         "minLength": 20,

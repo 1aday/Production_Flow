@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Copy, Loader2, SendHorizontal } from "lucide-react";
+import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -151,6 +152,7 @@ type VisualAesthetics = {
 };
 
 type ShowBlueprint = {
+  show_title: string;
   show_logline: string;
   poster_description: string;
   visual_aesthetics: VisualAesthetics;
@@ -303,6 +305,38 @@ type CharacterDocument = {
   showcase_scene_prompt?: string;
   [key: string]: unknown;
 };
+
+type CharacterSpecies =
+  CharacterDocument["biometrics"] extends { species?: infer T }
+    ? NonNullable<T>
+    : {
+        type?: string;
+        subtype?: string;
+        scale_ratio?: number | string;
+        visual_markers?: string;
+        materiality?: string;
+        physiology?: string;
+        palette?: { anchors?: string[]; notes?: string };
+      };
+
+type CharacterWardrobe =
+  CharacterDocument["look"] extends { wardrobe?: infer T }
+    ? NonNullable<T>
+    : {
+        silhouette_rules?: string;
+        items?: string[];
+        accessories?: string[];
+        avoid?: string[];
+      };
+
+type CharacterBehavior =
+  CharacterDocument["behavior_and_rules"] extends infer T
+    ? NonNullable<T>
+    : {
+        do?: string[];
+        do_not?: string[];
+        interaction_readiness?: Record<string, string>;
+      };
 
 type ModelId = "gpt-5" | "gpt-4o";
 
@@ -498,10 +532,10 @@ function CharacterDossierContent({
   characterId: string;
   metadata: Record<string, unknown>;
   storyFunction?: string;
-  species?: CharacterDocument["biometrics"] extends { species?: infer T } ? T : undefined;
+  species?: CharacterSpecies;
   paletteAnchors: string[];
-  wardrobe: CharacterDocument["look"] extends { wardrobe?: infer T } ? T : undefined;
-  behavior: CharacterDocument["behavior_and_rules"];
+  wardrobe?: CharacterWardrobe;
+  behavior?: CharacterBehavior;
   doc: CharacterDocument;
   quickFacts: Array<{ label: string; value: string }>;
   tags: string[];
@@ -517,6 +551,10 @@ function CharacterDossierContent({
   const hasSound =
     Boolean(soundFx.length) || Boolean(doc.sound?.ambience) || Boolean(doc.sound?.music_tone);
   const showcaseScenePrompt = doc.showcase_scene_prompt;
+  const roleLabel =
+    typeof metadata.role === "string" && metadata.role.trim().length
+      ? metadata.role
+      : "Character";
 
   return (
     <div className="mt-6 space-y-6 border-t border-white/10 pt-6">
@@ -525,7 +563,7 @@ function CharacterDossierContent({
           <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
             Character dossier
           </p>
-          <p className="text-sm text-foreground/50">{metadata.role ?? "Character"}</p>
+          <p className="text-sm text-foreground/50">{roleLabel}</p>
         </div>
         <Button
           type="button"
@@ -709,7 +747,7 @@ function CharacterDossierContent({
             {posterAvailable ? (
               <div className="space-y-3">
                 <div className="relative overflow-hidden rounded-3xl border border-white/12 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
-                  <div className="relative h-0 w-full pb-[90%]">
+                  <div className="relative h-0 w-full pb-[100%]">
                     {portraitUrl ? (
                       <Image
                         src={portraitUrl}
@@ -833,6 +871,23 @@ function ColorSwatches({ colors }: { colors: string[] }) {
 }
 
 const SESSION_STORAGE_KEY = "production-flow.session.v1";
+
+type SavedShow = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  blueprint: ShowBlueprint;
+  rawJson?: string;
+  usage?: ApiResponse["usage"];
+  model: ModelId;
+  characterSeeds: CharacterSeed[];
+  characterDocs: Record<string, CharacterDocument>;
+  characterPortraits: Record<string, string | null>;
+  characterVideos: Record<string, string | null>;
+  posterUrl: string | null;
+  libraryPosterUrl?: string | null;
+};
 
 const accentVariants = {
   iris: { indicator: "bg-white/30", border: "border-white/15" },
@@ -1027,10 +1082,14 @@ function ResultView({
   characterPortraits,
   characterPortraitLoading,
   characterPortraitErrors,
+  characterVideos,
+  characterVideoLoading,
+  characterVideoErrors,
   onBuildCharacter,
   onSelectCharacter,
   onClearActiveCharacter,
   onGeneratePortrait,
+  onGenerateVideo,
   activeCharacterId,
   posterUrl,
   posterLoading,
@@ -1051,10 +1110,14 @@ function ResultView({
   characterPortraits: Record<string, string | null>;
   characterPortraitLoading: Record<string, boolean>;
   characterPortraitErrors: Record<string, string>;
+  characterVideos: Record<string, string | null>;
+  characterVideoLoading: Record<string, boolean>;
+  characterVideoErrors: Record<string, string>;
   onBuildCharacter: (seed: CharacterSeed) => void;
   onSelectCharacter: (characterId: string) => void;
   onClearActiveCharacter: () => void;
   onGeneratePortrait: (characterId: string) => void;
+  onGenerateVideo: (characterId: string) => void;
   activeCharacterId: string | null;
   posterUrl: string | null;
   posterLoading: boolean;
@@ -1128,7 +1191,7 @@ function ResultView({
           </div>
         ) : posterUrl ? (
           <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
-            <div className="relative h-0 w-full pb-[80%]">
+            <div className="relative h-0 w-full pb-[150%]">
               <Image
                 src={posterUrl}
                 alt="Generated poster concept"
@@ -1159,10 +1222,15 @@ function ResultView({
     <div className="rounded-3xl border border-white/12 bg-black/45 p-6 space-y-4 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
-          Series logline
+          Show overview
         </p>
         {usageBadge}
       </div>
+      {blueprint.show_title ? (
+        <h2 className="text-2xl font-bold text-foreground/90">
+          {blueprint.show_title}
+        </h2>
+      ) : null}
       <p className="text-base leading-relaxed text-foreground/80 whitespace-pre-wrap">
         {blueprint.show_logline}
       </p>
@@ -1570,8 +1638,68 @@ function ResultView({
       );
     }
 
+    const unbuiltCharacters = characterSeeds.filter((seed) => !characterDocs[seed.id]);
+    const charactersWithoutPortraits = characterSeeds.filter(
+      (seed) => characterDocs[seed.id] && !characterPortraits[seed.id]
+    );
+    const anyBuilding = Object.values(characterBuilding).some(Boolean);
+    const anyPortraitLoading = Object.values(characterPortraitLoading).some(Boolean);
+
     return (
-      <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-max">
+      <div className="space-y-5">
+        {characterSeeds.length > 0 ? (
+          <div className="flex flex-wrap gap-3">
+            {unbuiltCharacters.length > 0 ? (
+              <Button
+                type="button"
+                variant="default"
+                onClick={() => {
+                  unbuiltCharacters.forEach((seed) => {
+                    onBuildCharacter(seed);
+                  });
+                }}
+                disabled={anyBuilding}
+                className="gap-2 rounded-full"
+              >
+                {anyBuilding ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Building {Object.values(characterBuilding).filter(Boolean).length} of {unbuiltCharacters.length}...
+                  </>
+                ) : (
+                  <>
+                    Build All Dossiers ({unbuiltCharacters.length})
+                  </>
+                )}
+              </Button>
+            ) : null}
+            {charactersWithoutPortraits.length > 0 && posterAvailable ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  charactersWithoutPortraits.forEach((seed) => {
+                    onGeneratePortrait(seed.id);
+                  });
+                }}
+                disabled={anyPortraitLoading}
+                className="gap-2 rounded-full"
+              >
+                {anyPortraitLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Rendering {Object.values(characterPortraitLoading).filter(Boolean).length} of {charactersWithoutPortraits.length}...
+                  </>
+                ) : (
+                  <>
+                    Render All Portraits ({charactersWithoutPortraits.length})
+                  </>
+                )}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max">
         {characterSeeds.map((seed) => {
           const doc = characterDocs[seed.id];
           const isBuilding = Boolean(characterBuilding[seed.id]);
@@ -1585,10 +1713,10 @@ function ResultView({
           const tags = metadata.tags ?? [];
           const storyFunction = metadata.function;
           const biometrics = doc?.biometrics;
-          const species = biometrics?.species;
+          const species = biometrics?.species as CharacterSpecies | undefined;
           const paletteAnchors = doc?.look?.palette?.anchors ?? [];
-          const wardrobe = doc?.look?.wardrobe;
-          const behavior = doc?.behavior_and_rules;
+          const wardrobe = doc?.look?.wardrobe as CharacterWardrobe | undefined;
+          const behavior = doc?.behavior_and_rules as CharacterBehavior | undefined;
 
           const quickFacts: Array<{ label: string; value: string }> = [];
           if (isActive && species?.type) {
@@ -1692,7 +1820,7 @@ function ResultView({
               key={seed.id}
               className={cn(
                 'min-h-[240px] justify-between transition-all duration-500 ease-in-out overflow-hidden',
-                isActive ? 'md:col-span-2 scale-[1.01]' : 'scale-100',
+                isActive ? 'md:col-span-2 xl:col-span-3 scale-[1.01]' : 'scale-100',
                 !isActive && portraitUrl ? 'p-0' : ''
               )}
             >
@@ -1704,7 +1832,6 @@ function ResultView({
                       alt={`${seed.name} portrait`}
                       fill
                       className="object-cover object-center"
-                      style={{ objectPosition: 'center 30%' }}
                       sizes="(min-width: 768px) 280px, 100vw"
                     />
                   </div>
@@ -1726,11 +1853,6 @@ function ResultView({
                   <Badge variant="outline" className="rounded-full border-white/20 bg-black/40 text-foreground/65">
                     {seed.vibe}
                   </Badge>
-                ) : null}
-                {doc ? (
-                  <p className="text-xs uppercase tracking-[0.26em] text-primary/70">
-                    Dossier ready
-                  </p>
                 ) : null}
 
                 {isActive && doc ? (
@@ -1935,12 +2057,7 @@ function ResultView({
                   <Button
                     type="button"
                     variant={portraitUrl ? "outline" : "secondary"}
-                    onClick={() => {
-                      if (!isActive) {
-                        onSelectCharacter(seed.id);
-                      }
-                      onGeneratePortrait(seed.id);
-                    }}
+                    onClick={() => onGeneratePortrait(seed.id)}
                     disabled={portraitLoading}
                     className="w-full justify-center rounded-full text-sm transition-all duration-200"
                   >
@@ -1960,6 +2077,145 @@ function ResultView({
             </Card>
           );
         })}
+        </div>
+      </div>
+    );
+  })();
+
+  const videosContent = (() => {
+    if (!posterAvailable) {
+      return (
+        <div className="rounded-3xl border border-white/12 bg-black/45 p-6 text-sm text-foreground/65">
+          Video generation is disabled. Add a Replicate token to unlock character showcases.
+        </div>
+      );
+    }
+
+    if (charactersLoading && (!characterSeeds || characterSeeds.length === 0)) {
+      return (
+        <div className="rounded-3xl border border-white/12 bg-black/45 px-6 py-4 text-sm text-foreground/70">
+          <Loader2 className="mr-2 inline-block h-4 w-4 animate-spin text-primary" />
+          Preparing character lineup…
+        </div>
+      );
+    }
+
+    if (!characterSeeds || characterSeeds.length === 0) {
+      return (
+        <div className="rounded-3xl border border-dashed border-white/12 bg-black/45 p-6 text-center text-sm text-foreground/55">
+          Generate a show brief to unlock character showcases.
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {characterSeeds.map((seed) => {
+          const doc = characterDocs[seed.id];
+          const portraitUrl = characterPortraits[seed.id];
+          const videoUrl = characterVideos[seed.id];
+          const videoLoading = Boolean(characterVideoLoading[seed.id]);
+          const videoError = characterVideoErrors[seed.id];
+          const hasShowcasePrompt = Boolean(doc?.showcase_scene_prompt);
+          const canRender = Boolean(doc && portraitUrl && hasShowcasePrompt);
+
+          let actionLabel = "Render video";
+          if (!doc) {
+            actionLabel = "Build dossier first";
+          } else if (!portraitUrl) {
+            actionLabel = "Render portrait first";
+          } else if (!hasShowcasePrompt) {
+            actionLabel = "Missing scene prompt";
+          } else if (videoUrl) {
+            actionLabel = "Re-render video";
+          }
+
+          return (
+            <Card key={seed.id} className="flex h-full flex-col overflow-hidden border-white/10 bg-black/45 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+              <CardHeader className="space-y-1 border-b border-white/10 bg-black/40">
+                <CardTitle className="text-base text-foreground">{seed.name}</CardTitle>
+                <CardDescription className="text-xs text-foreground/60">
+                  {seed.summary}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-4 py-6 text-sm text-foreground/75">
+                {!doc ? (
+                  <p className="rounded-xl border border-white/10 bg-black/35 p-3 text-xs text-foreground/60">
+                    Build this character’s dossier from the Characters tab to unlock video renders.
+                  </p>
+                ) : !portraitUrl ? (
+                  <p className="rounded-xl border border-white/10 bg-black/35 p-3 text-xs text-foreground/60">
+                    Generate a portrait first so the model can lock onto their likeness.
+                  </p>
+                ) : !hasShowcasePrompt ? (
+                  <p className="rounded-xl border border-white/10 bg-black/35 p-3 text-xs text-foreground/60">
+                    Showcase prompt missing. Regenerate the character dossier to capture it.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="relative overflow-hidden rounded-2xl border border-white/12 bg-black/60 shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
+                      <div className="relative h-0 w-full pb-[56.25%]">
+                        {videoUrl ? (
+                          <video
+                            key={videoUrl}
+                            controls
+                            className="absolute inset-0 h-full w-full rounded-2xl object-cover"
+                            poster={portraitUrl ?? undefined}
+                          >
+                            <source src={videoUrl} type="video/mp4" />
+                            Your browser does not support the video tag.
+                          </video>
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(229,9,20,0.2),_transparent)]">
+                            <span className="text-xs uppercase tracking-[0.3em] text-foreground/45">
+                              Video pending
+                            </span>
+                          </div>
+                        )}
+                        {videoLoading ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="space-y-2 rounded-2xl border border-white/10 bg-black/35 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-foreground/45">
+                        Showcase scene prompt
+                      </p>
+                      <p className="whitespace-pre-wrap text-sm text-foreground/80">
+                        {doc.showcase_scene_prompt}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {videoError ? (
+                  <p className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-200/80">
+                    {videoError}
+                  </p>
+                ) : null}
+              </CardContent>
+              <CardFooter className="border-t border-white/10 bg-black/40">
+                <Button
+                  type="button"
+                  className="w-full justify-center rounded-full"
+                  variant={videoUrl ? "outline" : "default"}
+                  onClick={() => onGenerateVideo(seed.id)}
+                  disabled={videoLoading || !canRender}
+                >
+                  {videoLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Rendering video…
+                    </>
+                  ) : (
+                    actionLabel
+                  )}
+                </Button>
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
     );
   })();
@@ -1970,6 +2226,7 @@ function ResultView({
         <TabsList>
           <TabsTrigger value="master">Master</TabsTrigger>
           <TabsTrigger value="characters">Characters</TabsTrigger>
+          <TabsTrigger value="videos">Videos</TabsTrigger>
         </TabsList>
         <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} />
       </div>
@@ -1979,12 +2236,16 @@ function ResultView({
       <TabsContent value="characters" className="space-y-5 pb-32">
         {charactersContent}
       </TabsContent>
+      <TabsContent value="videos" className="space-y-5 pb-32">
+        {videosContent}
+      </TabsContent>
     </Tabs>
   );
 
 }
 
 export default function Home() {
+  const [currentShowId, setCurrentShowId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [blueprint, setBlueprint] = useState<ShowBlueprint | null>(null);
   const [usage, setUsage] = useState<ApiResponse["usage"]>();
@@ -2016,6 +2277,8 @@ export default function Home() {
   const [posterLoading, setPosterLoading] = useState(false);
   const [posterError, setPosterError] = useState<string | null>(null);
   const [posterAvailable, setPosterAvailable] = useState(false);
+  const [libraryPosterUrl, setLibraryPosterUrl] = useState<string | null>(null);
+  const [libraryPosterLoading, setLibraryPosterLoading] = useState(false);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -2038,6 +2301,7 @@ export default function Home() {
         characterVideoErrors?: Record<string, string>;
         posterUrl?: string | null;
         posterAvailable?: boolean;
+        libraryPosterUrl?: string | null;
       };
 
       if (parsed.model) {
@@ -2083,6 +2347,9 @@ export default function Home() {
       if (typeof parsed.posterAvailable === "boolean") {
         setPosterAvailable(parsed.posterAvailable);
       }
+      if (parsed.libraryPosterUrl) {
+        setLibraryPosterUrl(parsed.libraryPosterUrl);
+      }
     } catch (error) {
       console.error("Failed to restore session", error);
     }
@@ -2117,6 +2384,7 @@ export default function Home() {
       characterVideoErrors,
       posterUrl,
       posterAvailable,
+      libraryPosterUrl,
     };
     try {
       window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
@@ -2136,6 +2404,7 @@ export default function Home() {
     characterVideoErrors,
     posterAvailable,
     posterUrl,
+    libraryPosterUrl,
     rawJson,
     usage,
   ]);
@@ -2183,6 +2452,11 @@ export default function Home() {
         setCharacterVideos({});
         setCharacterVideoLoading({});
         setCharacterVideoErrors({});
+        
+        // Update show with character seeds
+        if (currentShowId && blueprint) {
+          setTimeout(() => void saveCurrentShow(false), 500);
+        }
       } catch (err) {
         console.error(err);
         setCharactersError(
@@ -2268,7 +2542,6 @@ export default function Home() {
           ...prev,
           [seed.id]: result.character as CharacterDocument,
         }));
-        setActiveCharacterId(seed.id);
       } catch (err) {
         console.error(err);
         setCharacterBuildErrors((prev) => ({
@@ -2348,6 +2621,13 @@ export default function Home() {
           delete next[characterId];
           return next;
         });
+        
+        // Trigger library poster generation after first portrait
+        const completedPortraits = Object.values(characterPortraits).filter(url => url).length;
+        if (completedPortraits === 0) { // This is the first portrait
+          console.log("🎨 First portrait completed - will attempt library poster generation");
+          setTimeout(() => void saveCurrentShow(true), 1000); // Give state time to update
+        }
       } catch (err) {
         console.error(err);
         setCharacterPortraitErrors((prev) => ({
@@ -2571,8 +2851,43 @@ export default function Home() {
         setActiveModel(chosenModel);
         setLastPrompt(value);
 
+        // Generate show ID immediately
+        const newShowId = `show-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        setCurrentShowId(newShowId);
+        console.log("🆕 New show created with ID:", newShowId);
+
         const posterIsAvailable = Boolean(result.posterAvailable);
         setPosterAvailable(posterIsAvailable);
+
+        // Save the initial show with blueprint
+        try {
+          const initialSave = {
+            id: newShowId,
+            blueprint: result.data,
+            rawJson: result.raw,
+            usage: result.usage,
+            model: chosenModel,
+            characterSeeds: [],
+            characterDocs: {},
+            characterPortraits: {},
+            characterVideos: {},
+            posterUrl: null,
+            libraryPosterUrl: null,
+            createdAt: new Date().toISOString(),
+          };
+          
+          const saveResponse = await fetch("/api/library", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(initialSave),
+          });
+          
+          if (saveResponse.ok) {
+            console.log("✅ Initial show saved to library");
+          }
+        } catch (err) {
+          console.error("Failed to save initial show:", err);
+        }
 
         const tasks: Array<Promise<void>> = [
           generateCharacterSeeds(value, result.data, chosenModel),
@@ -2616,6 +2931,276 @@ export default function Home() {
     setActiveCharacterId(null);
   }, []);
 
+  const startNewShow = useCallback(() => {
+    // Clear all state for a fresh start
+    setBlueprint(null);
+    setUsage(undefined);
+    setRawJson(null);
+    setError(null);
+    setActiveModel(model);
+    setCharacterSeeds(null);
+    setCharacterDocs({});
+    setCharacterBuilding({});
+    setCharacterBuildErrors({});
+    setActiveCharacterId(null);
+    setCharacterPortraits({});
+    setCharacterPortraitLoading({});
+    setCharacterPortraitErrors({});
+    setCharacterVideos({});
+    setCharacterVideoLoading({});
+    setCharacterVideoErrors({});
+    setCharactersError(null);
+    setCharactersLoading(false);
+    setPosterUrl(null);
+    setPosterError(null);
+    setPosterLoading(false);
+    setLibraryPosterUrl(null);
+    setLibraryPosterLoading(false);
+    setLastPrompt(null);
+    setCurrentShowId(null);
+    
+    // Clear localStorage
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  }, [model]);
+
+  const loadShow = useCallback(async (showId: string) => {
+    try {
+      const response = await fetch(`/api/library/${showId}`);
+      if (!response.ok) throw new Error("Failed to load show");
+      const data = await response.json() as { show: SavedShow };
+      const show = data.show;
+
+      console.log("📂 Loading show:", {
+        id: show.id,
+        hasBlueprint: !!show.blueprint,
+        characterCount: show.characterSeeds?.length || 0,
+        builtDossiers: Object.keys(show.characterDocs || {}).length,
+        portraitCount: Object.keys(show.characterPortraits || {}).filter(k => show.characterPortraits[k]).length,
+        videoCount: Object.keys(show.characterVideos || {}).filter(k => show.characterVideos[k]).length,
+        hasPoster: !!show.posterUrl,
+        hasLibraryPoster: !!show.libraryPosterUrl,
+      });
+      
+      // Load ALL saved data
+      setBlueprint(show.blueprint);
+      setRawJson(show.rawJson || null);
+      setUsage(show.usage);
+      setModel(show.model);
+      setActiveModel(show.model);
+      setCharacterSeeds(show.characterSeeds || []);
+      setCharacterDocs(show.characterDocs || {});
+      setCharacterPortraits(show.characterPortraits || {});
+      setCharacterVideos(show.characterVideos || {});
+      setPosterUrl(show.posterUrl || null);
+      setLibraryPosterUrl(show.libraryPosterUrl || null);
+      setPosterAvailable(true);
+      setCurrentShowId(show.id);
+      
+      // Clear any loading/error states
+      setCharacterBuilding({});
+      setCharacterBuildErrors({});
+      setCharacterPortraitLoading({});
+      setCharacterPortraitErrors({});
+      setCharacterVideoLoading({});
+      setCharacterVideoErrors({});
+      setActiveCharacterId(null);
+      setError(null);
+      
+      console.log("✅ Show loaded successfully");
+    } catch (error) {
+      console.error("Failed to load show:", error);
+      setError("Failed to load show from library");
+    }
+  }, []);
+
+  const canGenerateLibraryPoster = useCallback(() => {
+    // Must have blueprint with show data
+    if (!blueprint?.visual_aesthetics) {
+      console.log("⏳ No blueprint yet");
+      return false;
+    }
+    
+    // Must have Replicate token
+    if (!posterAvailable) {
+      console.log("⏳ No Replicate token");
+      return false;
+    }
+    
+    // Must NOT be currently loading any portraits
+    const isLoadingAnyPortrait = Object.values(characterPortraitLoading).some(Boolean);
+    if (isLoadingAnyPortrait) {
+      console.log("⏳ Portraits still loading, waiting...");
+      return false;
+    }
+    
+    // Must have at least one COMPLETED character portrait with actual URL
+    const completedPortraits = Object.values(characterPortraits).filter(url => url && typeof url === 'string' && url.length > 0);
+    
+    if (completedPortraits.length === 0) {
+      console.log("⏳ No completed portraits yet - need at least 1 character portrait");
+      return false;
+    }
+    
+    console.log(`✅ Can generate library poster - ${completedPortraits.length} portrait(s) ready`);
+    return true;
+  }, [blueprint, characterPortraits, characterPortraitLoading, posterAvailable]);
+
+  const generateLibraryPoster = useCallback(async () => {
+    const canGenerate = canGenerateLibraryPoster();
+    
+    if (!canGenerate) {
+      return null;
+    }
+    
+    // Find first character with a valid portrait URL
+    const characterWithPortrait = characterSeeds?.find(
+      (seed) => {
+        const url = characterPortraits[seed.id];
+        return url && typeof url === 'string' && url.length > 0;
+      }
+    );
+    
+    if (!characterWithPortrait) {
+      console.log("⏳ No character with valid portrait found");
+      return null;
+    }
+
+    const characterImageUrl = characterPortraits[characterWithPortrait.id];
+    
+    if (!characterImageUrl) {
+      console.log("⏳ Character portrait URL is invalid");
+      return null;
+    }
+
+    const logline = blueprint.show_logline || "Untitled Show";
+
+    console.log("🎬 GENERATING LIBRARY POSTER");
+    console.log("   Using character portrait:", characterWithPortrait.name);
+    console.log("   Portrait URL:", characterImageUrl.slice(0, 80) + "...");
+    setLibraryPosterLoading(true);
+    try {
+      const response = await fetch("/api/library-poster", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logline,
+          characterImageUrl,
+          showData: blueprint,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate library poster");
+      }
+
+      const result = (await response.json()) as { url?: string };
+      if (result.url) {
+        setLibraryPosterUrl(result.url);
+        return result.url;
+      }
+      return null;
+    } catch (error) {
+      console.error("Failed to generate library poster:", error);
+      return null;
+    } finally {
+      setLibraryPosterLoading(false);
+    }
+  }, [blueprint, posterAvailable, characterSeeds, characterPortraits, canGenerateLibraryPoster]);
+
+  const saveCurrentShow = useCallback(async (forceLibraryPoster = false) => {
+    if (!blueprint) return;
+    if (!currentShowId) return; // Don't save if no ID yet
+
+    // Generate library poster ONLY if forced or meets all requirements
+    let finalLibraryPosterUrl = libraryPosterUrl;
+    
+    if (forceLibraryPoster && !finalLibraryPosterUrl) {
+      const canGenerate = canGenerateLibraryPoster();
+      if (canGenerate) {
+        console.log("🎬 Force-generating library poster...");
+        const generated = await generateLibraryPoster();
+        if (generated) {
+          finalLibraryPosterUrl = generated;
+        }
+      }
+    }
+
+    try {
+      const saveData = {
+        id: currentShowId,
+        blueprint,
+        rawJson,
+        usage,
+        model: activeModel,
+        characterSeeds: characterSeeds || [],
+        characterDocs: characterDocs || {},
+        characterPortraits: characterPortraits || {},
+        characterVideos: characterVideos || {},
+        posterUrl: posterUrl || null,
+        libraryPosterUrl: finalLibraryPosterUrl || null,
+      };
+      
+      console.log(`💾 Updating show ${currentShowId}:`, {
+        characters: characterSeeds?.length || 0,
+        dossiers: Object.keys(characterDocs || {}).length,
+        portraits: Object.keys(characterPortraits || {}).filter(k => characterPortraits[k]).length,
+        videos: Object.keys(characterVideos || {}).filter(k => characterVideos[k]).length,
+        hasLibraryPoster: !!finalLibraryPosterUrl,
+      });
+      
+      const response = await fetch("/api/library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(saveData),
+      });
+
+      if (!response.ok) throw new Error("Failed to save show");
+      console.log("✅ Show updated");
+    } catch (error) {
+      console.error("❌ Failed to save show:", error);
+    }
+  }, [blueprint, rawJson, usage, activeModel, characterSeeds, characterDocs, characterPortraits, characterVideos, posterUrl, libraryPosterUrl, currentShowId, generateLibraryPoster, canGenerateLibraryPoster]);
+
+
+  // Auto-save when character data changes
+  const lastSaveRef = useRef<string>("");
+  useEffect(() => {
+    if (blueprint && currentShowId) {
+      const hasAnyCharacterData = 
+        Object.keys(characterDocs).length > 0 ||
+        Object.keys(characterPortraits).length > 0 ||
+        Object.keys(characterVideos).length > 0;
+      
+      if (hasAnyCharacterData) {
+        // Create a hash to prevent duplicate saves
+        const saveHash = JSON.stringify({
+          docs: Object.keys(characterDocs).sort(),
+          portraits: Object.keys(characterPortraits).filter(k => characterPortraits[k]).sort(),
+          videos: Object.keys(characterVideos).filter(k => characterVideos[k]).sort(),
+        });
+        
+        if (saveHash !== lastSaveRef.current) {
+          lastSaveRef.current = saveHash;
+          void saveCurrentShow(false);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [characterDocs, characterPortraits, characterVideos]);
+
+  // Load show from URL parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const loadId = params.get("load");
+    if (loadId && loadId !== currentShowId) {
+      void loadShow(loadId);
+      // Clean up URL
+      window.history.replaceState({}, "", "/");
+    }
+  }, [loadShow, currentShowId]);
+
   return (
     <div className="flex min-h-screen flex-col bg-black text-foreground">
       <header className="border-b border-white/12 bg-black/90">
@@ -2627,6 +3212,29 @@ export default function Home() {
             <span className="text-xs text-foreground/55">Look bible console</span>
           </div>
           <div className="flex items-center gap-4">
+            {blueprint ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={startNewShow}
+                className="gap-2 rounded-full"
+              >
+                <Plus className="h-4 w-4" />
+                New Show
+              </Button>
+            ) : null}
+            <Link href="/library">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-2 rounded-full"
+              >
+                <Library className="h-4 w-4" />
+                Show Library
+              </Button>
+            </Link>
             <Badge variant="outline" className="text-[11px] font-semibold uppercase tracking-[0.26em]">
               {selectedModelOption.label}
             </Badge>
@@ -2675,10 +3283,14 @@ export default function Home() {
             characterPortraits={characterPortraits}
             characterPortraitLoading={characterPortraitLoading}
             characterPortraitErrors={characterPortraitErrors}
+            characterVideos={characterVideos}
+            characterVideoLoading={characterVideoLoading}
+            characterVideoErrors={characterVideoErrors}
             onBuildCharacter={buildCharacter}
             onSelectCharacter={handleSelectCharacter}
             onClearActiveCharacter={handleClearActiveCharacter}
             onGeneratePortrait={generateCharacterPortrait}
+            onGenerateVideo={generateCharacterVideo}
             activeCharacterId={activeCharacterId}
             posterUrl={posterUrl}
             posterLoading={posterLoading}
@@ -2689,7 +3301,7 @@ export default function Home() {
         </div>
       </main>
 
-      <div className="sticky bottom-0 border-t border-white/12 bg-black/90 backdrop-blur">
+      <div className="sticky bottom-0 z-40 border-t border-white/12 bg-black/90 backdrop-blur">
         <div className="mx-auto w-full max-w-[1600px] px-6 py-4">
           <form onSubmit={handleSubmit} className="space-y-3">
             <Textarea
@@ -2711,41 +3323,6 @@ export default function Home() {
                 Press ⌘⏎ / Ctrl⏎ to send instantly.
               </p>
               <div className="flex items-center gap-2">
-                {blueprint ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setBlueprint(null);
-                      setUsage(undefined);
-                      setRawJson(null);
-                      setActiveModel(model);
-                      setCharacterSeeds(null);
-                      setCharacterDocs({});
-                      setCharacterBuilding({});
-                      setCharacterBuildErrors({});
-                      setActiveCharacterId(null);
-                      setCharacterPortraits({});
-                      setCharacterPortraitLoading({});
-                      setCharacterPortraitErrors({});
-                      setCharacterVideos({});
-                      setCharacterVideoLoading({});
-                      setCharacterVideoErrors({});
-                      setCharactersError(null);
-                      setCharactersLoading(false);
-                      setPosterUrl(null);
-                      setPosterError(null);
-                      setPosterLoading(false);
-                      setPosterAvailable(false);
-                      setLastPrompt(null);
-                      if (typeof window !== "undefined") {
-                        window.localStorage.removeItem(SESSION_STORAGE_KEY);
-                      }
-                    }}
-                  >
-                    Clear result
-                  </Button>
-                ) : null}
                 <Button
                   type="submit"
                   disabled={!canSubmit}

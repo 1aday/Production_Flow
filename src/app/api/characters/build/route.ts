@@ -97,7 +97,7 @@ const parseStructuredPayload = (response: unknown): unknown => {
     if (!Array.isArray(node.content)) continue;
     for (const fragment of node.content) {
       if (fragment?.type === "output_json_schema" && "parsed" in fragment) {
-        return (fragment as { parsed: unknown }).parsed;
+        return fragment["parsed"];
       }
     }
   }
