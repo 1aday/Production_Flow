@@ -3050,7 +3050,7 @@ export default function Home() {
   const generateLibraryPoster = useCallback(async () => {
     const canGenerate = canGenerateLibraryPoster();
     
-    if (!canGenerate) {
+    if (!canGenerate || !blueprint) {
       return null;
     }
     
