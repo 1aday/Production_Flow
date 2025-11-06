@@ -3531,11 +3531,8 @@ export default function Home() {
                 }
               }}
             />
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <p className="text-xs text-foreground/55 order-2 sm:order-1">
-                Press ⌘⏎ / Ctrl⏎ to send instantly.
-              </p>
-              <div className="flex items-center gap-2 order-1 sm:order-2">
+            <div className="flex justify-end">
+              <div className="flex items-center gap-2">
                 <Button
                   type="submit"
                   disabled={!canSubmit}
