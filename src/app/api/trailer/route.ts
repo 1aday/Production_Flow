@@ -65,19 +65,13 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
     const input = {
       prompt: trailerPrompt,
       image: characterGridUrl,
-      duration: 12, // EXPLICITLY SET TO 12 SECONDS (NUMBER, NOT STRING)
+      seconds: 12, // CORRECT PARAMETER IS "seconds" NOT "duration"
       aspect_ratio: "landscape",
       resolution: "high",
     };
-    
-    // Verify duration is a number
-    if (typeof input.duration !== 'number') {
-      console.error("⚠️ WARNING: duration is not a number!", typeof input.duration, input.duration);
-      input.duration = 12;
-    }
 
     console.log("=== Sora 2 Pro Trailer Input ===");
-    console.log("Duration:", input.duration, "seconds (MUST BE 12)");
+    console.log("Seconds:", input.seconds, "(MUST BE 12)");
     console.log("Resolution:", input.resolution);
     console.log("Aspect:", input.aspect_ratio);
     console.log("Model: openai/sora-2-pro");

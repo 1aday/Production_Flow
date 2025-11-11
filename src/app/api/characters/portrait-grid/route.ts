@@ -15,6 +15,7 @@ type PortraitGridBody = {
 const GRID_WIDTH = 1280;
 const GRID_HEIGHT = 720;
 const BACKGROUND_COLOR = { r: 18, g: 18, b: 18 }; // #121212
+const MAX_CHARACTERS = 10; // Always show 10 slots
 
 export async function POST(request: NextRequest) {
   let body: PortraitGridBody;
@@ -31,12 +32,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const columns = body.columns ?? 3;
-  const portraitCount = body.portraits.length;
-  const rows = Math.ceil(portraitCount / columns);
+  const columns = 5; // 5 columns x 2 rows = 10 slots
+  const rows = 2;
+  const totalSlots = MAX_CHARACTERS;
 
-  console.log("🎨 Compositing character grid from actual portraits:", {
-    characters: portraitCount,
+  console.log("🎨 Compositing character grid (10 slots):", {
+    charactersProvided: body.portraits.length,
     grid: `${columns}x${rows}`,
     output: `${GRID_WIDTH}x${GRID_HEIGHT}`,
   });
@@ -59,27 +60,27 @@ export async function POST(request: NextRequest) {
 
     console.log(`Downloaded ${portraitBuffers.length} portraits`);
 
-    // Calculate cell dimensions - since portraits are 1:1, use square cells
+    // Calculate cell dimensions for 5x2 grid (10 slots)
     const padding = 12;
+    const labelHeight = 30; // Height for character name label
     
-    // Calculate optimal cell size to fit in 1280x720
-    // For 3 columns, we want square cells that fit properly
+    // Calculate available space
     const availableWidth = GRID_WIDTH - (padding * (columns + 1));
     const availableHeight = GRID_HEIGHT - (padding * (rows + 1));
     
-    // Use square cells based on the limiting dimension
+    // Cell size - account for label at bottom
     const maxCellWidth = Math.floor(availableWidth / columns);
-    const maxCellHeight = Math.floor(availableHeight / rows);
-    const cellSize = Math.min(maxCellWidth, maxCellHeight);
+    const maxCellHeight = Math.floor(availableHeight / rows) - labelHeight;
+    const portraitSize = Math.min(maxCellWidth, maxCellHeight);
 
-    console.log(`Grid cells: ${cellSize}x${cellSize} (square) with ${padding}px padding, ${columns}x${rows} grid`);
+    console.log(`Grid: ${columns}x${rows} (10 slots), portrait size: ${portraitSize}x${portraitSize}, label height: ${labelHeight}px`);
 
-    // Resize all portraits to square cells without cropping
+    // Resize portraits to fit cells
     const resizedPortraits = await Promise.all(
       portraitBuffers.map(async ({ name, buffer }) => {
         const resized = await sharp(buffer)
-          .resize(cellSize, cellSize, {
-            fit: "contain", // Contain to preserve full portrait
+          .resize(portraitSize, portraitSize, {
+            fit: "contain",
             background: BACKGROUND_COLOR,
           })
           .toBuffer();
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Create base canvas
-    const canvas = sharp({
+    let canvas = sharp({
       create: {
         width: GRID_WIDTH,
         height: GRID_HEIGHT,
@@ -97,21 +98,49 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Position each portrait in the grid (centered in available space)
-    const compositeOperations = resizedPortraits.map((portrait, index) => {
-      const col = index % columns;
-      const row = Math.floor(index / columns);
-      const x = padding + col * (cellSize + padding);
-      const y = padding + row * (cellSize + padding);
+    // Create composite operations for all 10 slots
+    const compositeOperations = [];
+    
+    for (let i = 0; i < totalSlots; i++) {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      const x = padding + col * (maxCellWidth + padding);
+      const y = padding + row * (maxCellHeight + labelHeight + padding);
+      
+      if (i < resizedPortraits.length) {
+        // Add portrait
+        compositeOperations.push({
+          input: resizedPortraits[i].buffer,
+          top: y,
+          left: x + Math.floor((maxCellWidth - portraitSize) / 2), // Center in cell
+        });
+        
+        // Add character name label using SVG text
+        const name = resizedPortraits[i].name;
+        const textSvg = Buffer.from(`
+          <svg width="${maxCellWidth}" height="${labelHeight}">
+            <text 
+              x="50%" 
+              y="20" 
+              text-anchor="middle" 
+              font-family="Arial, sans-serif" 
+              font-size="16" 
+              font-weight="600"
+              fill="#E5E5E5"
+            >${name}</text>
+          </svg>
+        `);
+        
+        compositeOperations.push({
+          input: textSvg,
+          top: y + portraitSize + 4,
+          left: x,
+        });
+      }
+      // Empty slots remain black background
+    }
 
-      return {
-        input: portrait.buffer,
-        top: y,
-        left: x,
-      };
-    });
-
-    // Composite all portraits onto canvas
+    // Composite all elements onto canvas
     const gridBuffer = await canvas.composite(compositeOperations).webp({ quality: 95 }).toBuffer();
 
     console.log(`✅ Character grid composited: ${GRID_WIDTH}x${GRID_HEIGHT}`);

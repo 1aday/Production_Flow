@@ -1181,6 +1181,7 @@ function ResultView({
   trailerStatus,
   onGenerateTrailer,
   onRegenerateGrid,
+  onRegeneratePoster,
 }: {
   blueprint: ShowBlueprint | null;
   usage?: ApiResponse["usage"];
@@ -1234,6 +1235,7 @@ function ResultView({
   trailerStatus: string | null;
   onGenerateTrailer: () => void;
   onRegenerateGrid: () => void;
+  onRegeneratePoster: () => void;
 }) {
   const loaderActive = !blueprint && isLoading;
   const loaderMessage = useRotatingMessage(loaderActive, LOADING_MESSAGES, 1700);
@@ -1398,20 +1400,31 @@ function ResultView({
           )
           : posterUrl
             ? (
-              <div className="overflow-hidden rounded-3xl bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
-                <div className="relative h-0 w-full pb-[100%]">
-                  <Image
-                    src={posterUrl}
-                    alt="Generated poster concept"
-                    fill
-                    className="object-contain"
-                    sizes="(min-width: 768px) 560px, 100vw"
-                    priority
-                  />
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-3xl bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+                  <div className="relative h-0 w-full pb-[100%]">
+                    <Image
+                      src={posterUrl}
+                      alt="Generated poster concept"
+                      fill
+                      className="object-contain"
+                      sizes="(min-width: 768px) 560px, 100vw"
+                      priority
+                    />
+                  </div>
+                  <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
+                    1024×1792 •  output
+                  </div>
                 </div>
-                <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
-                  1024×1792 • Sora output
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onRegeneratePoster}
+                  disabled={posterLoading}
+                  className="w-full justify-center rounded-full text-sm"
+                >
+                  Re-generate Poster
+                </Button>
               </div>
             )
             : null
@@ -5034,6 +5047,10 @@ export default function Home() {
             onRegenerateGrid={() => {
               portraitGridDigestRef.current = "";
               setPortraitGridUrl(null);
+            }}
+            onRegeneratePoster={() => {
+              posterDigestRef.current = "";
+              setPosterUrl(null);
             }}
           />
         </div>

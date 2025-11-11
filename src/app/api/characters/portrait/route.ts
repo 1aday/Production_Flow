@@ -74,16 +74,17 @@ export async function POST(request: Request) {
   const characterJson = trimJson(body.character);
 
   const prompt = body.customPrompt || [
-    "Create a highly art-directed 1:1 square character portrait.",
+    "Create a character portrait for this show.",
     "Focus on cinematic lighting, intentional wardrobe, and expressive posture.",
-    "Respect the show's aesthetic while capturing the essence of the character.",
-    "Every choice must adhere to the aesthetic, palette, lighting, and creative rules specified in the show blueprint JSON.",
     "",
-    "Show blueprint JSON:",
+    "Here are the details of the character:",
+    characterJson,
+    "",
+    "Here are the aesthetics of the show:",
     showJson,
     "",
-    "Character blueprint JSON:",
-    characterJson,
+    "Respect the show's aesthetic while capturing the essence of the character.",
+    "Every choice must adhere to the aesthetic, palette, lighting, and creative rules specified in the show blueprint JSON.",
   ].join("\n");
 
   try {
