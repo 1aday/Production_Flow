@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
 
 type FrameRates = {
   animation_capture: number;
@@ -194,6 +195,9 @@ type CharacterDocument = {
       materiality?: string;
       physiology?: string;
     };
+    gender_identity?: string;
+    distinguishing_features?: string;
+    attire_notes?: string;
     age_years?: { value?: number; approximate?: boolean };
     ethnicity?: string;
     skin_color?: { hex?: string; description?: string };
@@ -367,6 +371,62 @@ const LOADING_MESSAGES = [
   "Authoring behavioral rails & scene presence cues",
   "Scoring delivery exports and validation hooks",
 ] as const;
+
+type VideoModelId = "openai/sora-2" | "openai/sora-2-pro";
+type VideoAspectRatio = "portrait" | "landscape";
+type VideoDuration = 4 | 8 | 12;
+type VideoResolution = "standard" | "high";
+
+type VideoModelOption = {
+  id: VideoModelId;
+  label: string;
+  description: string;
+  seconds: readonly VideoDuration[];
+  aspectRatios: readonly VideoAspectRatio[];
+  resolutions?: readonly VideoResolution[];
+};
+
+const VIDEO_MODEL_OPTIONS: readonly VideoModelOption[] = [
+  {
+    id: "openai/sora-2",
+    label: "Sora 2",
+    description: "Fast generation, 720p delivery.",
+    seconds: [4, 8, 12],
+    aspectRatios: ["portrait", "landscape"],
+  },
+  {
+    id: "openai/sora-2-pro",
+    label: "Sora 2 Pro",
+    description: "Higher fidelity up to 1024p.",
+    seconds: [4, 8, 12],
+    aspectRatios: ["portrait", "landscape"],
+    resolutions: ["standard", "high"],
+  },
+];
+
+const VIDEO_MODEL_OPTION_MAP = VIDEO_MODEL_OPTIONS.reduce<Record<VideoModelId, VideoModelOption>>(
+  (acc, option) => {
+    acc[option.id] = option;
+    return acc;
+  },
+  {} as Record<VideoModelId, VideoModelOption>
+);
+
+const VIDEO_DURATION_LABELS: Record<VideoDuration, string> = {
+  4: "4 seconds",
+  8: "8 seconds",
+  12: "12 seconds",
+};
+
+const VIDEO_ASPECT_LABELS: Record<VideoAspectRatio, string> = {
+  portrait: "Portrait 9:16",
+  landscape: "Landscape 16:9",
+};
+
+const VIDEO_RESOLUTION_LABELS: Record<VideoResolution, string> = {
+  standard: "Standard (720p)",
+  high: "High (1024p)",
+};
 
 function useRotatingMessage(active: boolean, messages: readonly string[], intervalMs = 1600) {
   const [index, setIndex] = useState(0);
@@ -870,8 +930,6 @@ function ColorSwatches({ colors }: { colors: string[] }) {
   );
 }
 
-const SESSION_STORAGE_KEY = "production-flow.session.v1";
-
 type SavedShow = {
   id: string;
   title: string;
@@ -887,6 +945,8 @@ type SavedShow = {
   characterVideos: Record<string, string[]>;
   posterUrl: string | null;
   libraryPosterUrl?: string | null;
+  portraitGridUrl?: string | null;
+  trailerUrl?: string | null;
 };
 
 const accentVariants = {
@@ -1100,6 +1160,22 @@ function ResultView({
   posterError,
   posterAvailable,
   isLoading,
+  videoModelId,
+  videoSeconds,
+  videoAspectRatio,
+  videoResolution,
+  onVideoModelChange,
+  onVideoSecondsChange,
+  onVideoAspectRatioChange,
+  onVideoResolutionChange,
+  libraryPosterUrl,
+  libraryPosterLoading,
+  portraitGridUrl,
+  portraitGridLoading,
+  trailerUrl,
+  trailerLoading,
+  trailerError,
+  onGenerateTrailer,
 }: {
   blueprint: ShowBlueprint | null;
   usage?: ApiResponse["usage"];
@@ -1132,9 +1208,96 @@ function ResultView({
   posterError: string | null;
   posterAvailable: boolean;
   isLoading: boolean;
+  videoModelId: VideoModelId;
+  videoSeconds: VideoDuration;
+  videoAspectRatio: VideoAspectRatio;
+  videoResolution: VideoResolution;
+  onVideoModelChange: (value: VideoModelId) => void;
+  onVideoSecondsChange: (value: VideoDuration) => void;
+  onVideoAspectRatioChange: (value: VideoAspectRatio) => void;
+  onVideoResolutionChange: (value: VideoResolution) => void;
+  libraryPosterUrl: string | null;
+  libraryPosterLoading: boolean;
+  portraitGridUrl: string | null;
+  portraitGridLoading: boolean;
+  trailerUrl: string | null;
+  trailerLoading: boolean;
+  trailerError: string | null;
+  onGenerateTrailer: () => void;
 }) {
   const loaderActive = !blueprint && isLoading;
   const loaderMessage = useRotatingMessage(loaderActive, LOADING_MESSAGES, 1700);
+  const videoModelOption = VIDEO_MODEL_OPTION_MAP[videoModelId] ?? VIDEO_MODEL_OPTIONS[0];
+  const charactersTabBusy =
+    charactersLoading ||
+    Object.values(characterBuilding).some(Boolean) ||
+    Object.values(characterPortraitLoading).some(Boolean);
+  const videosTabBusy = Object.values(characterVideoLoading).some(Boolean);
+  const trailerTabBusy = trailerLoading;
+  const assetsTabBusy =
+    posterLoading || libraryPosterLoading || portraitGridLoading || trailerLoading;
+  const [portraitCopyStates, setPortraitCopyStates] = useState<Record<string, "idle" | "copied" | "error">>({});
+  const portraitCopyTimeoutRef = useRef<Record<string, number>>({});
+
+  const buildPortraitPrompt = useCallback((characterId: string) => {
+    if (!blueprint) return null;
+    const doc = characterDocs[characterId];
+    if (!doc) return null;
+    const showJson = JSON.stringify(blueprint, null, 2);
+    const characterJson = JSON.stringify(doc, null, 2);
+
+    return [
+      "Create portrait of this character.",
+      "Focus on cinematic lighting, intentional wardrobe, and expressive posture that reflect the character and the aesthetics of the show.",
+      "Create portrait of this character.",
+      "Focus on cinematic lighting, intentional wardrobe, and expressive posture that reflect the character and the aesthetics of the show.",
+      "",
+      "Character blueprint JSON:",
+      characterJson,
+      "",
+      "Respect the show's aesthetic while capturing the essence of the character.",
+      "Every choice must adhere to the aesthetic, palette, lighting, and creative rules specified in the show blueprint JSON.",
+      "",
+      "Show blueprint JSON:",
+      showJson,
+    ].join("\n");
+  }, [blueprint, characterDocs]);
+
+  const handleCopyPortraitPrompt = useCallback(async (seedId: string) => {
+    const promptText = buildPortraitPrompt(seedId);
+    if (!promptText) {
+      setPortraitCopyStates((prev) => ({ ...prev, [seedId]: "error" }));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(promptText);
+      setPortraitCopyStates((prev) => ({ ...prev, [seedId]: "copied" }));
+    } catch (error) {
+      console.error("Failed to copy portrait prompt", error);
+      setPortraitCopyStates((prev) => ({ ...prev, [seedId]: "error" }));
+    } finally {
+      if (portraitCopyTimeoutRef.current[seedId]) {
+        window.clearTimeout(portraitCopyTimeoutRef.current[seedId]);
+      }
+      portraitCopyTimeoutRef.current[seedId] = window.setTimeout(() => {
+        setPortraitCopyStates((prev) => {
+          const next = { ...prev };
+          delete next[seedId];
+          return next;
+        });
+        delete portraitCopyTimeoutRef.current[seedId];
+      }, 2000);
+    }
+  }, [buildPortraitPrompt]);
+
+  useEffect(() => {
+    const registry = portraitCopyTimeoutRef.current;
+    return () => {
+      Object.values(registry).forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+    };
+  }, []);
 
   if (!blueprint) {
     if (isLoading) {
@@ -1227,7 +1390,7 @@ function ResultView({
           </div>
         ) : posterUrl ? (
           <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
-            <div className="relative h-0 w-full pb-[150%]">
+            <div className="relative h-0 w-full pb-[118%]">
               <Image
                 src={posterUrl}
                 alt="Generated poster concept"
@@ -1250,6 +1413,134 @@ function ResultView({
     >
       <div className="rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/65">
         Poster generation is disabled. Add a Replicate token to unlock one-click key art.
+      </div>
+    </CollapsibleSection>
+  );
+
+  const libraryPosterSection =
+    !posterAvailable
+      ? null
+      : (
+        <CollapsibleSection
+          title="Library-ready poster"
+          description="Polished 9:16 artwork staged for the library carousel."
+          accent="lagoon"
+          defaultOpen
+        >
+          {libraryPosterLoading ? (
+            <div className="flex items-center gap-3 rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/70">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              Rendering library poster…
+            </div>
+          ) : libraryPosterUrl ? (
+            <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+              <div className="relative h-0 w-full pb-[177%]">
+                <Image
+                  src={libraryPosterUrl}
+                  alt="Library-ready poster"
+                  fill
+                  className="object-cover"
+                  sizes="(min-width: 768px) 420px, 100vw"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
+              <p>Library poster will appear once a finished portrait exists.</p>
+              <p className="text-foreground/55">
+                Portraits trigger this automatically—no additional action needed.
+              </p>
+            </div>
+          )}
+        </CollapsibleSection>
+      );
+
+  const portraitGridSection = (
+    <CollapsibleSection
+      title="Character grid"
+      description="All hero portraits arranged in a single export."
+      accent="sand"
+      defaultOpen
+    >
+      {portraitGridLoading ? (
+        <div className="flex items-center gap-3 rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/70">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          Building character grid…
+        </div>
+      ) : portraitGridUrl ? (
+        <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+          <div className="relative h-0 w-full pb-[70%]">
+            <Image
+              src={portraitGridUrl}
+              alt="Character portrait grid"
+              fill
+              className="object-cover"
+              sizes="(min-width: 1024px) 800px, 100vw"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
+          <p>Grid renders after every character portrait is complete.</p>
+          <p className="text-foreground/55">Finish generating portraits to unlock the consolidated asset.</p>
+        </div>
+      )}
+    </CollapsibleSection>
+  );
+
+  const trailerSection = (
+    <CollapsibleSection
+      title="Series trailer"
+      description="Blockbuster-style teaser rendered via Sora 2 Pro."
+      accent="coral"
+      defaultOpen
+    >
+      <div className="space-y-4">
+        {trailerLoading ? (
+          <div className="flex items-center gap-3 rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/70">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            Rendering trailer…
+          </div>
+        ) : trailerUrl ? (
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+            <video
+              controls
+              className="h-full w-full"
+              poster={portraitGridUrl ?? undefined}
+            >
+              <source src={trailerUrl} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        ) : (
+          <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
+            <p>Generate the character grid to unlock the cinematic trailer.</p>
+            {!portraitGridUrl ? (
+              <p className="text-foreground/55">Portrait grid required.</p>
+            ) : null}
+          </div>
+        )}
+        {trailerError ? (
+          <p className="text-xs text-red-300">{trailerError}</p>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onGenerateTrailer}
+          disabled={!portraitGridUrl || trailerLoading}
+          className="w-full justify-center rounded-full text-sm"
+        >
+          {trailerLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Rendering trailer…
+            </>
+          ) : trailerUrl ? (
+            "Re-render trailer"
+          ) : (
+            "Generate trailer"
+          )}
+        </Button>
       </div>
     </CollapsibleSection>
   );
@@ -1298,7 +1589,7 @@ function ResultView({
     </div>
   );
 
-  const masterContent = (
+  const overviewContent = (
     <div className="space-y-6 sm:space-y-8">
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="space-y-4 sm:space-y-6">
@@ -2109,6 +2400,22 @@ function ResultView({
                     )}
                   </Button>
                 ) : null}
+                {doc && posterAvailable ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleCopyPortraitPrompt(seed.id)}
+                    disabled={portraitLoading}
+                    className="w-full justify-center rounded-full text-sm transition-all duration-200"
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    {portraitCopyStates[seed.id] === "copied"
+                      ? "Portrait prompt copied"
+                      : portraitCopyStates[seed.id] === "error"
+                        ? "Copy failed"
+                        : "Copy portrait prompt"}
+                  </Button>
+                ) : null}
               </CardFooter>
             </Card>
           );
@@ -2117,6 +2424,22 @@ function ResultView({
       </div>
     );
   })();
+
+  const masterContent = (
+    <div className="space-y-6 sm:space-y-8 max-w-[1200px] mx-auto">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <div className="space-y-4 sm:space-y-6">{loglinePanel}</div>
+        <div className="space-y-4 sm:space-y-6">{posterSection}</div>
+      </div>
+      <div className="space-y-4 sm:space-y-5">
+        <SectionHeading
+          title="Character lineup"
+          description="Active dossiers, prompts, and renders."
+        />
+        {charactersContent}
+      </div>
+    </div>
+  );
 
   const videosContent = (() => {
     if (!posterAvailable) {
@@ -2144,8 +2467,93 @@ function ResultView({
       );
     }
 
+    const supportsResolution = Boolean(videoModelOption.resolutions?.length);
+
     return (
-      <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="space-y-4">
+        <div className="rounded-3xl border border-white/12 bg-black/35 p-4 sm:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-foreground/55">
+                Video render settings
+              </p>
+              <p className="text-sm text-foreground/65">{videoModelOption.description}</p>
+            </div>
+            <div className="grid w-full gap-3 sm:auto-cols-max sm:grid-flow-col">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="video-model" className="text-[11px] uppercase tracking-[0.28em] text-foreground/50">
+                  Model
+                </label>
+                <select
+                  id="video-model"
+                  value={videoModelId}
+                  onChange={(event) => onVideoModelChange(event.target.value as VideoModelId)}
+                  className="rounded-full border border-white/20 bg-black/60 px-3 py-2 text-sm text-foreground focus:border-primary/60 focus:outline-none"
+                >
+                  {VIDEO_MODEL_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="video-seconds" className="text-[11px] uppercase tracking-[0.28em] text-foreground/50">
+                  Duration
+                </label>
+                <select
+                  id="video-seconds"
+                  value={videoSeconds}
+                  onChange={(event) => onVideoSecondsChange(Number(event.target.value) as VideoDuration)}
+                  className="rounded-full border border-white/20 bg-black/60 px-3 py-2 text-sm text-foreground focus:border-primary/60 focus:outline-none"
+                >
+                  {videoModelOption.seconds.map((seconds) => (
+                    <option key={seconds} value={seconds}>
+                      {VIDEO_DURATION_LABELS[seconds]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="video-aspect" className="text-[11px] uppercase tracking-[0.28em] text-foreground/50">
+                  Aspect
+                </label>
+                <select
+                  id="video-aspect"
+                  value={videoAspectRatio}
+                  onChange={(event) => onVideoAspectRatioChange(event.target.value as VideoAspectRatio)}
+                  className="rounded-full border border-white/20 bg-black/60 px-3 py-2 text-sm text-foreground focus:border-primary/60 focus:outline-none"
+                >
+                  {videoModelOption.aspectRatios.map((aspect) => (
+                    <option key={aspect} value={aspect}>
+                      {VIDEO_ASPECT_LABELS[aspect]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {supportsResolution ? (
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="video-resolution" className="text-[11px] uppercase tracking-[0.28em] text-foreground/50">
+                    Resolution
+                  </label>
+                  <select
+                    id="video-resolution"
+                    value={videoResolution}
+                    onChange={(event) => onVideoResolutionChange(event.target.value as VideoResolution)}
+                    className="rounded-full border border-white/20 bg-black/60 px-3 py-2 text-sm text-foreground focus:border-primary/60 focus:outline-none"
+                  >
+                    {videoModelOption.resolutions?.map((resolution) => (
+                      <option key={resolution} value={resolution}>
+                        {VIDEO_RESOLUTION_LABELS[resolution]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {characterSeeds.map((seed) => {
           const doc = characterDocs[seed.id];
           const portraitUrl = characterPortraits[seed.id];
@@ -2221,6 +2629,22 @@ function ResultView({
                           Version {selectedIndex + 1} of {videoUrls.length}
                         </div>
                       ) : null}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleCopyPortraitPrompt(seed.id)}
+                        className="rounded-full text-xs"
+                      >
+                        <Copy className="mr-1.5 h-3.5 w-3.5" />
+                        {portraitCopyStates[seed.id] === "copied"
+                          ? "Portrait prompt copied"
+                          : portraitCopyStates[seed.id] === "error"
+                            ? "Copy failed"
+                            : "Copy portrait prompt"}
+                      </Button>
                     </div>
                     {videoUrls.length > 1 ? (
                       <div className="space-y-2">
@@ -2340,22 +2764,89 @@ function ResultView({
             </Card>
           );
         })}
+        </div>
       </div>
     );
   })();
 
+  const trailerContent = (
+    <div className="space-y-6 max-w-[1000px] mx-auto">
+      {portraitGridSection}
+      {trailerSection}
+    </div>
+  );
+
   return (
-    <Tabs defaultValue="master" className="space-y-4">
+    <>
+      <Tabs defaultValue="master" className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="master" className="flex-1 sm:flex-none">Master</TabsTrigger>
-          <TabsTrigger value="characters" className="flex-1 sm:flex-none">Characters</TabsTrigger>
-          <TabsTrigger value="videos" className="flex-1 sm:flex-none">Videos</TabsTrigger>
+          <TabsTrigger value="master" className="flex-1 sm:flex-none">
+            <span className="flex items-center gap-2">
+              Master
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="characters" className="flex-1 sm:flex-none">
+            <span className="flex items-center gap-2">
+              Characters
+              {charactersTabBusy ? (
+                <span
+                  className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
+                  aria-label="Character tasks running"
+                />
+              ) : null}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="videos" className="flex-1 sm:flex-none">
+            <span className="flex items-center gap-2">
+              Videos
+              {videosTabBusy ? (
+                <span
+                  className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
+                  aria-label="Video renders running"
+                />
+              ) : null}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="trailer" className="flex-1 sm:flex-none">
+            <span className="flex items-center gap-2">
+              Trailer
+              {trailerTabBusy ? (
+                <span
+                  className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
+                  aria-label="Trailer rendering"
+                />
+              ) : null}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="assets" className="flex-1 sm:flex-none">
+            <span className="flex items-center gap-2">
+              Assets
+              {assetsTabBusy ? (
+                <span
+                  className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
+                  aria-label="Asset renders running"
+                />
+              ) : null}
+            </span>
+          </TabsTrigger>
         </TabsList>
         <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} />
       </div>
       <TabsContent value="master" className="space-y-4 sm:space-y-5 pb-32">
         {masterContent}
+      </TabsContent>
+      <TabsContent value="assets" className="space-y-4 sm:space-y-5 pb-32">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] max-w-[1200px] mx-auto">
+          <div className="space-y-4 sm:space-y-6">{posterSection}</div>
+          <div className="space-y-4 sm:space-y-6">
+            {libraryPosterSection}
+            {trailerSection}
+          </div>
+        </div>
+        <div className="max-w-[800px] mx-auto">
+          {portraitGridSection}
+        </div>
       </TabsContent>
       <TabsContent value="characters" className="space-y-4 sm:space-y-5 pb-32">
         {charactersContent}
@@ -2363,7 +2854,17 @@ function ResultView({
       <TabsContent value="videos" className="space-y-4 sm:space-y-5 pb-32">
         {videosContent}
       </TabsContent>
+      <TabsContent value="trailer" className="space-y-4 sm:space-y-5 pb-32">
+        {trailerContent}
+      </TabsContent>
+      <TabsContent value="trailer" className="space-y-4 sm:space-y-5 pb-32">
+        {trailerContent}
+      </TabsContent>
     </Tabs>
+    <div className="hidden" aria-hidden>
+      {overviewContent}
+    </div>
+    </>
   );
 
 }
@@ -2406,100 +2907,20 @@ export default function Home() {
   const [posterAvailable, setPosterAvailable] = useState(false);
   const [libraryPosterUrl, setLibraryPosterUrl] = useState<string | null>(null);
   const [libraryPosterLoading, setLibraryPosterLoading] = useState(false);
+  const [portraitGridUrl, setPortraitGridUrl] = useState<string | null>(null);
+  const [portraitGridLoading, setPortraitGridLoading] = useState(false);
+  const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
+  const [trailerLoading, setTrailerLoading] = useState(false);
+  const [trailerError, setTrailerError] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!stored) return;
-    try {
-      const parsed = JSON.parse(stored) as {
-        model?: ModelId;
-        blueprint?: ShowBlueprint | null;
-        usage?: ApiResponse["usage"];
-        rawJson?: string | null;
-        characterSeeds?: CharacterSeed[] | null;
-        characterDocs?: Record<string, CharacterDocument>;
-        activeCharacterId?: string | null;
-        lastPrompt?: string | null;
-        characterPortraits?: Record<string, string | null>;
-        characterPortraitErrors?: Record<string, string>;
-        characterVideos?: Record<string, string | null>;
-        characterVideoErrors?: Record<string, string>;
-        posterUrl?: string | null;
-        posterAvailable?: boolean;
-        libraryPosterUrl?: string | null;
-        editedVideoPrompts?: Record<string, string>;
-        selectedVideoIndex?: Record<string, number>;
-      };
-
-      if (parsed.model) {
-        setModel(parsed.model);
-        setActiveModel(parsed.model);
-      }
-      if (parsed.blueprint) {
-        setBlueprint(parsed.blueprint);
-      }
-      if (parsed.usage) {
-        setUsage(parsed.usage);
-      }
-      if (parsed.rawJson) {
-        setRawJson(parsed.rawJson);
-      }
-      if (parsed.characterSeeds) {
-        setCharacterSeeds(parsed.characterSeeds);
-      }
-      if (parsed.characterDocs) {
-        setCharacterDocs(parsed.characterDocs);
-      }
-      if (parsed.activeCharacterId) {
-        setActiveCharacterId(parsed.activeCharacterId);
-      }
-      if (parsed.lastPrompt) {
-        setLastPrompt(parsed.lastPrompt);
-      }
-      if (parsed.characterPortraits) {
-        setCharacterPortraits(parsed.characterPortraits);
-      }
-      if (parsed.characterPortraitErrors) {
-        setCharacterPortraitErrors(parsed.characterPortraitErrors);
-      }
-      if (parsed.characterVideos) {
-        // Migrate old format (string | null) to new format (string[])
-        const migratedVideos: Record<string, string[]> = {};
-        for (const [key, value] of Object.entries(parsed.characterVideos)) {
-          if (Array.isArray(value)) {
-            migratedVideos[key] = value;
-          } else if (value && typeof value === 'string') {
-            migratedVideos[key] = [value];
-          } else {
-            migratedVideos[key] = [];
-          }
-        }
-        setCharacterVideos(migratedVideos);
-      }
-      if (parsed.characterVideoErrors) {
-        setCharacterVideoErrors(parsed.characterVideoErrors);
-      }
-      if (parsed.posterUrl) {
-        setPosterUrl(parsed.posterUrl);
-      }
-      if (typeof parsed.posterAvailable === "boolean") {
-        setPosterAvailable(parsed.posterAvailable);
-      }
-      if (parsed.libraryPosterUrl) {
-        setLibraryPosterUrl(parsed.libraryPosterUrl);
-      }
-      if (parsed.editedVideoPrompts) {
-        setEditedVideoPrompts(parsed.editedVideoPrompts);
-      }
-      if (parsed.selectedVideoIndex) {
-        setSelectedVideoIndex(parsed.selectedVideoIndex);
-      }
-    } catch (error) {
-      console.error("Failed to restore session", error);
-    }
-  }, []);
+  const [videoModelId, setVideoModelId] = useState<VideoModelId>(VIDEO_MODEL_OPTIONS[0].id);
+  const [videoSeconds, setVideoSeconds] = useState<VideoDuration>(8);
+  const [videoAspectRatio, setVideoAspectRatio] = useState<VideoAspectRatio>("landscape");
+  const [videoResolution, setVideoResolution] = useState<VideoResolution>("standard");
+  const selectedVideoModel = useMemo(
+    () => VIDEO_MODEL_OPTION_MAP[videoModelId] ?? VIDEO_MODEL_OPTIONS[0],
+    [videoModelId]
+  );
 
   useEffect(() => {
     if (blueprint) {
@@ -2508,54 +2929,20 @@ export default function Home() {
   }, [blueprint]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const hasSeeds = !!(characterSeeds && characterSeeds.length > 0);
-
-    if (!blueprint && !hasSeeds && !posterUrl && !rawJson) {
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
-      return;
+    if (!selectedVideoModel.seconds.includes(videoSeconds)) {
+      setVideoSeconds(selectedVideoModel.seconds[0]);
     }
-    const payload = {
-      model: activeModel,
-      blueprint,
-      usage,
-      rawJson,
-      characterSeeds,
-      characterDocs,
-      activeCharacterId,
-      lastPrompt,
-      characterPortraits,
-      characterPortraitErrors,
-      characterVideos,
-      characterVideoErrors,
-      editedVideoPrompts,
-      selectedVideoIndex,
-      posterUrl,
-      posterAvailable,
-      libraryPosterUrl,
-    };
-    try {
-      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
-    } catch (error) {
-      console.error("Failed to persist session", error);
+    if (!selectedVideoModel.aspectRatios.includes(videoAspectRatio)) {
+      setVideoAspectRatio(selectedVideoModel.aspectRatios[0]);
     }
-  }, [
-    activeModel,
-    blueprint,
-    characterSeeds,
-    characterDocs,
-    activeCharacterId,
-    lastPrompt,
-    characterPortraits,
-    characterPortraitErrors,
-    characterVideos,
-    characterVideoErrors,
-    posterAvailable,
-    posterUrl,
-    libraryPosterUrl,
-    rawJson,
-    usage,
-  ]);
+    if (!selectedVideoModel.resolutions) {
+      if (videoResolution !== "standard") {
+        setVideoResolution("standard");
+      }
+    } else if (!selectedVideoModel.resolutions.includes(videoResolution)) {
+      setVideoResolution(selectedVideoModel.resolutions[0]);
+    }
+  }, [selectedVideoModel, videoAspectRatio, videoResolution, videoSeconds]);
 
   const canSubmit = useMemo(
     () => input.trim().length > 0 && !isLoading,
@@ -2600,6 +2987,9 @@ export default function Home() {
         setCharacterVideos({});
         setCharacterVideoLoading({});
         setCharacterVideoErrors({});
+        setPortraitGridUrl(null);
+        setPortraitGridLoading(false);
+        portraitGridDigestRef.current = "";
         
         // Update show with character seeds
         if (currentShowId && blueprint) {
@@ -2623,6 +3013,9 @@ export default function Home() {
         setCharacterVideos({});
         setCharacterVideoLoading({});
         setCharacterVideoErrors({});
+        setPortraitGridUrl(null);
+        setPortraitGridLoading(false);
+        portraitGridDigestRef.current = "";
       } finally {
         setCharactersLoading(false);
       }
@@ -2703,6 +3096,17 @@ export default function Home() {
     },
     [activeModel, blueprint, input, lastPrompt]
   );
+
+  useEffect(() => {
+    if (!blueprint || !characterSeeds?.length) return;
+    const seedsToBuild = characterSeeds.filter(
+      (seed) => !characterDocs[seed.id] && !characterBuilding[seed.id]
+    );
+    if (seedsToBuild.length === 0) return;
+    seedsToBuild.forEach((seed) => {
+      void buildCharacter(seed);
+    });
+  }, [blueprint, characterSeeds, characterDocs, characterBuilding, buildCharacter]);
 
   const generateCharacterPortrait = useCallback(
     async (characterId: string) => {
@@ -2793,6 +3197,26 @@ export default function Home() {
     [blueprint, characterDocs]
   );
 
+  useEffect(() => {
+    if (!blueprint) return;
+    if (!posterAvailable) return;
+    if (!characterSeeds?.length) return;
+    characterSeeds.forEach((seed) => {
+      if (!characterDocs[seed.id]) return;
+      if (characterPortraits[seed.id]) return;
+      if (characterPortraitLoading[seed.id]) return;
+      void generateCharacterPortrait(seed.id);
+    });
+  }, [
+    blueprint,
+    posterAvailable,
+    characterSeeds,
+    characterDocs,
+    characterPortraits,
+    characterPortraitLoading,
+    generateCharacterPortrait,
+  ]);
+
   const generateCharacterVideo = useCallback(
     async (characterId: string, customPrompt?: string) => {
       if (!posterAvailable) {
@@ -2863,6 +3287,10 @@ export default function Home() {
             show: blueprint,
             character: characterWithPrompt,
             portraitUrl,
+            modelId: videoModelId,
+            seconds: videoSeconds,
+            aspectRatio: videoAspectRatio,
+            resolution: videoResolution,
           }),
         });
 
@@ -2906,7 +3334,7 @@ export default function Home() {
         setCharacterVideoLoading((prev) => ({ ...prev, [characterId]: false }));
       }
     },
-    [blueprint, characterDocs, characterPortraits, posterAvailable]
+    [blueprint, characterDocs, characterPortraits, posterAvailable, videoAspectRatio, videoModelId, videoResolution, videoSeconds]
   );
 
   const generatePoster = useCallback(
@@ -2919,7 +3347,7 @@ export default function Home() {
       const trimmedPrompt =
         pitch.length > 5000 ? `${pitch.slice(0, 4950)}…` : pitch;
 
-      try {
+      const attemptPoster = async (): Promise<{ url?: string } | null> => {
         const response = await fetch("/api/poster", {
           method: "POST",
           headers: {
@@ -2938,7 +3366,41 @@ export default function Home() {
           throw new Error(body?.error ?? fallback);
         }
 
-        const result = (await response.json()) as { url?: string };
+        return (await response.json()) as { url?: string };
+      };
+
+      try {
+        let attempts = 0;
+        let result: { url?: string } | null = null;
+        while (attempts < 3) {
+          attempts += 1;
+          try {
+            result = await attemptPoster();
+            if (result?.url) break;
+          } catch (innerError) {
+            const message =
+              innerError instanceof Error
+                ? innerError.message
+                : "Unable to generate poster.";
+            console.warn(`Poster attempt ${attempts} failed:`, message);
+            if (
+              /sensitive/i.test(message) ||
+              /flagged/i.test(message) ||
+              /E005/i.test(message)
+            ) {
+              if (attempts >= 3) {
+                throw innerError;
+              }
+              continue;
+            }
+            throw innerError;
+          }
+        }
+
+        if (!result?.url) {
+          throw new Error("Poster generation returned no image.");
+        }
+
         setPosterUrl(result.url ?? null);
       } catch (err) {
         console.error(err);
@@ -2958,6 +3420,195 @@ export default function Home() {
     },
     []
   );
+
+  const generateTrailer = useCallback(async () => {
+    if (!blueprint) {
+      setTrailerError("Blueprint missing.");
+      return;
+    }
+    if (!portraitGridUrl) {
+      setTrailerError("Character grid missing. Generate the grid first.");
+      return;
+    }
+
+    const digest = portraitGridUrl;
+    trailerDigestRef.current = digest;
+
+    setTrailerLoading(true);
+    setTrailerError(null);
+
+    try {
+      const response = await fetch("/api/trailer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: blueprint.show_title ?? "Untitled Series",
+          logline: blueprint.show_logline ?? "",
+          characterGridUrl: portraitGridUrl,
+          show: blueprint,
+        }),
+      });
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        const fallback = `Failed to generate trailer (${response.status}).`;
+        throw new Error(body?.error ?? fallback);
+      }
+
+      const result = (await response.json()) as { url?: string };
+      if (!result.url) {
+        throw new Error("Trailer response missing URL.");
+      }
+      setTrailerUrl(result.url);
+    } catch (err) {
+      console.error("Failed to generate trailer:", err);
+      const message =
+        err instanceof Error ? err.message : "Unable to generate trailer.";
+      setTrailerError(message);
+      setTrailerUrl(null);
+      trailerDigestRef.current = "";
+    } finally {
+      setTrailerLoading(false);
+    }
+  }, [blueprint, portraitGridUrl]);
+
+  useEffect(() => {
+    if (!posterAvailable) return;
+    if (!blueprint?.show_logline) return;
+    if (!characterSeeds || characterSeeds.length === 0) return;
+    const allDocsReady = characterSeeds.every((seed) => Boolean(characterDocs[seed.id]));
+    if (!allDocsReady) return;
+    if (posterLoading) return;
+
+    const charactersSummary = characterSeeds
+      .map((seed) => {
+        const doc = characterDocs[seed.id];
+        if (!doc) return null;
+        return {
+          id: seed.id,
+          name: seed.name,
+          role: doc.metadata?.role ?? seed.summary,
+          species: doc.biometrics?.species ?? null,
+          gender: doc.biometrics?.gender_identity ?? null,
+          ethnicity: doc.biometrics?.ethnicity ?? null,
+          skin_color: doc.biometrics?.skin_color ?? null,
+          eye_color: doc.biometrics?.eye_color ?? null,
+          distinguishing_features:
+            doc.biometrics?.distinguishing_features ?? doc.biometrics?.species?.visual_markers ?? null,
+          wardrobe: doc.look?.wardrobe ?? null,
+        };
+      })
+      .filter(Boolean);
+
+    if (charactersSummary.length === 0) return;
+
+    const signature = JSON.stringify({
+      logline: blueprint.show_logline,
+      characters: charactersSummary,
+    });
+
+    if (posterDigestRef.current === signature) {
+      return;
+    }
+
+    posterDigestRef.current = signature;
+
+    const compositePrompt = [
+      `Series logline: ${blueprint.show_logline}`,
+      "Character dossiers (minified JSON):",
+      JSON.stringify(charactersSummary),
+    ].join("\n\n");
+
+    void generatePoster(compositePrompt);
+  }, [
+    posterAvailable,
+    blueprint,
+    characterSeeds,
+    characterDocs,
+    generatePoster,
+    posterLoading,
+  ]);
+
+  useEffect(() => {
+    if (!blueprint) return;
+    if (!characterSeeds || characterSeeds.length === 0) return;
+    const portraitsData = characterSeeds
+      .map((seed) => {
+        const url = characterPortraits[seed.id];
+        if (!url) return null;
+        return { id: seed.id, name: seed.name, url };
+      })
+      .filter((entry): entry is { id: string; name: string; url: string } => Boolean(entry));
+    if (portraitsData.length === 0) return;
+    if (portraitsData.length !== characterSeeds.length) return;
+
+    const signature = JSON.stringify(portraitsData.map((entry) => entry.url));
+
+    if (portraitGridUrl && portraitGridDigestRef.current === "") {
+      portraitGridDigestRef.current = signature;
+      return;
+    }
+
+    if (portraitGridDigestRef.current === signature || portraitGridLoading) {
+      return;
+    }
+
+    portraitGridDigestRef.current = signature;
+    setPortraitGridLoading(true);
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/characters/portrait-grid", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            portraits: portraitsData,
+            columns: 3,
+          }),
+        });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as { error?: string } | null;
+          const message = body?.error ?? `Failed to generate portrait grid (${response.status})`;
+          throw new Error(message);
+        }
+        const result = (await response.json()) as { url?: string };
+        if (result.url) {
+          setPortraitGridUrl(result.url);
+        } else {
+          throw new Error("Portrait grid response missing URL.");
+        }
+      } catch (error) {
+        console.error("Failed to compose portrait grid:", error);
+        portraitGridDigestRef.current = "";
+      } finally {
+        setPortraitGridLoading(false);
+      }
+    })();
+  }, [
+    blueprint,
+    characterSeeds,
+    characterPortraits,
+    portraitGridUrl,
+    portraitGridLoading,
+  ]);
+
+  useEffect(() => {
+    if (!blueprint) return;
+    if (!portraitGridUrl) return;
+    if (trailerUrl || trailerLoading) return;
+    if (!posterAvailable) return;
+    if (trailerDigestRef.current === portraitGridUrl) return;
+    void generateTrailer();
+  }, [
+    blueprint,
+    portraitGridUrl,
+    trailerUrl,
+    trailerLoading,
+    posterAvailable,
+    generateTrailer,
+  ]);
 
   const submitPrompt = useCallback(
     async (value: string, chosenModel: ModelId) => {
@@ -2980,6 +3631,12 @@ export default function Home() {
       setPosterError(null);
       setPosterLoading(false);
       setPosterAvailable(false);
+      setLibraryPosterUrl(null);
+      setLibraryPosterLoading(false);
+      setPortraitGridUrl(null);
+      setPortraitGridLoading(false);
+      posterDigestRef.current = "";
+      portraitGridDigestRef.current = "";
       setLastPrompt(null);
 
       try {
@@ -3044,6 +3701,8 @@ export default function Home() {
             characterVideos: {},
             posterUrl: null,
             libraryPosterUrl: null,
+            portraitGridUrl: null,
+            trailerUrl: null,
             createdAt: new Date().toISOString(),
           };
           
@@ -3129,13 +3788,16 @@ export default function Home() {
     setPosterLoading(false);
     setLibraryPosterUrl(null);
     setLibraryPosterLoading(false);
+    setPortraitGridUrl(null);
+    setPortraitGridLoading(false);
+    setTrailerUrl(null);
+    setTrailerLoading(false);
+    setTrailerError(null);
     setLastPrompt(null);
     setCurrentShowId(null);
-    
-    // Clear localStorage
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
-    }
+    posterDigestRef.current = "";
+    portraitGridDigestRef.current = "";
+    trailerDigestRef.current = "";
   }, [model]);
 
   const loadShow = useCallback(async (showId: string) => {
@@ -3178,8 +3840,13 @@ export default function Home() {
       setSelectedVideoIndex({});
       setPosterUrl(show.posterUrl || null);
       setLibraryPosterUrl(show.libraryPosterUrl || null);
+      setPortraitGridUrl(show.portraitGridUrl || null);
+      setTrailerUrl(show.trailerUrl || null);
+      setTrailerError(null);
       setPosterAvailable(true);
       setCurrentShowId(show.id);
+      setPortraitGridLoading(false);
+      setTrailerLoading(false);
       
       console.log("State updated - portraits now:", Object.keys(show.characterPortraits || {}).length);
       console.log("State updated - videos now:", Object.keys(show.characterVideos || {}).length);
@@ -3194,6 +3861,21 @@ export default function Home() {
       setActiveCharacterId(null);
       setError(null);
       
+      const portraitUrlsForDigest =
+        show.characterSeeds?.map((seed) => show.characterPortraits?.[seed.id] || null) ?? [];
+      if (
+        show.portraitGridUrl &&
+        portraitUrlsForDigest.length &&
+        portraitUrlsForDigest.every((url) => typeof url === "string" && url.length > 0)
+      ) {
+        portraitGridDigestRef.current = JSON.stringify(
+          portraitUrlsForDigest as string[]
+        );
+      } else {
+        portraitGridDigestRef.current = "";
+      }
+      posterDigestRef.current = "";
+      trailerDigestRef.current = show.portraitGridUrl ?? "";
       console.log("✅ Show loaded successfully");
       
       // Small delay to ensure state has propagated before allowing saves
@@ -3204,6 +3886,19 @@ export default function Home() {
       setIsLoadingShow(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const pendingShowId = window.sessionStorage.getItem(LIBRARY_LOAD_STORAGE_KEY);
+      if (!pendingShowId) return;
+      window.sessionStorage.removeItem(LIBRARY_LOAD_STORAGE_KEY);
+      if (pendingShowId === currentShowId) return;
+      void loadShow(pendingShowId);
+    } catch (error) {
+      console.error("Failed to read pending library selection", error);
+    }
+  }, [currentShowId, loadShow]);
 
   const canGenerateLibraryPoster = useCallback(() => {
     // Must have blueprint with show data
@@ -3334,6 +4029,8 @@ export default function Home() {
         characterVideos: characterVideos || {},
         posterUrl: posterUrl || null,
         libraryPosterUrl: finalLibraryPosterUrl || null,
+        portraitGridUrl: portraitGridUrl || null,
+        trailerUrl: trailerUrl || null,
       };
       
       const totalVideos = Object.values(characterVideos || {}).reduce((sum, arr) => sum + arr.length, 0);
@@ -3345,6 +4042,7 @@ export default function Home() {
         portraits: portraitCount,
         videos: totalVideos,
         hasLibraryPoster: !!finalLibraryPosterUrl,
+        hasPortraitGrid: !!portraitGridUrl,
       });
       
       console.log("  Portrait data being saved:", characterPortraits);
@@ -3361,11 +4059,14 @@ export default function Home() {
     } catch (error) {
       console.error("❌ Failed to save show:", error);
     }
-  }, [blueprint, rawJson, usage, activeModel, characterSeeds, characterDocs, characterPortraits, characterVideos, posterUrl, libraryPosterUrl, currentShowId, isLoadingShow, generateLibraryPoster, canGenerateLibraryPoster]);
+  }, [blueprint, rawJson, usage, activeModel, characterSeeds, characterDocs, characterPortraits, characterVideos, posterUrl, libraryPosterUrl, portraitGridUrl, trailerUrl, currentShowId, isLoadingShow, generateLibraryPoster, canGenerateLibraryPoster]);
 
 
   // Auto-save when character data changes
   const lastSaveRef = useRef<string>("");
+  const posterDigestRef = useRef<string>("");
+  const portraitGridDigestRef = useRef<string>("");
+  const trailerDigestRef = useRef<string>("");
   useEffect(() => {
     if (blueprint && currentShowId) {
       const hasAnyCharacterData = 
@@ -3379,6 +4080,8 @@ export default function Home() {
           docs: Object.keys(characterDocs).sort(),
           portraits: Object.keys(characterPortraits).filter(k => characterPortraits[k]).sort(),
           videos: Object.keys(characterVideos).filter(k => characterVideos[k]).sort(),
+          grid: portraitGridUrl ?? null,
+          trailer: trailerUrl ?? null,
         });
         
         if (saveHash !== lastSaveRef.current) {
@@ -3388,18 +4091,7 @@ export default function Home() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [characterDocs, characterPortraits, characterVideos]);
-
-  // Load show from URL parameter
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const loadId = params.get("load");
-    if (loadId && loadId !== currentShowId) {
-      void loadShow(loadId);
-      // Clean up URL
-      window.history.replaceState({}, "", "/");
-    }
-  }, [loadShow, currentShowId]);
+  }, [characterDocs, characterPortraits, characterVideos, portraitGridUrl, trailerUrl]);
 
   return (
     <div className="flex min-h-screen flex-col bg-black text-foreground">
@@ -3501,6 +4193,22 @@ export default function Home() {
             posterError={posterError}
             posterAvailable={posterAvailable}
             isLoading={isLoading}
+            videoModelId={videoModelId}
+            videoSeconds={videoSeconds}
+            videoAspectRatio={videoAspectRatio}
+            videoResolution={videoResolution}
+            onVideoModelChange={(value) => setVideoModelId(value)}
+            onVideoSecondsChange={(value) => setVideoSeconds(value)}
+            onVideoAspectRatioChange={(value) => setVideoAspectRatio(value)}
+            onVideoResolutionChange={(value) => setVideoResolution(value)}
+            libraryPosterUrl={libraryPosterUrl}
+            libraryPosterLoading={libraryPosterLoading}
+            portraitGridUrl={portraitGridUrl}
+            portraitGridLoading={portraitGridLoading}
+            trailerUrl={trailerUrl}
+            trailerLoading={trailerLoading}
+            trailerError={trailerError}
+            onGenerateTrailer={() => void generateTrailer()}
           />
         </div>
       </main>
@@ -3512,53 +4220,50 @@ export default function Home() {
           : "border-white/12 bg-black/90"
       )}>
         <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6 py-4">
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <Textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder="Describe your show's premise, visual style, tone, or world..."
+          <form onSubmit={handleSubmit}>
+            <div
               className={cn(
-                "overflow-hidden transition-all duration-300 resize-none text-base",
-                !blueprint && "ring-2 ring-primary/30 border-primary/20 focus:ring-primary/50 focus:border-primary/30"
+                "flex items-center gap-3 rounded-2xl border border-white/15 bg-black/70 px-4 sm:px-5 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all duration-200",
+                "focus-within:border-primary/40 focus-within:bg-black/80",
+                !blueprint && "border-primary/40 bg-black/60"
               )}
-              rows={!blueprint ? 4 : 3}
-              onKeyDown={(event) => {
-                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                  event.preventDefault();
-                  if (canSubmit) {
-                    void submitPrompt(input, model);
+            >
+              <Textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                placeholder="Describe the show…"
+                className={cn(
+                  "h-12 sm:h-14 min-h-0 flex-1 resize-none border-none bg-transparent px-0 py-0 text-lg sm:text-xl font-medium leading-snug tracking-tight text-foreground caret-primary placeholder:text-foreground/45 placeholder:font-normal rounded-none",
+                  "focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-none focus-visible:outline-none"
+                )}
+                rows={1}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    if (canSubmit) {
+                      void submitPrompt(input, model);
+                    }
                   }
-                }
-              }}
-            />
-            <div className="flex justify-end">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="submit"
-                  disabled={!canSubmit}
-                  size="lg"
-                  className={cn(
-                    "w-full sm:w-auto gap-2 rounded-full font-semibold shadow-lg transition-all duration-200",
-                    "bg-primary hover:bg-primary/90 text-white",
-                    "disabled:opacity-50 disabled:cursor-not-allowed",
-                    !blueprint && canSubmit && "ring-2 ring-primary/30 shadow-[0_0_20px_rgba(229,9,20,0.3)]",
-                    canSubmit && "hover:shadow-[0_0_30px_rgba(229,9,20,0.4)] hover:scale-105"
-                  )}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <span className="hidden sm:inline">Generating…</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="hidden sm:inline">Send to {selectedModelOption.label}</span>
-                      <span className="sm:hidden">Generate Show Bible</span>
-                      <SendHorizontal className="h-5 w-5" />
-                    </>
-                  )}
-                </Button>
-              </div>
+                }}
+              />
+              <Button
+                type="submit"
+                disabled={!canSubmit}
+                className={cn(
+                  "shrink-0 rounded-full bg-primary px-4 sm:px-5 py-2 text-base font-semibold text-white shadow-[0_12px_30px_rgba(229,9,20,0.35)] transition-all duration-200",
+                  "hover:bg-primary/90 hover:shadow-[0_14px_36px_rgba(229,9,20,0.55)]",
+                  "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                )}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="hidden sm:inline">Send to {selectedModelOption.label}</span>
+                    <SendHorizontal className="h-5 w-5" />
+                  </div>
+                )}
+              </Button>
             </div>
           </form>
         </div>

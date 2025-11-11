@@ -199,6 +199,7 @@ Instructions:
 - Return exactly one JSON object adhering to the template.
 - Populate every field, inventing details that align with the show and seed.
 - Always fill the biometrics.species block; when the character is non-human, spell out visual markers, materiality, and physiology so fabrication is unambiguous.
+- Inside biometrics, ALWAYS include: species.type + subtype, gender_identity, ethnicity and racial/complexion context, skin_color with hex + prose, eye_color with hex + patterning, a distinguishing_features string (scars, augmentations, jewelry), and attire_notes summarizing signature garments/accessories. Use multi-sentence descriptions instead of single words if needed so fabrication, casting, and VFX teams have zero ambiguity.
 - Set the "character" field to "${body.seed.id}".
 - Copy the show blueprint string verbatim into "inherits".`;
 

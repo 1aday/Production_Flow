@@ -1,17 +1,68 @@
 import { NextResponse } from "next/server";
-import Replicate from "replicate";
-
 export const maxDuration = 300; // 5 minutes for video generation
+
+type VideoModelId = "openai/sora-2" | "openai/sora-2-pro";
+type VideoAspectRatio = "portrait" | "landscape";
+type VideoDuration = 4 | 8 | 12;
+type VideoResolution = "standard" | "high";
+
+type VideoModelConfig = {
+  modelPath: string;
+  seconds: readonly VideoDuration[];
+  aspectRatios: readonly VideoAspectRatio[];
+  resolutions?: readonly VideoResolution[];
+  buildInput: (params: {
+    prompt: string;
+    seconds: VideoDuration;
+    aspectRatio: VideoAspectRatio;
+    portraitUrl: string;
+    resolution?: VideoResolution;
+  }) => Record<string, unknown>;
+};
+
+const DEFAULT_DURATION: VideoDuration = 8;
+
+const describeAspectRatio = (value: VideoAspectRatio) =>
+  value === "portrait" ? "9:16 portrait" : "16:9 landscape";
+
+const VIDEO_MODELS: Record<VideoModelId, VideoModelConfig> = {
+  "openai/sora-2": {
+    modelPath: "openai/sora-2",
+    seconds: [4, 8, 12],
+    aspectRatios: ["portrait", "landscape"],
+    buildInput: ({ prompt, seconds, aspectRatio, portraitUrl }) => ({
+      prompt,
+      seconds,
+      aspect_ratio: aspectRatio,
+      input_reference: portraitUrl,
+    }),
+  },
+  "openai/sora-2-pro": {
+    modelPath: "openai/sora-2-pro",
+    seconds: [4, 8, 12],
+    aspectRatios: ["portrait", "landscape"],
+    resolutions: ["standard", "high"],
+    buildInput: ({ prompt, seconds, aspectRatio, portraitUrl, resolution }) => ({
+      prompt,
+      seconds,
+      aspect_ratio: aspectRatio,
+      resolution: resolution ?? "standard",
+      input_reference: portraitUrl,
+    }),
+  },
+};
+
+const DEFAULT_MODEL: VideoModelId = "openai/sora-2";
 
 type VideoBody = {
   show: unknown;
   character: unknown;
   portraitUrl?: string | null;
+  modelId?: VideoModelId;
+  seconds?: number;
+  aspectRatio?: VideoAspectRatio;
+  resolution?: VideoResolution;
 };
-
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-});
 
 const MAX_JSON_LENGTH = 20000;
 
@@ -85,6 +136,49 @@ const resolveUrl = async (value: unknown): Promise<string | undefined> => {
   }
 
   return undefined;
+};
+
+const ensureModelId = (value: unknown): VideoModelId => {
+  if (typeof value === "string" && value in VIDEO_MODELS) {
+    return value as VideoModelId;
+  }
+  return DEFAULT_MODEL;
+};
+
+const normalizeSeconds = (
+  value: unknown,
+  allowed: readonly VideoDuration[]
+): VideoDuration => {
+  if (typeof value === "number" && allowed.includes(value as VideoDuration)) {
+    return value as VideoDuration;
+  }
+  if (allowed.includes(DEFAULT_DURATION)) {
+    return DEFAULT_DURATION;
+  }
+  return allowed[0];
+};
+
+const normalizeAspectRatio = (
+  value: unknown,
+  allowed: readonly VideoAspectRatio[]
+): VideoAspectRatio => {
+  if (typeof value === "string" && allowed.includes(value as VideoAspectRatio)) {
+    return value as VideoAspectRatio;
+  }
+  return allowed[0];
+};
+
+const normalizeResolution = (
+  value: unknown,
+  allowed?: readonly VideoResolution[]
+): VideoResolution | undefined => {
+  if (!allowed?.length) {
+    return undefined;
+  }
+  if (typeof value === "string" && allowed.includes(value as VideoResolution)) {
+    return value as VideoResolution;
+  }
+  return allowed[0];
 };
 
 export async function POST(request: Request) {
@@ -161,9 +255,18 @@ export async function POST(request: Request) {
       ? extractString((body.character as Record<string, unknown>).character)
       : "";
 
+  const modelId = ensureModelId(body.modelId);
+  const modelConfig = VIDEO_MODELS[modelId];
+  const seconds = normalizeSeconds(body.seconds, modelConfig.seconds);
+  const aspectRatio = normalizeAspectRatio(body.aspectRatio, modelConfig.aspectRatios);
+  const resolution = normalizeResolution(body.resolution, modelConfig.resolutions);
+
   const prompt = [
-    "Produce an 8-second, 16:9 cinematic showcase featuring ONLY the specified character.",
+    `Produce a ${seconds}-second, ${describeAspectRatio(aspectRatio)} cinematic showcase featuring ONLY the specified character.`,
     "Anchor every creative choice in the show blueprint's visual rules and the character dossier.",
+    resolution
+      ? `Render using ${resolution === "high" ? "high (1024p)" : "standard (720p)"} fidelity while keeping likeness stable.`
+      : null,
     "The scene must embody their hallmark voice, action, and attitude described in the showcase prompt.",
     "",
     "Series logline:",
@@ -180,26 +283,25 @@ export async function POST(request: Request) {
     "",
     "Show blueprint JSON:",
     showJson,
-  ].join("\n");
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
 
   try {
     console.log("=== VIDEO GENERATION ===");
     console.log("Character:", characterName);
     console.log("Portrait URL:", portraitUrl);
+    console.log("Model:", modelId, "| seconds:", seconds, "| aspect:", aspectRatio, "| resolution:", resolution ?? "n/a");
     
-    // Use raw fetch API to bypass any SDK transformations
-    const inputPayload = {
+    const inputPayload = modelConfig.buildInput({
       prompt,
-      reference_images: [portraitUrl],
-      aspect_ratio: "16:9",
-      duration: 8,
-      resolution: "1080p",
-      generate_audio: true,
-    };
+      seconds,
+      aspectRatio,
+      resolution,
+      portraitUrl,
+    });
     
     console.log("Input payload (before JSON.stringify):", inputPayload);
-    console.log("reference_images is Array?", Array.isArray(inputPayload.reference_images));
-    console.log("reference_images[0] type:", typeof inputPayload.reference_images[0]);
     
     const requestBody = JSON.stringify({
       input: inputPayload,
@@ -207,7 +309,7 @@ export async function POST(request: Request) {
     
     console.log("Request body being sent:", requestBody);
     
-    const createResponse = await fetch("https://api.replicate.com/v1/models/google/veo-3.1/predictions", {
+    const createResponse = await fetch(`https://api.replicate.com/v1/models/${modelConfig.modelPath}/predictions`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,

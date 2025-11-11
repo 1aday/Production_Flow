@@ -21,6 +21,8 @@ type ShowMetadata = {
   model: string;
   posterUrl?: string;
   libraryPosterUrl?: string;
+  portraitGridUrl?: string;
+  trailerUrl?: string;
 };
 
 // GET - List all shows
@@ -56,6 +58,8 @@ export async function GET() {
           model: data.model,
           posterUrl: data.posterUrl,
           libraryPosterUrl: data.libraryPosterUrl,
+          portraitGridUrl: data.portraitGridUrl,
+          trailerUrl: data.trailerUrl,
         });
       } catch (err) {
         console.error(`Failed to read ${file}:`, err);
@@ -86,7 +90,7 @@ export async function POST(request: NextRequest) {
     await ensureLibraryDir();
     
     const body = await request.json();
-    const { id, blueprint, rawJson, usage, model, characterSeeds, characterDocs, characterPortraits, characterVideos, posterUrl, libraryPosterUrl } = body;
+    const { id, blueprint, rawJson, usage, model, characterSeeds, characterDocs, characterPortraits, characterVideos, posterUrl, libraryPosterUrl, portraitGridUrl, trailerUrl } = body;
     
     if (!id || !blueprint) {
       return NextResponse.json(
@@ -115,6 +119,8 @@ export async function POST(request: NextRequest) {
       characterVideos: videosData,
       posterUrl: posterUrl || null,
       libraryPosterUrl: libraryPosterUrl || null,
+      portraitGridUrl: portraitGridUrl || null,
+      trailerUrl: trailerUrl || null,
     };
     
     const filePath = join(LIBRARY_DIR, `${id}.json`);
@@ -132,6 +138,8 @@ export async function POST(request: NextRequest) {
       videos: totalVideos,
       hasPoster: !!showData.posterUrl,
       hasLibraryPoster: !!showData.libraryPosterUrl,
+      hasPortraitGrid: !!showData.portraitGridUrl,
+      hasTrailer: !!showData.trailerUrl,
     });
     
     return NextResponse.json({ success: true, id });
@@ -143,4 +151,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

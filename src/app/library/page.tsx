@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Library, Loader2, Trash2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
 
 type LibraryShow = {
   id: string;
@@ -16,6 +17,8 @@ type LibraryShow = {
   model: string;
   posterUrl?: string;
   libraryPosterUrl?: string;
+  portraitGridUrl?: string;
+  trailerUrl?: string;
 };
 
 export default function LibraryPage() {
@@ -57,7 +60,14 @@ export default function LibraryPage() {
   };
 
   const loadShow = (showId: string) => {
-    router.push(`/?load=${showId}`);
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.setItem(LIBRARY_LOAD_STORAGE_KEY, showId);
+      } catch (error) {
+        console.error("Failed to stash pending show ID", error);
+      }
+    }
+    router.push("/");
   };
 
   useEffect(() => {
@@ -130,7 +140,7 @@ export default function LibraryPage() {
             {shows.map((show, index) => (
               <div
                 key={show.id}
-                className="group relative overflow-hidden rounded-xl bg-black/50 shadow-[0_8px_32px_rgba(0,0,0,0.6)] transition-all duration-300 hover:scale-105 hover:shadow-[0_12px_48px_rgba(229,9,20,0.4)]"
+                className="group relative overflow-hidden rounded-2xl border border-white/5 bg-black/30 shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-primary/40 hover:shadow-[0_18px_60px_rgba(229,9,20,0.35)]"
               >
                 <button
                   type="button"
@@ -143,33 +153,33 @@ export default function LibraryPage() {
                         src={show.libraryPosterUrl || show.posterUrl || ""}
                         alt={show.showTitle || show.title}
                         fill
-                        className="object-cover transition-opacity duration-300 group-hover:opacity-75"
+                        className="object-cover transition duration-300 group-hover:scale-[1.015]"
                         sizes="(min-width: 1536px) 16vw, (min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
-                        loading={index < 10 ? "eager" : "lazy"}
-                        quality={80}
+                        loading={index < 8 ? "eager" : "lazy"}
+                        quality={85}
                         onLoad={() => setImageLoadCount(prev => prev + 1)}
                       />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-transparent">
-                        <span className="text-6xl font-bold text-foreground/20">
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/25 to-transparent">
+                        <span className="text-6xl font-bold text-foreground/25">
                           {(show.showTitle || show.title).charAt(0).toUpperCase()}
                         </span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 p-4 text-left">
-                    <h3 className="line-clamp-2 text-lg font-bold text-foreground drop-shadow-lg">
-                      {show.showTitle || show.title}
-                    </h3>
-                    <div className="mt-2 flex items-center gap-2 text-xs text-foreground/70">
-                      <Badge variant="outline" className="text-[10px] bg-black/40">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-transparent" />
+                    <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 py-3 text-xs font-semibold uppercase tracking-[0.28em] text-white/80">
+                      <Badge variant="outline" className="rounded-full border-white/30 bg-black/30 text-[10px]">
                         {show.model}
                       </Badge>
-                      <span>
+                      <span className="text-[10px] text-white/70">
                         {new Date(show.updatedAt).toLocaleDateString()}
                       </span>
                     </div>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 p-5 text-left">
+                    <h3 className="line-clamp-2 text-lg font-semibold text-white drop-shadow-[0_10px_18px_rgba(0,0,0,0.55)]">
+                      {show.showTitle || show.title}
+                    </h3>
                   </div>
                 </button>
                 <Button
@@ -177,7 +187,7 @@ export default function LibraryPage() {
                   variant="ghost"
                   size="icon"
                   onClick={(e) => void deleteShow(show.id, e)}
-                  className="absolute right-2 top-2 h-8 w-8 rounded-full bg-black/60 opacity-0 backdrop-blur-sm transition-opacity duration-200 hover:bg-red-500/80 group-hover:opacity-100"
+                  className="absolute right-3 top-3 h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-red-500/80 group-hover:opacity-100"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -190,4 +200,3 @@ export default function LibraryPage() {
     </div>
   );
 }
-
