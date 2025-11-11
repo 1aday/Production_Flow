@@ -2857,7 +2857,9 @@ function ResultView({
                     <p className="mt-1 text-sm font-medium text-foreground/80">
                       {trailerStatus === "starting" ? "Initializing pipeline" : 
                        trailerStatus === "processing" ? "Generating video frames" : 
-                       trailerStatus === "succeeded" ? "Complete" : 
+                       trailerStatus === "succeeded" ? "Complete" :
+                       trailerStatus === "succeeded (VEO fallback)" ? "Complete (VEO)" :
+                       trailerStatus?.includes("VEO") ? "Trying VEO fallback" :
                        trailerStatus || "Queued"}
                     </p>
                     <p className="mt-1 text-[10px] text-foreground/40">
@@ -4573,9 +4575,10 @@ export default function Home() {
         throw new Error(body?.error ?? fallback);
       }
 
-      const result = (await response.json()) as { url?: string; status?: string };
+      const result = (await response.json()) as { url?: string; status?: string; model?: string };
       console.log("📹 Trailer API response:", result);
       console.log("📹 Trailer URL:", result.url);
+      console.log("📹 Model used:", result.model || "sora-2");
       
       if (!result.url) {
         console.error("❌ No URL in trailer response:", result);
@@ -4583,7 +4586,15 @@ export default function Home() {
       }
       
       console.log("✅ Setting trailer URL in state:", result.url);
-      setTrailerStatus("succeeded");
+      
+      // Update status based on which model was used
+      if (result.model === "veo-3.1") {
+        setTrailerStatus("succeeded (VEO fallback)");
+        console.log("ℹ️ Trailer generated with VEO 3.1 fallback (8 seconds)");
+      } else {
+        setTrailerStatus("succeeded");
+      }
+      
       setTrailerUrl(result.url);
       
       console.log("🎵 Playing success sound");
@@ -4595,9 +4606,14 @@ export default function Home() {
       console.error("Failed to generate trailer:", err);
       let message = err instanceof Error ? err.message : "Unable to generate trailer.";
       
-      // Handle E005 sensitivity flag gracefully
+      // Handle E005 sensitivity flag - check if VEO fallback was attempted
       if (message.includes("E005") || message.includes("flagged as sensitive")) {
-        message = "Trailer was flagged by content filters. The prompt may contain sensitive content—try editing it below and regenerating.";
+        // Check if both models failed (VEO was attempted)
+        if (message.includes("VEO") || message.includes("also failed")) {
+          message = "Both Sora 2 and VEO 3.1 flagged this content. Please edit the prompt below to adjust the trailer description.";
+        } else {
+          message = "Trailer was flagged by content filters. Attempting VEO 3.1 fallback automatically, or edit the prompt below.";
+        }
         
         // Pre-populate edit field with original prompt if not already set
         if (!editedTrailerPrompt && blueprint) {
@@ -4761,7 +4777,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
   useEffect(() => {
     if (!blueprint) return;
     if (!portraitGridUrl) return;
-    if (trailerUrl || trailerLoading) return;
+    if (trailerUrl || trailerLoading || trailerError) return; // Don't auto-retry on error!
     if (!posterAvailable) return;
     if (trailerDigestRef.current === portraitGridUrl) return;
     void generateTrailer();
@@ -4770,6 +4786,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
     portraitGridUrl,
     trailerUrl,
     trailerLoading,
+    trailerError,
     posterAvailable,
     generateTrailer,
   ]);

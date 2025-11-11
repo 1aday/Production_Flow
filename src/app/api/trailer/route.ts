@@ -60,103 +60,159 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
   console.log("Logline:", logline.slice(0, 100));
   console.log("Character grid URL:", characterGridUrl);
 
+  // Try Sora 2 first, fallback to VEO 3.1 on E005
+  let finalUrl: string | undefined;
+  let usedModel = "sora-2";
+
   try {
-    // Use Sora 2 (regular) for trailer generation
-    const input = {
+    // Attempt 1: Sora 2 (12 seconds, faster)
+    console.log("🎬 Attempting trailer with Sora 2...");
+    const soraInput = {
       prompt: trailerPrompt,
-      input_reference: characterGridUrl, // CORRECT PARAMETER IS "input_reference" NOT "image"
+      input_reference: characterGridUrl,
       seconds: 12,
       aspect_ratio: "landscape",
     };
 
-    console.log("=== Sora 2 Trailer Input ===");
-    console.log("Seconds:", input.seconds);
-    console.log("Aspect:", input.aspect_ratio);
-    console.log("Input reference (character grid):", characterGridUrl.slice(0, 80) + "...");
-    console.log("Model: openai/sora-2");
-    console.log("\nFull input object:");
-    console.log(JSON.stringify(input, null, 2));
-    
-    const requestBody = JSON.stringify({ input });
-    console.log("\nRequest body being sent:");
-    console.log(requestBody);
+    console.log("Sora 2 input:", JSON.stringify(soraInput, null, 2));
 
-    // Use direct API call to ensure proper serialization
-    const createResponse = await fetch("https://api.replicate.com/v1/models/openai/sora-2/predictions", {
+    const soraResponse = await fetch("https://api.replicate.com/v1/models/openai/sora-2/predictions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: requestBody,
+      body: JSON.stringify({ input: soraInput }),
     });
 
-    if (!createResponse.ok) {
-      const errorBody = await createResponse.text();
-      console.error("Replicate API error:", errorBody);
-      throw new Error(`Failed to create prediction: ${createResponse.status} - ${errorBody}`);
+    if (!soraResponse.ok) {
+      const errorBody = await soraResponse.text();
+      throw new Error(`Sora 2 request failed: ${soraResponse.status}`);
     }
 
-    const prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown; input?: unknown };
+    const soraPrediction = await soraResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+    console.log("Sora prediction created:", soraPrediction.id);
 
-    console.log("Prediction created:", prediction.id);
-    console.log("Initial status:", prediction.status);
-    console.log("Confirmed input sent to Sora:", JSON.stringify(prediction.input, null, 2));
-
-    // Wait for completion
-    let result = prediction;
+    // Poll for completion
+    let result = soraPrediction;
     while (result.status === "starting" || result.status === "processing") {
       await new Promise(resolve => setTimeout(resolve, 3000));
-
       const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-        headers: {
-          "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-        },
+        headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
       });
-
       result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-      console.log("Trailer status:", result.status);
+      console.log("Sora status:", result.status);
     }
 
     if (result.status === "failed") {
-      throw new Error(result.error || "Trailer generation failed");
+      const error = result.error || "Sora failed";
+      
+      // Check if E005 - try VEO fallback
+      if (error.includes("E005") || error.includes("flagged as sensitive")) {
+        console.warn("⚠️ Sora flagged content, falling back to VEO 3.1...");
+        throw new Error("E005_FALLBACK");
+      }
+      
+      throw new Error(error);
     }
 
     if (result.status === "canceled") {
       throw new Error("Trailer generation was canceled");
     }
 
-    // Extract URL from output
-    let url: string | undefined;
-
+    // Extract URL from Sora output
     if (typeof result.output === "string") {
-      url = result.output;
+      finalUrl = result.output;
     } else if (Array.isArray(result.output) && result.output.length > 0) {
-      url = result.output[0] as string;
+      finalUrl = result.output[0] as string;
     } else if (result.output && typeof result.output === "object") {
       const outputObj = result.output as Record<string, unknown>;
       if ("url" in outputObj && typeof outputObj.url === "string") {
-        url = outputObj.url;
+        finalUrl = outputObj.url;
       }
     }
 
-    if (!url) {
-      return NextResponse.json(
-        {
-          error: "Unexpected trailer response format.",
-          details: result.output,
-        },
-        { status: 502 }
-      );
+    if (finalUrl) {
+      console.log("✅ Trailer generated with Sora 2:", finalUrl);
+      return NextResponse.json({ url: finalUrl, model: "sora-2" });
     }
 
-    console.log("✅ Trailer generated successfully:", url);
-    return NextResponse.json({ url });
   } catch (error) {
-    console.error("[trailer] Error:", error);
-    const message =
-      error instanceof Error ? error.message : "Failed to generate trailer.";
+    const errorMessage = error instanceof Error ? error.message : "";
+    
+    // Fallback to VEO 3.1 on E005
+    if (errorMessage === "E005_FALLBACK") {
+      console.log("🔄 Falling back to VEO 3.1...");
+      
+      try {
+        const veoInput = {
+          prompt: trailerPrompt,
+          reference_images: [characterGridUrl],
+          aspect_ratio: "16:9",
+          duration: 8, // VEO max is 8 seconds
+          resolution: "1080p",
+          generate_audio: true,
+        };
 
+        console.log("VEO 3.1 input:", JSON.stringify(veoInput, null, 2));
+
+        const veoResponse = await fetch("https://api.replicate.com/v1/models/google/veo-3.1/predictions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ input: veoInput }),
+        });
+
+        if (!veoResponse.ok) {
+          throw new Error(`VEO request failed: ${veoResponse.status}`);
+        }
+
+        const veoPrediction = await veoResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+        console.log("VEO prediction created:", veoPrediction.id);
+
+        // Poll for VEO completion
+        let veoResult = veoPrediction;
+        while (veoResult.status === "starting" || veoResult.status === "processing") {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${veoResult.id}`, {
+            headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
+          });
+          veoResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+          console.log("VEO status:", veoResult.status);
+        }
+
+        if (veoResult.status === "failed") {
+          throw new Error(veoResult.error || "VEO generation also failed");
+        }
+
+        // Extract VEO URL
+        if (typeof veoResult.output === "string") {
+          finalUrl = veoResult.output;
+        } else if (Array.isArray(veoResult.output) && veoResult.output.length > 0) {
+          finalUrl = veoResult.output[0] as string;
+        }
+
+        if (finalUrl) {
+          console.log("✅ Trailer generated with VEO 3.1 (fallback):", finalUrl);
+          return NextResponse.json({ url: finalUrl, model: "veo-3.1" });
+        }
+
+      } catch (veoError) {
+        console.error("VEO fallback also failed:", veoError);
+        // Fall through to return error to client
+      }
+    }
+    
+    console.error("[trailer] Error:", error);
+    const message = error instanceof Error ? error.message : "Failed to generate trailer.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  // Should not reach here
+  return NextResponse.json(
+    { error: "Unexpected trailer response format." },
+    { status: 502 }
+  );
 }
