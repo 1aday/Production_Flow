@@ -166,8 +166,8 @@ export default function LibraryPage() {
                         </span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-transparent" />
-                    <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 py-3 text-xs font-semibold uppercase tracking-[0.28em] text-white/80">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+                    <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 py-3 text-xs font-semibold uppercase tracking-[0.28em] text-white/90">
                       <Badge variant="outline" className="rounded-full border-white/30 bg-black/30 text-[10px]">
                         {show.model}
                       </Badge>

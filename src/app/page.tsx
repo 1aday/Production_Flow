@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus } from "lucide-react";
+import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -340,7 +340,7 @@ type CharacterBehavior =
         do?: string[];
         do_not?: string[];
         interaction_readiness?: Record<string, string>;
-      };
+};
 
 type ModelId = "gpt-5" | "gpt-4o";
 
@@ -562,9 +562,9 @@ function DossierSection({
         )}
       >
         <div className="overflow-hidden">
-          <div className="border-t border-white/10 px-4 py-4 text-sm text-foreground/75">
-            {children}
-          </div>
+        <div className="border-t border-white/10 px-4 py-4 text-sm text-foreground/75">
+          {children}
+        </div>
         </div>
       </div>
     </div>
@@ -1182,6 +1182,8 @@ function ResultView({
   onGenerateTrailer,
   onRegenerateGrid,
   onRegeneratePoster,
+  onClearTrailer,
+  onOpenLightbox,
 }: {
   blueprint: ShowBlueprint | null;
   usage?: ApiResponse["usage"];
@@ -1236,6 +1238,8 @@ function ResultView({
   onGenerateTrailer: () => void;
   onRegenerateGrid: () => void;
   onRegeneratePoster: () => void;
+  onClearTrailer: () => void;
+  onOpenLightbox: (url: string) => void;
 }) {
   const loaderActive = !blueprint && isLoading;
   const loaderMessage = useRotatingMessage(loaderActive, LOADING_MESSAGES, 1700);
@@ -1394,14 +1398,18 @@ function ResultView({
         : posterError
           ? (
             <div className="space-y-3 rounded-3xl bg-red-500/10 px-5 py-4 text-sm shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
-              <p className="font-semibold text-red-200">Poster generation failed</p>
-              <p className="text-red-200/80">{posterError}</p>
-            </div>
+            <p className="font-semibold text-red-200">Poster generation failed</p>
+            <p className="text-red-200/80">{posterError}</p>
+          </div>
           )
           : posterUrl
             ? (
               <div className="space-y-3">
-                <div className="overflow-hidden rounded-3xl bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+                <button
+                  type="button"
+                  onClick={() => onOpenLightbox(posterUrl)}
+                  className="overflow-hidden rounded-3xl bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)] cursor-zoom-in transition-transform hover:scale-[1.01] w-full"
+                >
                   <div className="relative h-0 w-full pb-[100%]">
                     <Image
                       src={posterUrl}
@@ -1413,9 +1421,9 @@ function ResultView({
                     />
                   </div>
                   <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
-                    1024×1792 •  output
+                    1024×1792 • Sora output • Click to view full size
                   </div>
-                </div>
+                </button>
                 <Button
                   type="button"
                   variant="outline"
@@ -1477,7 +1485,7 @@ function ResultView({
               </p>
             </div>
           )}
-        </CollapsibleSection>
+      </CollapsibleSection>
       );
 
   const portraitGridSection = (
@@ -1494,7 +1502,11 @@ function ResultView({
         </div>
        ) : portraitGridUrl ? (
          <div className="space-y-3">
-           <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+           <button
+             type="button"
+             onClick={() => onOpenLightbox(portraitGridUrl)}
+             className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)] cursor-zoom-in transition-transform hover:scale-[1.01] w-full"
+           >
              <div className="relative h-0 w-full pb-[56.25%]">
                <Image
                  src={portraitGridUrl}
@@ -1505,9 +1517,9 @@ function ResultView({
                />
              </div>
              <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
-               1280×720 • Ready for Sora
+               1280×720 • Ready for Sora • Click to view full size
              </div>
-           </div>
+           </button>
            <Button
              type="button"
              variant="outline"
@@ -2201,10 +2213,14 @@ function ResultView({
               )}
             >
               {!isActive && portraitUrl ? (
-                <div className={cn(
-                  "relative overflow-hidden bg-black/60",
-                  portraitError && "ring-2 ring-amber-500/50"
-                )}>
+                <button
+                  type="button"
+                  onClick={() => onOpenLightbox(portraitUrl)}
+                  className={cn(
+                    "relative overflow-hidden bg-black/60 cursor-zoom-in transition-transform hover:scale-[1.02]",
+                    portraitError && "ring-2 ring-amber-500/50"
+                  )}
+                >
                   <div className="relative h-0 w-full pb-[100%]">
                     {portraitLoading ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/80">
@@ -2226,7 +2242,7 @@ function ResultView({
                   {portraitError ? (
                     <div className="absolute inset-0 bg-amber-500/15 backdrop-blur-[2px]" />
                   ) : null}
-                </div>
+                </button>
               ) : !isActive && portraitError ? (
                 <div className="relative overflow-hidden bg-black/60">
                   <div className="relative h-0 w-full pb-[100%]">
@@ -2418,7 +2434,7 @@ function ResultView({
                             ) : null}
                           </DossierSection>
                         ) : null}
-                      </div>
+                    </div>
                   </div>
                 ) : null}
               </CardContent>
@@ -2610,7 +2626,7 @@ function ResultView({
         {characterSeeds?.map((seed) => {
           const portraitUrl = characterPortraits[seed.id];
           const isLoading = characterPortraitLoading[seed.id];
-          return (
+  return (
             <div 
               key={seed.id}
               className="relative overflow-hidden rounded-lg border border-white/10 bg-black/40"
@@ -2675,27 +2691,43 @@ function ResultView({
       ) : null}
 
       {trailerError ? (
-        <p className="text-xs text-red-300">{trailerError}</p>
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+          <p className="text-xs font-semibold text-amber-200">Trailer generation issue</p>
+          <p className="mt-1 text-xs text-amber-200/80 break-words leading-relaxed">{trailerError}</p>
+        </div>
       ) : null}
 
-      <Button
-        type="button"
-        variant={trailerUrl ? "outline" : "default"}
-        onClick={onGenerateTrailer}
-        disabled={trailerLoading || completedPortraits.length < 4}
-        className="w-full justify-center rounded-full"
-      >
-        {trailerLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Rendering with Sora 2 Pro…
-          </>
-        ) : trailerUrl ? (
-          "Re-render trailer"
-        ) : (
-          `Generate Trailer (${completedPortraits.length} portraits ready)`
-        )}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant={trailerUrl ? "outline" : "default"}
+          onClick={onGenerateTrailer}
+          disabled={trailerLoading || completedPortraits.length < 4}
+          className="flex-1 justify-center rounded-full"
+        >
+          {trailerLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Rendering…
+            </>
+          ) : trailerUrl ? (
+            "Re-render trailer"
+          ) : (
+            `Generate Trailer (${completedPortraits.length} portraits ready)`
+          )}
+        </Button>
+        {trailerUrl || trailerError ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClearTrailer}
+            disabled={trailerLoading}
+            className="rounded-full px-4"
+          >
+            Clear
+          </Button>
+        ) : null}
+      </div>
     </div>
   ) : null;
 
@@ -3612,6 +3644,7 @@ function ResultView({
 }
 
 export default function Home() {
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [isLoadingShow, setIsLoadingShow] = useState(false);
   const [currentShowId, setCurrentShowId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -4217,10 +4250,13 @@ export default function Home() {
             portraits: portraitsData,
             columns: 3,
           }),
+        }).catch((fetchError) => {
+          throw new Error(`Network error generating grid: ${fetchError.message || "Check your connection"}`);
         });
         
         if (!gridResponse.ok) {
-          throw new Error("Failed to generate character grid");
+          const errorBody = await gridResponse.json().catch(() => ({ error: "Unknown error" }));
+          throw new Error(errorBody.error || `Grid generation failed (${gridResponse.status})`);
         }
         
         const gridResult = (await gridResponse.json()) as { url?: string };
@@ -4232,7 +4268,9 @@ export default function Home() {
         setPortraitGridUrl(gridUrl);
       } catch (error) {
         console.error("Failed to generate grid for trailer:", error);
-        setTrailerError("Failed to create character grid. Try again.");
+        const message = error instanceof Error ? error.message : "Failed to create character grid";
+        setTrailerError(message);
+        setTrailerLoading(false);
         setPortraitGridLoading(false);
         return;
       } finally {
@@ -4258,6 +4296,8 @@ export default function Home() {
           characterGridUrl: gridUrl,
           show: blueprint,
         }),
+      }).catch((fetchError) => {
+        throw new Error(`Network error: ${fetchError.message || "Check your connection and try again"}`);
       });
 
       if (!response.ok) {
@@ -4271,23 +4311,36 @@ export default function Home() {
       setTrailerStatus("Processing video with Sora 2 Pro...");
       
       const result = (await response.json()) as { url?: string };
+      console.log("📹 Trailer API response:", result);
+      console.log("📹 Trailer URL:", result.url);
+      
       if (!result.url) {
+        console.error("❌ No URL in trailer response:", result);
         throw new Error("Trailer response missing URL.");
       }
       
+      console.log("✅ Setting trailer URL in state:", result.url);
       setTrailerStatus("Trailer completed!");
       setTrailerUrl(result.url);
       
+      console.log("🎵 Playing success sound");
       // Play success sound
       playSuccessChime();
+      
+      console.log("✅ Trailer generation complete!");
     } catch (err) {
       console.error("Failed to generate trailer:", err);
-      const message =
-        err instanceof Error ? err.message : "Unable to generate trailer.";
+      let message = err instanceof Error ? err.message : "Unable to generate trailer.";
+      
+      // Handle 504 Gateway Timeout specifically
+      if (message.includes("504") || message.includes("Gateway") || message.includes("Timeout")) {
+        message = "Trailer generation timed out. Sora 2 Pro may be busy—try again in a moment.";
+      }
+      
       setTrailerError(message);
       setTrailerUrl(null);
       setTrailerStatus(null);
-      trailerDigestRef.current = "";
+      trailerDigestRef.current = ""; // Allow retry
     } finally {
       setTrailerLoading(false);
       setTimeout(() => setTrailerStatus(null), 3000);
@@ -4833,8 +4886,46 @@ export default function Home() {
       return;
     }
 
+    // First, download all assets locally
+    let savedAssets = {
+      characterPortraits,
+      characterVideos,
+      posterUrl,
+      libraryPosterUrl,
+      portraitGridUrl,
+      trailerUrl,
+    };
+
+    try {
+      const assetResponse = await fetch("/api/library/save-assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          showId: currentShowId,
+          assets: {
+            characterPortraits,
+            characterVideos,
+            posterUrl,
+            libraryPosterUrl,
+            portraitGridUrl,
+            trailerUrl,
+          },
+        }),
+      });
+
+      if (assetResponse.ok) {
+        const result = await assetResponse.json() as { savedAssets?: typeof savedAssets; downloadCount?: number };
+        if (result.savedAssets) {
+          savedAssets = result.savedAssets;
+          console.log(`✅ Saved ${result.downloadCount || 0} assets locally`);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to save assets locally, using URLs:", error);
+    }
+
     // Generate library poster ONLY if forced or meets all requirements
-    let finalLibraryPosterUrl = libraryPosterUrl;
+    let finalLibraryPosterUrl = savedAssets.libraryPosterUrl;
     
     if (forceLibraryPoster && !finalLibraryPosterUrl) {
       const canGenerate = canGenerateLibraryPoster();
@@ -4856,12 +4947,12 @@ export default function Home() {
         model: activeModel,
         characterSeeds: characterSeeds || [],
         characterDocs: characterDocs || {},
-        characterPortraits: characterPortraits || {},
-        characterVideos: characterVideos || {},
-        posterUrl: posterUrl || null,
+        characterPortraits: savedAssets.characterPortraits || {},
+        characterVideos: savedAssets.characterVideos || {},
+        posterUrl: savedAssets.posterUrl || null,
         libraryPosterUrl: finalLibraryPosterUrl || null,
-        portraitGridUrl: portraitGridUrl || null,
-        trailerUrl: trailerUrl || null,
+        portraitGridUrl: savedAssets.portraitGridUrl || null,
+        trailerUrl: savedAssets.trailerUrl || null,
       };
       
       const totalVideos = Object.values(characterVideos || {}).reduce((sum, arr) => sum + arr.length, 0);
@@ -4926,6 +5017,32 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-black text-foreground">
+      {/* Lightbox */}
+      {lightboxImage ? (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm cursor-zoom-out"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxImage(null)}
+            className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/80"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <div className="relative max-h-[90vh] max-w-[90vw] p-4">
+            <Image
+              src={lightboxImage}
+              alt="Full size view"
+              width={1920}
+              height={1920}
+              className="h-auto max-h-[90vh] w-auto max-w-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      ) : null}
+      
       <header className="border-b border-white/12 bg-black/90">
         <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -5052,6 +5169,12 @@ export default function Home() {
               posterDigestRef.current = "";
               setPosterUrl(null);
             }}
+            onClearTrailer={() => {
+              setTrailerUrl(null);
+              setTrailerError(null);
+              trailerDigestRef.current = "";
+            }}
+            onOpenLightbox={(url) => setLightboxImage(url)}
           />
         </div>
       </main>
@@ -5071,42 +5194,42 @@ export default function Home() {
                 !blueprint && "border-primary/40 bg-black/60"
               )}
             >
-              <Textarea
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
+            <Textarea
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
                 placeholder="Describe the show…"
                 className={cn(
                   "h-12 sm:h-14 min-h-0 flex-1 resize-none border-none bg-transparent px-0 py-0 text-lg sm:text-xl font-medium leading-snug tracking-tight text-foreground caret-primary placeholder:text-foreground/45 placeholder:font-normal rounded-none",
                   "focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-none focus-visible:outline-none"
                 )}
                 rows={1}
-                onKeyDown={(event) => {
+              onKeyDown={(event) => {
                   if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    if (canSubmit) {
-                      void submitPrompt(input, model);
-                    }
+                  event.preventDefault();
+                  if (canSubmit) {
+                    void submitPrompt(input, model);
                   }
-                }}
-              />
-              <Button
-                type="submit"
-                disabled={!canSubmit}
+                }
+              }}
+            />
+                <Button
+                  type="submit"
+                  disabled={!canSubmit}
                 className={cn(
                   "shrink-0 rounded-full bg-primary px-4 sm:px-5 py-2 text-base font-semibold text-white shadow-[0_12px_30px_rgba(229,9,20,0.35)] transition-all duration-200",
                   "hover:bg-primary/90 hover:shadow-[0_14px_36px_rgba(229,9,20,0.55)]",
                   "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                 )}
-              >
-                {isLoading ? (
+                >
+                  {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <div className="flex items-center gap-2">
                     <span className="hidden sm:inline">Send to {selectedModelOption.label}</span>
                     <SendHorizontal className="h-5 w-5" />
                   </div>
-                )}
-              </Button>
+                  )}
+                </Button>
             </div>
           </form>
         </div>

@@ -42,3 +42,4 @@ next-env.d.ts
 
 # show library (user-generated content)
 /library
+/public/library-assets
