@@ -1179,6 +1179,7 @@ function ResultView({
   trailerLoading,
   trailerError,
   trailerStatus,
+  trailerElapsed,
   onGenerateTrailer,
   onRegenerateGrid,
   onRegeneratePoster,
@@ -1235,6 +1236,7 @@ function ResultView({
   trailerLoading: boolean;
   trailerError: string | null;
   trailerStatus: string | null;
+  trailerElapsed: number;
   onGenerateTrailer: () => void;
   onRegenerateGrid: () => void;
   onRegeneratePoster: () => void;
@@ -2785,6 +2787,30 @@ function ResultView({
                   </p>
                 </div>
                 
+                {/* Elapsed time and status details */}
+                <div className="inline-flex items-center gap-6 rounded-2xl border border-white/10 bg-black/40 px-6 py-3 backdrop-blur-sm">
+                  <div className="text-center">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground/45">
+                      Elapsed
+                    </p>
+                    <p className="mt-1 text-lg font-bold tabular-nums text-primary/90">
+                      {Math.floor(trailerElapsed / 60000)}:{String(Math.floor((trailerElapsed % 60000) / 1000)).padStart(2, '0')}
+                    </p>
+                  </div>
+                  <div className="h-8 w-px bg-white/10" />
+                  <div className="text-left max-w-xs">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground/45">
+                      Latest Update
+                    </p>
+                    <p className="mt-1 text-xs text-foreground/70">
+                      {trailerStatus || "Initializing..."}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-foreground/40">
+                      {new Date().toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+                
                 {/* Elegant progress indicator */}
                 <div className="flex items-center justify-center gap-1.5">
                   {[...Array(5)].map((_, i) => (
@@ -3852,6 +3878,8 @@ export default function Home() {
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [trailerError, setTrailerError] = useState<string | null>(null);
   const [trailerStatus, setTrailerStatus] = useState<string | null>(null);
+  const [trailerStartTime, setTrailerStartTime] = useState<number | null>(null);
+  const [trailerElapsed, setTrailerElapsed] = useState<number>(0);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   const [videoModelId, setVideoModelId] = useState<VideoModelId>(VIDEO_MODEL_OPTIONS[0].id);
   const [videoSeconds, setVideoSeconds] = useState<VideoDuration>(8);
@@ -3867,6 +3895,17 @@ export default function Home() {
       playSuccessChime();
     }
   }, [blueprint]);
+
+  // Update elapsed time for trailer generation
+  useEffect(() => {
+    if (!trailerLoading || !trailerStartTime) return;
+
+    const interval = setInterval(() => {
+      setTrailerElapsed(Date.now() - trailerStartTime);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [trailerLoading, trailerStartTime]);
 
   useEffect(() => {
     if (!selectedVideoModel.seconds.includes(videoSeconds)) {
@@ -4449,9 +4488,12 @@ export default function Home() {
     const digest = gridUrl;
     trailerDigestRef.current = digest;
 
+    const startTime = Date.now();
     setTrailerLoading(true);
     setTrailerError(null);
     setTrailerStatus("Initializing Sora 2...");
+    setTrailerStartTime(startTime);
+    setTrailerElapsed(0);
 
     try {
       setTrailerStatus("Sending request to Sora 2...");
@@ -4508,10 +4550,15 @@ export default function Home() {
       setTrailerError(message);
       setTrailerUrl(null);
       setTrailerStatus(null);
+      setTrailerStartTime(null);
       trailerDigestRef.current = ""; // Allow retry
     } finally {
       setTrailerLoading(false);
-      setTimeout(() => setTrailerStatus(null), 3000);
+      setTimeout(() => {
+        setTrailerStatus(null);
+        setTrailerStartTime(null);
+        setTrailerElapsed(0);
+      }, 3000);
     }
   }, [blueprint, portraitGridUrl, characterSeeds, characterPortraits]);
 
@@ -5334,6 +5381,7 @@ export default function Home() {
             trailerLoading={trailerLoading}
             trailerError={trailerError}
             trailerStatus={trailerStatus}
+            trailerElapsed={trailerElapsed}
             onGenerateTrailer={() => void generateTrailer()}
             onRegenerateGrid={() => {
               portraitGridDigestRef.current = "";
