@@ -59,19 +59,27 @@ export async function POST(request: NextRequest) {
 
     console.log(`Downloaded ${portraitBuffers.length} portraits`);
 
-    // Calculate cell dimensions with padding
-    const padding = 20;
-    const cellWidth = Math.floor((GRID_WIDTH - padding * (columns + 1)) / columns);
-    const cellHeight = Math.floor((GRID_HEIGHT - padding * (rows + 1)) / rows);
+    // Calculate cell dimensions - since portraits are 1:1, use square cells
+    const padding = 12;
+    
+    // Calculate optimal cell size to fit in 1280x720
+    // For 3 columns, we want square cells that fit properly
+    const availableWidth = GRID_WIDTH - (padding * (columns + 1));
+    const availableHeight = GRID_HEIGHT - (padding * (rows + 1));
+    
+    // Use square cells based on the limiting dimension
+    const maxCellWidth = Math.floor(availableWidth / columns);
+    const maxCellHeight = Math.floor(availableHeight / rows);
+    const cellSize = Math.min(maxCellWidth, maxCellHeight);
 
-    console.log(`Grid cells: ${cellWidth}x${cellHeight}`);
+    console.log(`Grid cells: ${cellSize}x${cellSize} (square) with ${padding}px padding, ${columns}x${rows} grid`);
 
-    // Resize all portraits to fit cells (maintaining aspect ratio)
+    // Resize all portraits to square cells without cropping
     const resizedPortraits = await Promise.all(
       portraitBuffers.map(async ({ name, buffer }) => {
         const resized = await sharp(buffer)
-          .resize(cellWidth, cellHeight, {
-            fit: "contain",
+          .resize(cellSize, cellSize, {
+            fit: "contain", // Contain to preserve full portrait
             background: BACKGROUND_COLOR,
           })
           .toBuffer();
@@ -89,12 +97,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Position each portrait in the grid
+    // Position each portrait in the grid (centered in available space)
     const compositeOperations = resizedPortraits.map((portrait, index) => {
       const col = index % columns;
       const row = Math.floor(index / columns);
-      const x = padding + col * (cellWidth + padding);
-      const y = padding + row * (cellHeight + padding);
+      const x = padding + col * (cellSize + padding);
+      const y = padding + row * (cellSize + padding);
 
       return {
         input: portrait.buffer,

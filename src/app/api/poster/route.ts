@@ -4,6 +4,7 @@ import Replicate from "replicate";
 
 type PosterBody = {
   prompt: string;
+  characterGridUrl?: string;
 };
 
 const MAX_PROMPT_LENGTH = 12000;
@@ -21,6 +22,8 @@ const trimWithEllipsis = (value: string, limit: number) => {
   if (limit <= 1) return "…".slice(0, limit);
   return `${value.slice(0, limit - 1)}…`;
 };
+
+export const maxDuration = 180; // 3 minutes for poster generation
 
 export async function POST(request: Request) {
   if (!process.env.REPLICATE_API_TOKEN) {
@@ -56,28 +59,85 @@ export async function POST(request: Request) {
 
   const userPrompt = trimWithEllipsis(body.prompt, MAX_USER_PROMPT);
 
-  let compositePrompt = `${BASE_PROMPT}\n\nCharacter prompt:\n${userPrompt}`;
+  let compositePrompt = body.characterGridUrl 
+    ? `${BASE_PROMPT}\n\nHere are the characters (shown in the reference image grid):\n${userPrompt}`
+    : `${BASE_PROMPT}\n\nCharacter prompt:\n${userPrompt}`;
 
   if (compositePrompt.length > MAX_PROMPT_LENGTH) {
     compositePrompt = trimWithEllipsis(compositePrompt, MAX_PROMPT_LENGTH);
   }
 
+  // Build input ensuring array stays as array
+  const input: Record<string, unknown> = {
+    prompt: compositePrompt,
+    quality: "high",
+    aspect_ratio: "2:3",
+    background: "auto",
+    number_of_images: 1,
+    moderation: "low",
+    openai_api_key: process.env.OPENAI_API_KEY,
+  };
+
+  // Add character grid as reference if available
+  if (body.characterGridUrl) {
+    input.input_images = [body.characterGridUrl];
+    input.input_fidelity = "high";
+    console.log("Using character grid as reference:", body.characterGridUrl.slice(0, 60) + "...");
+    console.log("input_images array:", input.input_images);
+    console.log("Is array?", Array.isArray(input.input_images));
+  }
+
   try {
-    const result = (await replicate.run("openai/gpt-image-1", {
-      input: {
-        prompt: compositePrompt,
-        quality: "high",
-        aspect_ratio: "2:3",
-        background: "auto",
-        number_of_images: 1,
-        openai_api_key: process.env.OPENAI_API_KEY,
+    console.log("Poster input:", JSON.stringify(input, null, 2));
+    
+    // Use direct API to avoid SDK array conversion issues
+    const createResponse = await fetch("https://api.replicate.com/v1/models/openai/gpt-image-1/predictions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+        "Content-Type": "application/json",
       },
-    })) as unknown;
+      body: JSON.stringify({ input }),
+    });
+
+    if (!createResponse.ok) {
+      const errorBody = await createResponse.text();
+      console.error("Replicate API error:", errorBody);
+      throw new Error(`Failed to create prediction: ${createResponse.status} - ${errorBody}`);
+    }
+
+    const prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+    console.log("Prediction created:", prediction.id);
+
+    // Wait for completion
+    let result = prediction;
+    while (result.status === "starting" || result.status === "processing") {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+        headers: {
+          "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+        },
+      });
+      
+      result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+      console.log("Poster status:", result.status);
+    }
+
+    if (result.status === "failed") {
+      throw new Error(result.error || "Poster generation failed");
+    }
+
+    if (result.status === "canceled") {
+      throw new Error("Poster generation was canceled");
+    }
+
+    const output = result.output;
 
     let url: string | undefined;
 
-    if (Array.isArray(result) && result.length > 0) {
-      const first = result[0] as
+    if (Array.isArray(output) && output.length > 0) {
+      const first = output[0] as
         | string
         | Uint8Array
         | { url?: (() => string | Promise<string>) | string };
@@ -98,13 +158,15 @@ export async function POST(request: Request) {
               : (maybe as string);
         }
       }
+    } else if (typeof output === "string") {
+      url = output;
     }
 
     if (!url) {
       return NextResponse.json(
         {
           error: "Unexpected poster response format.",
-          details: result,
+          details: output,
         },
         { status: 502 }
       );

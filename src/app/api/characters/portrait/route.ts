@@ -99,6 +99,7 @@ export async function POST(request: Request) {
         aspect_ratio: "1:1",
         background: "auto",
         number_of_images: 1,
+        moderation: "low",
         openai_api_key: process.env.OPENAI_API_KEY,
       },
     })) as unknown;

@@ -603,7 +603,7 @@ function CharacterDossierContent({
   portraitError?: string;
   portraitLoading: boolean;
   posterAvailable: boolean;
-  onGeneratePortrait: (characterId: string) => void;
+  onGeneratePortrait: (characterId: string, customPrompt?: string) => void;
   onClear: () => void;
 }) {
   const expressionSet = doc.performance?.expression_set ?? [];
@@ -1178,7 +1178,9 @@ function ResultView({
   trailerUrl,
   trailerLoading,
   trailerError,
+  trailerStatus,
   onGenerateTrailer,
+  onRegenerateGrid,
 }: {
   blueprint: ShowBlueprint | null;
   usage?: ApiResponse["usage"];
@@ -1205,7 +1207,7 @@ function ResultView({
   onBuildCharacter: (seed: CharacterSeed) => void;
   onSelectCharacter: (characterId: string) => void;
   onClearActiveCharacter: () => void;
-  onGeneratePortrait: (characterId: string) => void;
+  onGeneratePortrait: (characterId: string, customPrompt?: string) => void;
   onGenerateVideo: (characterId: string, customPrompt?: string) => void;
   activeCharacterId: string | null;
   posterUrl: string | null;
@@ -1229,7 +1231,9 @@ function ResultView({
   trailerUrl: string | null;
   trailerLoading: boolean;
   trailerError: string | null;
+  trailerStatus: string | null;
   onGenerateTrailer: () => void;
+  onRegenerateGrid: () => void;
 }) {
   const loaderActive = !blueprint && isLoading;
   const loaderMessage = useRotatingMessage(loaderActive, LOADING_MESSAGES, 1700);
@@ -1395,7 +1399,7 @@ function ResultView({
           : posterUrl
             ? (
               <div className="overflow-hidden rounded-3xl bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
-                <div className="relative h-0 w-full pb-[175%]">
+                <div className="relative h-0 w-full pb-[100%]">
                   <Image
                     src={posterUrl}
                     alt="Generated poster concept"
@@ -1476,19 +1480,29 @@ function ResultView({
           Building character grid…
         </div>
        ) : portraitGridUrl ? (
-         <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
-           <div className="relative h-0 w-full pb-[56.25%]">
-             <Image
-               src={portraitGridUrl}
-               alt="Character portrait grid (1280x720 for Sora)"
-               fill
-               className="object-contain"
-               sizes="(min-width: 1024px) 1280px, 100vw"
-             />
+         <div className="space-y-3">
+           <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+             <div className="relative h-0 w-full pb-[56.25%]">
+               <Image
+                 src={portraitGridUrl}
+                 alt="Character portrait grid (1280x720 for Sora)"
+                 fill
+                 className="object-contain"
+                 sizes="(min-width: 1024px) 1280px, 100vw"
+               />
+             </div>
+             <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
+               1280×720 • Ready for Sora
+             </div>
            </div>
-           <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
-             1280×720 • Ready for Sora
-           </div>
+           <Button
+             type="button"
+             variant="outline"
+             onClick={onRegenerateGrid}
+             className="w-full justify-center rounded-full text-sm"
+           >
+             Re-generate Grid
+           </Button>
          </div>
        ) : (
         <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
@@ -2179,12 +2193,21 @@ function ResultView({
                   portraitError && "ring-2 ring-amber-500/50"
                 )}>
                   <div className="relative h-0 w-full pb-[100%]">
+                    {portraitLoading ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      </div>
+                    ) : null}
                     <Image
                       src={portraitUrl}
                       alt={`${seed.name} portrait`}
                       fill
-                      className="object-cover object-center"
+                      className="object-cover object-center transition-opacity duration-500"
                       sizes="(min-width: 768px) 280px, 100vw"
+                      onLoad={(e) => {
+                        e.currentTarget.style.opacity = "1";
+                      }}
+                      style={{ opacity: 0 }}
                     />
                   </div>
                   {portraitError ? (
@@ -2403,7 +2426,7 @@ function ResultView({
                             const showJson = JSON.stringify(blueprint, null, 2).slice(0, 3000);
                             const characterJson = JSON.stringify(doc, null, 2).slice(0, 3000);
                             const defaultPrompt = [
-                              "Create a highly art-directed 1:1 square character portrait.",
+                              "Create a highly production character portrait.",
                               "Focus on cinematic lighting, intentional wardrobe, and expressive posture.",
                               "Respect the show's aesthetic while capturing the essence of the character.",
                               "Every choice must adhere to the aesthetic, palette, lighting, and creative rules specified in the show blueprint JSON.",
@@ -2505,7 +2528,7 @@ function ResultView({
                     variant={portraitUrl ? "outline" : "secondary"}
                     onClick={() => {
                       const customPrompt = editedPortraitPrompts[seed.id];
-                      onGeneratePortrait(seed.id, customPrompt);
+                      onGeneratePortrait(seed.id, customPrompt as string | undefined);
                     }}
                     disabled={portraitLoading}
                     className="w-full justify-center rounded-full text-sm transition-all duration-200"
@@ -2547,18 +2570,527 @@ function ResultView({
     );
   })();
 
-  const masterContent = (
-    <div className="space-y-6 sm:space-y-8 max-w-[1200px] mx-auto">
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <div className="space-y-4 sm:space-y-6">{loglinePanel}</div>
-        <div className="space-y-4 sm:space-y-6">{posterSection}</div>
+  // Trailer preview section for Master tab
+  const completedPortraits = characterSeeds
+    ?.map((seed) => ({
+      seed,
+      url: characterPortraits[seed.id],
+    }))
+    .filter((p) => p.url) || [];
+  
+  const canGenerateTrailerFromPartial = completedPortraits.length >= 4;
+  
+  const trailerPreviewSection = canGenerateTrailerFromPartial ? (
+    <div className="rounded-3xl border border-white/12 bg-black/45 p-6 space-y-4 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+          Series Trailer
+        </p>
+        <p className="mt-2 text-sm text-foreground/65">
+          {completedPortraits.length === characterSeeds?.length 
+            ? `All ${completedPortraits.length} character portraits ready`
+            : `${completedPortraits.length} of ${characterSeeds?.length} portraits ready`}
+        </p>
       </div>
-      <div className="space-y-4 sm:space-y-5">
-        <SectionHeading
-          title="Character lineup"
-          description="Active dossiers, prompts, and renders."
-        />
-        {charactersContent}
+      
+      <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2">
+        {characterSeeds?.map((seed) => {
+          const portraitUrl = characterPortraits[seed.id];
+          const isLoading = characterPortraitLoading[seed.id];
+          return (
+            <div 
+              key={seed.id}
+              className="relative overflow-hidden rounded-lg border border-white/10 bg-black/40"
+              title={seed.name}
+            >
+              <div className="relative h-0 w-full pb-[100%]">
+                {portraitUrl ? (
+                  <Image
+                    src={portraitUrl}
+                    alt={seed.name}
+                    fill
+                    className="object-cover"
+                    sizes="80px"
+                  />
+                ) : isLoading ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary/60" />
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/5 to-transparent">
+                    <span className="text-[10px] text-foreground/30">•</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {trailerLoading ? (
+        <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-black/50 to-black/60 p-6 shadow-[0_12px_40px_rgba(229,9,20,0.3)]">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="absolute inset-0 animate-ping">
+                <div className="h-full w-full rounded-full border-2 border-primary/30" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-foreground/90">Generating Trailer</p>
+              <p className="mt-1 text-xs text-foreground/60">Rendering 12s blockbuster trailer with Sora 2 Pro...</p>
+              <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="h-full w-full animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : trailerUrl ? (
+        <div className="overflow-hidden rounded-2xl border border-white/12 bg-black/60 shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
+          <video
+            controls
+            className="h-full w-full"
+            poster={portraitGridUrl ?? undefined}
+          >
+            <source src={trailerUrl} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+          <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
+            12s • Sora 2 Pro • Landscape
+          </div>
+        </div>
+      ) : null}
+
+      {trailerError ? (
+        <p className="text-xs text-red-300">{trailerError}</p>
+      ) : null}
+
+      <Button
+        type="button"
+        variant={trailerUrl ? "outline" : "default"}
+        onClick={onGenerateTrailer}
+        disabled={trailerLoading || completedPortraits.length < 4}
+        className="w-full justify-center rounded-full"
+      >
+        {trailerLoading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Rendering with Sora 2 Pro…
+          </>
+        ) : trailerUrl ? (
+          "Re-render trailer"
+        ) : (
+          `Generate Trailer (${completedPortraits.length} portraits ready)`
+        )}
+      </Button>
+    </div>
+  ) : null;
+
+  const masterContent = (
+    <div className="space-y-8 sm:space-y-10">
+      {/* Hero Section - Show Overview */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] max-w-[1400px] mx-auto">
+        <div className="space-y-6">
+          {loglinePanel}
+        </div>
+        <div className="space-y-6">
+          {posterSection}
+        </div>
+      </div>
+
+      {/* Trailer Section */}
+      {trailerPreviewSection ? (
+        <div className="max-w-[1400px] mx-auto">
+          {trailerPreviewSection}
+        </div>
+      ) : null}
+
+      {/* Character Cards */}
+      {characterSeeds && characterSeeds.length > 0 ? (
+        <div className="max-w-[1400px] mx-auto space-y-4">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              Character Lineup
+            </h2>
+            <p className="mt-2 text-sm text-foreground/60">
+              {characterSeeds.length} character{characterSeeds.length === 1 ? '' : 's'} in the series
+            </p>
+          </div>
+          {charactersContent}
+        </div>
+      ) : null}
+
+      {/* Visual Direction Section */}
+      <div className="max-w-[1400px] mx-auto">
+        <div className="mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            Look Bible
+          </h2>
+          <p className="mt-2 text-sm text-foreground/60">
+            Complete visual aesthetics framework for the series
+          </p>
+        </div>
+        {directivePanel}
+      </div>
+
+      {/* Technical Specs Grid */}
+      <div className="max-w-[1400px] mx-auto">
+        <div className="mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            Production Specifications
+          </h2>
+          <p className="mt-2 text-sm text-foreground/60">
+            Pipeline, camera, lighting, and finishing guardrails
+          </p>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-6">
+            <CollapsibleSection
+              title="Pipeline"
+              description="Capture and finishing guardrails."
+              accent="lagoon"
+            >
+              <div className="space-y-6">
+                <KeyValueTable
+                  items={[
+                    { label: "Color management", value: data.pipeline.color_management },
+                    { label: "Aspect ratio", value: data.pipeline.aspect_ratio },
+                    { label: "Highlight rolloff", value: data.pipeline.highlight_rolloff },
+                    { label: "Black floor", value: data.pipeline.black_floor },
+                    { label: "Grain", value: data.pipeline.grain_global },
+                  ]}
+                />
+                <SectionHeading title="Frame rates" />
+                <KeyValueTable
+                  items={[
+                    {
+                      label: "Animation",
+                      value: `${data.pipeline.frame_rates.animation_capture} fps`,
+                    },
+                    {
+                      label: "Playback",
+                      value: `${data.pipeline.frame_rates.playback} fps`,
+                    },
+                    {
+                      label: "Live action",
+                      value: `${data.pipeline.frame_rates.live_action_capture} fps`,
+                    },
+                  ]}
+                />
+                <SectionHeading title="Shutter angle" />
+                <KeyValueTable
+                  items={[
+                    {
+                      label: "Animation",
+                      value: `${data.pipeline.shutter_angle.animation}°`,
+                    },
+                    {
+                      label: "Live action",
+                      value: `${data.pipeline.shutter_angle.live_action}°`,
+                    },
+                  ]}
+                />
+                {data.pipeline.render_order && data.pipeline.render_order.length ? (
+                  <>
+                    <SectionHeading title="Render order" />
+                    <ArrayPills values={data.pipeline.render_order} />
+                  </>
+                ) : null}
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Lighting plan"
+              description="Mood, contrast, and practical policy."
+              accent="amber"
+            >
+              <div className="space-y-6">
+                <KeyValueTable
+                  items={[
+                    { label: "Temperature model", value: data.lighting.temperature_model },
+                    { label: "Key", value: data.lighting.key },
+                    { label: "Fill", value: data.lighting.fill },
+                    { label: "Edge", value: data.lighting.edge },
+                    {
+                      label: "Practicals",
+                      value: data.lighting.practicals_in_frame ? "Encouraged" : "Limit",
+                    },
+                    { label: "Halation", value: data.lighting.halation_policy },
+                  ]}
+                />
+                {data.lighting.no_go && data.lighting.no_go.length ? (
+                  <>
+                    <SectionHeading title="No-go" />
+                    <ArrayPills values={data.lighting.no_go} />
+                  </>
+                ) : null}
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Composition"
+              description="Framing habits to keep scenes cohesive."
+              accent="sand"
+            >
+              <KeyValueTable
+                items={[
+                  { label: "Symmetry bias", value: data.composition.symmetry_bias },
+                  { label: "Leading lines", value: data.composition.leading_lines },
+                  {
+                    label: "Foreground depth",
+                    value: data.composition.foreground_depth,
+                  },
+                  {
+                    label: "Color blocking",
+                    value: data.composition.color_blocking,
+                  },
+                ]}
+              />
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Sets & props"
+              description="Environment staging and recurring gags."
+              accent="lagoon"
+            >
+              <div className="space-y-6">
+                <SectionHeading title="Primary sets" />
+                <ArrayPills values={data.sets_and_prop_visuals.primary_sets} />
+                <KeyValueTable
+                  items={[
+                    { label: "Prop style", value: data.sets_and_prop_visuals.prop_style },
+                    { label: "Displays", value: data.sets_and_prop_visuals.display_devices },
+                  ]}
+                />
+                {data.sets_and_prop_visuals.runner_gags_visual?.length ? (
+                  <>
+                    <SectionHeading title="Recurring gags" />
+                    <ArrayPills values={data.sets_and_prop_visuals.runner_gags_visual} />
+                  </>
+                ) : null}
+              </div>
+            </CollapsibleSection>
+          </div>
+
+          <div className="space-y-6">
+            <CollapsibleSection
+              title="Color direction"
+              description="Palette anchors and restrictions."
+              accent="blush"
+            >
+              <div className="space-y-6">
+                <KeyValueTable
+                  items={[
+                    { label: "Palette bias", value: data.color.palette_bias },
+                    { label: "Skin protection", value: data.color.skin_protection },
+                    {
+                      label: "White balance",
+                      value: data.color.white_balance_baseline_K
+                        ? `${data.color.white_balance_baseline_K}K`
+                        : undefined,
+                    },
+                  ]}
+                />
+                <SectionHeading title="Anchor hex" />
+                <ColorSwatches colors={data.color.anchor_hex} />
+                {data.color.prohibitions && data.color.prohibitions.length ? (
+                  <>
+                    <SectionHeading title="Avoid" />
+                    <ArrayPills values={data.color.prohibitions} />
+                  </>
+                ) : null}
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Camera grammar"
+              description="Glass, movement, and coverage preferences."
+              accent="iris"
+            >
+              <div className="space-y-6">
+                <KeyValueTable
+                  items={[
+                    { label: "Sensor", value: data.camera.sensor },
+                    { label: "Depth of field", value: data.camera.dof_guides },
+                  ]}
+                />
+                <SectionHeading title="Lens family" />
+                <ArrayPills values={data.camera.lens_family} />
+                {data.camera.movement && data.camera.movement.length ? (
+                  <>
+                    <SectionHeading title="Movement" />
+                    <ArrayPills values={data.camera.movement} />
+                  </>
+                ) : null}
+                {data.camera.coverage_rules && data.camera.coverage_rules.length ? (
+                  <>
+                    <SectionHeading title="Coverage rules" />
+                    <ArrayPills values={data.camera.coverage_rules} />
+                  </>
+                ) : null}
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Materials & textures"
+              description="Surface language for cast and environments."
+              accent="moss"
+            >
+              <div className="space-y-6">
+                <KeyValueTable
+                  items={[
+                    {
+                      label: "Human textures",
+                      value: data.materials_and_textures.human_textures,
+                    },
+                    { label: "Patina", value: data.materials_and_textures.patina },
+                    { label: "Notes", value: data.materials_and_textures.notes },
+                  ]}
+                />
+                <SectionHeading title="Set surfaces" />
+                <ArrayPills values={data.materials_and_textures.set_surfaces} />
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Post & delivery"
+              description="Finishing expectations."
+              accent="slate"
+            >
+              <div className="space-y-6">
+                <SectionHeading title="Post grade" />
+                <KeyValueTable
+                  items={[
+                    { label: "Curve", value: data.post_grade.curve },
+                    { label: "LUT", value: data.post_grade.lut },
+                    { label: "Grain placement", value: data.post_grade.grain?.placement },
+                    { label: "Grain intensity", value: data.post_grade.grain?.intensity },
+                    { label: "Halation scope", value: data.post_grade.halation?.scope },
+                    { label: "Halation strength", value: data.post_grade.halation?.strength },
+                  ]}
+                />
+                <SectionHeading title="Export specs" />
+                <div className="space-y-3 text-sm text-foreground/65">
+                  <div>
+                    <p className="font-medium text-foreground/70">Stills</p>
+                    <ArrayPills values={data.export_specs.stills} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground/70">Video intermediate</p>
+                    <p>{data.export_specs.video_intermediate}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground/70">Delivery color</p>
+                    <p>{data.export_specs.delivery_color}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground/70">Plates</p>
+                    <ArrayPills values={data.export_specs.plates} />
+                  </div>
+                </div>
+              </div>
+            </CollapsibleSection>
+          </div>
+        </div>
+      </div>
+
+      {/* Species Design */}
+      <div className="max-w-[1400px] mx-auto">
+        <div className="mb-6">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            Species Design
+          </h2>
+          <p className="mt-2 text-sm text-foreground/60">
+            Character sheets for every performer type
+          </p>
+        </div>
+        <CollapsibleSection
+          title="Species design"
+          description="Character sheets for every performer type."
+          accent="slate"
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            {data.species_design.types.map((type) => (
+              <div
+                key={type.name}
+                className="rounded-2xl border border-white/12 bg-black/40 p-4 shadow-[0_12px_36px_rgba(0,0,0,0.45)]"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-base font-semibold text-foreground">
+                    {type.name}
+                  </p>
+                  <Badge className="border-white/20 bg-black/50 text-foreground/70">
+                    {type.surface_finish}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-sm text-foreground/65">{type.silhouette}</p>
+                <Separator className="my-4 border-white/10" />
+                <div className="space-y-3 text-sm text-foreground/65">
+                  {type.materials ? (
+                    <p>
+                      <span className="font-medium text-foreground/70">
+                        Materials:
+                      </span>{" "}
+                      {type.materials}
+                    </p>
+                  ) : null}
+                  <p>
+                    <span className="font-medium text-foreground/70">
+                      Eyes:
+                    </span>{" "}
+                    {[
+                      type.eyes.type,
+                      `Catchlight ${type.eyes.catchlight_shape}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  {type.eyes.behaviors && type.eyes.behaviors.length ? (
+                    <ArrayPills values={type.eyes.behaviors} />
+                  ) : null}
+                  <p>
+                    <span className="font-medium text-foreground/70">
+                      Face modularity:
+                    </span>{" "}
+                    {type.face_modularity}
+                  </p>
+                  {type.stress_cues ? (
+                    <p>
+                      <span className="font-medium text-foreground/70">
+                        Stress cues:
+                      </span>{" "}
+                      {type.stress_cues}
+                    </p>
+                  ) : null}
+                  {type.palette?.anchors && type.palette.anchors.length ? (
+                    <div className="space-y-2">
+                      <span className="font-medium text-foreground/70">
+                        Palette anchors
+                      </span>
+                      <ColorSwatches colors={type.palette.anchors} />
+                      {type.palette.notes ? (
+                        <p className="text-xs text-foreground/55">
+                          {type.palette.notes}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CollapsibleSection>
+      </div>
+
+      {/* Global Rules */}
+      <div className="max-w-[1400px] mx-auto">
+        <CollapsibleSection
+          title="Global prohibitions"
+          description="Do-not-cross guardrails to keep the look coherent."
+          accent="slate"
+        >
+          <ArrayPills values={data.prohibitions_global} />
+        </CollapsibleSection>
       </div>
     </div>
   );
@@ -2959,9 +3491,9 @@ function ResultView({
 
   return (
     <>
-      <Tabs defaultValue="master" className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <TabsList className="w-full sm:w-auto">
+      <Tabs defaultValue="master" className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 max-w-[1600px] mx-auto">
+        <TabsList className="w-full sm:w-auto justify-start">
           <TabsTrigger value="master" className="flex-1 sm:flex-none">
             <span className="flex items-center gap-2">
               Master
@@ -3014,10 +3546,10 @@ function ResultView({
         </TabsList>
         <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} />
       </div>
-      <TabsContent value="master" className="space-y-4 sm:space-y-5 pb-32">
+      <TabsContent value="master" className="pb-32">
         {masterContent}
       </TabsContent>
-      <TabsContent value="assets" className="space-y-4 sm:space-y-5 pb-32">
+      <TabsContent value="assets" className="space-y-6 pb-32 max-w-[1400px] mx-auto">
         <div className="space-y-8">
           {assetsSummary}
           <div className="grid gap-8 lg:grid-cols-2">
@@ -3048,16 +3580,13 @@ function ResultView({
           </div>
         </div>
       </TabsContent>
-      <TabsContent value="characters" className="space-y-4 sm:space-y-5 pb-32">
+      <TabsContent value="characters" className="pb-32 max-w-[1600px] mx-auto">
         {charactersContent}
       </TabsContent>
-      <TabsContent value="videos" className="space-y-4 sm:space-y-5 pb-32">
+      <TabsContent value="videos" className="pb-32 max-w-[1600px] mx-auto">
         {videosContent}
       </TabsContent>
-      <TabsContent value="trailer" className="space-y-4 sm:space-y-5 pb-32">
-        {trailerContent}
-      </TabsContent>
-      <TabsContent value="trailer" className="space-y-4 sm:space-y-5 pb-32">
+      <TabsContent value="trailer" className="pb-32 max-w-[1200px] mx-auto">
         {trailerContent}
       </TabsContent>
     </Tabs>
@@ -3114,6 +3643,7 @@ export default function Home() {
   const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [trailerError, setTrailerError] = useState<string | null>(null);
+  const [trailerStatus, setTrailerStatus] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   const [videoModelId, setVideoModelId] = useState<VideoModelId>(VIDEO_MODEL_OPTIONS[0].id);
   const [videoSeconds, setVideoSeconds] = useState<VideoDuration>(8);
@@ -3557,7 +4087,7 @@ export default function Home() {
   );
 
   const generatePoster = useCallback(
-    async (value: string) => {
+    async (value: string, gridUrl?: string) => {
       setPosterLoading(true);
       setPosterError(null);
 
@@ -3574,6 +4104,7 @@ export default function Home() {
           },
           body: JSON.stringify({
             prompt: trimmedPrompt || value.slice(0, 4950),
+            characterGridUrl: gridUrl,
           }),
         });
 
@@ -3645,25 +4176,73 @@ export default function Home() {
       setTrailerError("Blueprint missing.");
       return;
     }
-    if (!portraitGridUrl) {
-      setTrailerError("Character grid missing. Generate the grid first.");
-      return;
+    
+    // Generate grid first if we don't have one but have 4+ portraits
+    let gridUrl = portraitGridUrl;
+    if (!gridUrl) {
+      const portraitsData = characterSeeds
+        ?.map((seed) => {
+          const url = characterPortraits[seed.id];
+          if (!url) return null;
+          return { id: seed.id, name: seed.name, url };
+        })
+        .filter((entry): entry is { id: string; name: string; url: string } => Boolean(entry)) || [];
+      
+      if (portraitsData.length < 4) {
+        setTrailerError("Need at least 4 character portraits to generate trailer.");
+        return;
+      }
+      
+      console.log("Generating character grid first with", portraitsData.length, "portraits");
+      setPortraitGridLoading(true);
+      
+      try {
+        const gridResponse = await fetch("/api/characters/portrait-grid", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            portraits: portraitsData,
+            columns: 3,
+          }),
+        });
+        
+        if (!gridResponse.ok) {
+          throw new Error("Failed to generate character grid");
+        }
+        
+        const gridResult = (await gridResponse.json()) as { url?: string };
+        if (!gridResult.url) {
+          throw new Error("Grid generation returned no URL");
+        }
+        
+        gridUrl = gridResult.url;
+        setPortraitGridUrl(gridUrl);
+      } catch (error) {
+        console.error("Failed to generate grid for trailer:", error);
+        setTrailerError("Failed to create character grid. Try again.");
+        setPortraitGridLoading(false);
+        return;
+      } finally {
+        setPortraitGridLoading(false);
+      }
     }
 
-    const digest = portraitGridUrl;
+    const digest = gridUrl;
     trailerDigestRef.current = digest;
 
     setTrailerLoading(true);
     setTrailerError(null);
+    setTrailerStatus("Initializing Sora 2 Pro...");
 
     try {
+      setTrailerStatus("Sending request to Sora 2 Pro...");
       const response = await fetch("/api/trailer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: blueprint.show_title ?? "Untitled Series",
           logline: blueprint.show_logline ?? "",
-          characterGridUrl: portraitGridUrl,
+          characterGridUrl: gridUrl,
           show: blueprint,
         }),
       });
@@ -3676,22 +4255,31 @@ export default function Home() {
         throw new Error(body?.error ?? fallback);
       }
 
+      setTrailerStatus("Processing video with Sora 2 Pro...");
+      
       const result = (await response.json()) as { url?: string };
       if (!result.url) {
         throw new Error("Trailer response missing URL.");
       }
+      
+      setTrailerStatus("Trailer completed!");
       setTrailerUrl(result.url);
+      
+      // Play success sound
+      playSuccessChime();
     } catch (err) {
       console.error("Failed to generate trailer:", err);
       const message =
         err instanceof Error ? err.message : "Unable to generate trailer.";
       setTrailerError(message);
       setTrailerUrl(null);
+      setTrailerStatus(null);
       trailerDigestRef.current = "";
     } finally {
       setTrailerLoading(false);
+      setTimeout(() => setTrailerStatus(null), 3000);
     }
-  }, [blueprint, portraitGridUrl]);
+  }, [blueprint, portraitGridUrl, characterSeeds, characterPortraits]);
 
   useEffect(() => {
     if (!posterAvailable) return;
@@ -3726,6 +4314,7 @@ export default function Home() {
     const signature = JSON.stringify({
       logline: blueprint.show_logline,
       characters: charactersSummary,
+      grid: portraitGridUrl,
     });
 
     if (posterDigestRef.current === signature) {
@@ -3740,13 +4329,14 @@ export default function Home() {
       JSON.stringify(charactersSummary),
     ].join("\n\n");
 
-    void generatePoster(compositePrompt);
+    void generatePoster(compositePrompt, portraitGridUrl || undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     posterAvailable,
-    blueprint,
-    characterSeeds,
-    characterDocs,
-    generatePoster,
+    blueprint?.show_logline,
+    characterSeeds?.length,
+    Object.keys(characterDocs || {}).length,
+    portraitGridUrl,
     posterLoading,
   ]);
 
@@ -3761,7 +4351,8 @@ export default function Home() {
       })
       .filter((entry): entry is { id: string; name: string; url: string } => Boolean(entry));
     if (portraitsData.length === 0) return;
-    if (portraitsData.length !== characterSeeds.length) return;
+    // Allow partial grids with 4+ portraits (changed from requiring all)
+    if (portraitsData.length < 4) return;
 
     const signature = JSON.stringify(portraitsData.map((entry) => entry.url));
 
@@ -4438,7 +5029,12 @@ export default function Home() {
             trailerUrl={trailerUrl}
             trailerLoading={trailerLoading}
             trailerError={trailerError}
+            trailerStatus={trailerStatus}
             onGenerateTrailer={() => void generateTrailer()}
+            onRegenerateGrid={() => {
+              portraitGridDigestRef.current = "";
+              setPortraitGridUrl(null);
+            }}
           />
         </div>
       </main>

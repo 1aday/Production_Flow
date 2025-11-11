@@ -65,16 +65,28 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
     const input = {
       prompt: trailerPrompt,
       image: characterGridUrl,
+      duration: 12, // EXPLICITLY SET TO 12 SECONDS (NUMBER, NOT STRING)
       aspect_ratio: "landscape",
-      duration: 12,
       resolution: "high",
     };
+    
+    // Verify duration is a number
+    if (typeof input.duration !== 'number') {
+      console.error("⚠️ WARNING: duration is not a number!", typeof input.duration, input.duration);
+      input.duration = 12;
+    }
 
     console.log("=== Sora 2 Pro Trailer Input ===");
-    console.log("Duration: 12 seconds");
-    console.log("Resolution: high");
-    console.log("Aspect: landscape");
-    console.log("Input:", JSON.stringify(input, null, 2));
+    console.log("Duration:", input.duration, "seconds (MUST BE 12)");
+    console.log("Resolution:", input.resolution);
+    console.log("Aspect:", input.aspect_ratio);
+    console.log("Model: openai/sora-2-pro");
+    console.log("\nFull input object:");
+    console.log(JSON.stringify(input, null, 2));
+    
+    const requestBody = JSON.stringify({ input });
+    console.log("\nRequest body being sent:");
+    console.log(requestBody);
 
     // Use direct API call to ensure proper serialization
     const createResponse = await fetch("https://api.replicate.com/v1/models/openai/sora-2-pro/predictions", {
@@ -83,7 +95,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
         "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ input }),
+      body: requestBody,
     });
 
     if (!createResponse.ok) {
@@ -92,9 +104,11 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
       throw new Error(`Failed to create prediction: ${createResponse.status} - ${errorBody}`);
     }
 
-    const prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+    const prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown; input?: unknown };
 
-    console.log("Prediction created:", prediction.id, "Status:", prediction.status);
+    console.log("Prediction created:", prediction.id);
+    console.log("Initial status:", prediction.status);
+    console.log("Confirmed input sent to Sora:", JSON.stringify(prediction.input, null, 2));
 
     // Wait for completion
     let result = prediction;
