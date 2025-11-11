@@ -1142,6 +1142,8 @@ function ResultView({
   characterPortraits,
   characterPortraitLoading,
   characterPortraitErrors,
+  editedPortraitPrompts,
+  onSetEditedPortraitPrompt,
   characterVideos,
   characterVideoLoading,
   characterVideoErrors,
@@ -1172,6 +1174,7 @@ function ResultView({
   libraryPosterLoading,
   portraitGridUrl,
   portraitGridLoading,
+  portraitGridError,
   trailerUrl,
   trailerLoading,
   trailerError,
@@ -1190,6 +1193,8 @@ function ResultView({
   characterPortraits: Record<string, string | null>;
   characterPortraitLoading: Record<string, boolean>;
   characterPortraitErrors: Record<string, string>;
+  editedPortraitPrompts: Record<string, string>;
+  onSetEditedPortraitPrompt: (value: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => void;
   characterVideos: Record<string, string[]>;
   characterVideoLoading: Record<string, boolean>;
   characterVideoErrors: Record<string, string>;
@@ -1220,6 +1225,7 @@ function ResultView({
   libraryPosterLoading: boolean;
   portraitGridUrl: string | null;
   portraitGridLoading: boolean;
+  portraitGridError: string | null;
   trailerUrl: string | null;
   trailerLoading: boolean;
   trailerError: string | null;
@@ -1370,56 +1376,58 @@ function ResultView({
       </Badge>
     ) : null;
 
-  const posterSection = posterAvailable ? (
-    posterLoading || posterError || posterUrl ? (
-      <CollapsibleSection
-        title="Poster concept"
-        description="Key art pulled directly from the latest look bible."
-        accent="iris"
-        defaultOpen
-      >
-        {posterLoading ? (
-          <div className="flex items-center gap-3 rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/70">
+  const posterSection = posterAvailable
+    ? posterLoading || posterError || posterUrl
+      ? posterLoading
+        ? (
+          <div className="flex items-center gap-3 rounded-3xl bg-black/45 px-5 py-4 text-sm text-foreground/70 shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
             Generating poster…
           </div>
-        ) : posterError ? (
-          <div className="space-y-3 rounded-3xl border border-red-500/40 bg-red-500/10 px-5 py-4 text-sm">
-            <p className="font-semibold text-red-200">Poster generation failed</p>
-            <p className="text-red-200/80">{posterError}</p>
-          </div>
-        ) : posterUrl ? (
-          <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
-            <div className="relative h-0 w-full pb-[118%]">
-              <Image
-                src={posterUrl}
-                alt="Generated poster concept"
-                fill
-                className="object-cover"
-                sizes="(min-width: 768px) 560px, 100vw"
-                priority
-              />
+        )
+        : posterError
+          ? (
+            <div className="space-y-3 rounded-3xl bg-red-500/10 px-5 py-4 text-sm shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
+              <p className="font-semibold text-red-200">Poster generation failed</p>
+              <p className="text-red-200/80">{posterError}</p>
             </div>
-          </div>
-        ) : null}
-      </CollapsibleSection>
-    ) : null
-  ) : (
-    <CollapsibleSection
-      title="Poster concept"
-      description="Connect Replicate to render hero artwork."
-      accent="iris"
-      defaultOpen={false}
-    >
-      <div className="rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/65">
+          )
+          : posterUrl
+            ? (
+              <div className="overflow-hidden rounded-3xl bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+                <div className="relative h-0 w-full pb-[175%]">
+                  <Image
+                    src={posterUrl}
+                    alt="Generated poster concept"
+                    fill
+                    className="object-contain"
+                    sizes="(min-width: 768px) 560px, 100vw"
+                    priority
+                  />
+                </div>
+                <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
+                  1024×1792 • Sora output
+                </div>
+              </div>
+            )
+            : null
+      : null
+    : (
+      <div className="rounded-3xl bg-black/45 px-5 py-4 text-sm text-foreground/65 shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
         Poster generation is disabled. Add a Replicate token to unlock one-click key art.
       </div>
-    </CollapsibleSection>
-  );
+    );
 
   const libraryPosterSection =
     !posterAvailable
-      ? null
+      ? (
+        <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
+          <p>Library poster unlocks once poster automation is configured.</p>
+          <p className="text-foreground/55">
+            Add a Replicate token and render the hero poster to stage the 9:16 version.
+          </p>
+        </div>
+      )
       : (
         <CollapsibleSection
           title="Library-ready poster"
@@ -1467,24 +1475,30 @@ function ResultView({
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
           Building character grid…
         </div>
-      ) : portraitGridUrl ? (
-        <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
-          <div className="relative h-0 w-full pb-[70%]">
-            <Image
-              src={portraitGridUrl}
-              alt="Character portrait grid"
-              fill
-              className="object-cover"
-              sizes="(min-width: 1024px) 800px, 100vw"
-            />
-          </div>
-        </div>
-      ) : (
+       ) : portraitGridUrl ? (
+         <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+           <div className="relative h-0 w-full pb-[56.25%]">
+             <Image
+               src={portraitGridUrl}
+               alt="Character portrait grid (1280x720 for Sora)"
+               fill
+               className="object-contain"
+               sizes="(min-width: 1024px) 1280px, 100vw"
+             />
+           </div>
+           <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
+             1280×720 • Ready for Sora
+           </div>
+         </div>
+       ) : (
         <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
           <p>Grid renders after every character portrait is complete.</p>
           <p className="text-foreground/55">Finish generating portraits to unlock the consolidated asset.</p>
         </div>
       )}
+      {portraitGridError ? (
+        <p className="mt-3 text-xs text-red-300">{portraitGridError}</p>
+      ) : null}
     </CollapsibleSection>
   );
 
@@ -1967,7 +1981,10 @@ function ResultView({
 
     const unbuiltCharacters = characterSeeds.filter((seed) => !characterDocs[seed.id]);
     const charactersWithoutPortraits = characterSeeds.filter(
-      (seed) => characterDocs[seed.id] && !characterPortraits[seed.id]
+      (seed) => characterDocs[seed.id] && !characterPortraits[seed.id] && !characterPortraitErrors[seed.id]
+    );
+    const charactersWithPortraitErrors = characterSeeds.filter(
+      (seed) => characterPortraitErrors[seed.id]
     );
     const anyBuilding = Object.values(characterBuilding).some(Boolean);
     const anyPortraitLoading = Object.values(characterPortraitLoading).some(Boolean);
@@ -2023,6 +2040,11 @@ function ResultView({
                   </>
                 )}
               </Button>
+            ) : null}
+            {charactersWithPortraitErrors.length > 0 ? (
+              <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-200">
+                {charactersWithPortraitErrors.length} portrait{charactersWithPortraitErrors.length === 1 ? '' : 's'} need{charactersWithPortraitErrors.length === 1 ? 's' : ''} attention
+              </Badge>
             ) : null}
           </div>
         ) : null}
@@ -2152,7 +2174,10 @@ function ResultView({
               )}
             >
               {!isActive && portraitUrl ? (
-                <div className="relative overflow-hidden bg-black/60">
+                <div className={cn(
+                  "relative overflow-hidden bg-black/60",
+                  portraitError && "ring-2 ring-amber-500/50"
+                )}>
                   <div className="relative h-0 w-full pb-[100%]">
                     <Image
                       src={portraitUrl}
@@ -2161,6 +2186,19 @@ function ResultView({
                       className="object-cover object-center"
                       sizes="(min-width: 768px) 280px, 100vw"
                     />
+                  </div>
+                  {portraitError ? (
+                    <div className="absolute inset-0 bg-amber-500/15 backdrop-blur-[2px]" />
+                  ) : null}
+                </div>
+              ) : !isActive && portraitError ? (
+                <div className="relative overflow-hidden bg-black/60">
+                  <div className="relative h-0 w-full pb-[100%]">
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-500/20 to-black/60">
+                      <span className="text-sm uppercase tracking-[0.3em] text-amber-300/70">
+                        Retry
+                      </span>
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -2350,7 +2388,88 @@ function ResultView({
               </CardContent>
               <CardFooter className={cn('flex flex-col gap-2', !isActive && portraitUrl ? 'px-6 pb-6' : '')}>
                 {buildError ? (
-                  <p className="text-xs text-red-300">{buildError}</p>
+                  <p className="text-xs text-red-300 break-words">{buildError}</p>
+                ) : null}
+                {portraitError ? (
+                  <div className="w-full space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+                    <p className="text-xs font-semibold text-amber-200">Portrait needs attention</p>
+                    <p className="text-xs text-amber-200/80 break-words leading-relaxed">{portraitError}</p>
+                    <details className="group">
+                      <summary 
+                        className="cursor-pointer text-xs font-medium text-amber-200/80 hover:text-amber-200 underline decoration-dotted"
+                        onClick={(e) => {
+                          // Pre-populate with original prompt when expanded
+                          if (!editedPortraitPrompts[seed.id] && doc) {
+                            const showJson = JSON.stringify(blueprint, null, 2).slice(0, 3000);
+                            const characterJson = JSON.stringify(doc, null, 2).slice(0, 3000);
+                            const defaultPrompt = [
+                              "Create a highly art-directed 1:1 square character portrait.",
+                              "Focus on cinematic lighting, intentional wardrobe, and expressive posture.",
+                              "Respect the show's aesthetic while capturing the essence of the character.",
+                              "Every choice must adhere to the aesthetic, palette, lighting, and creative rules specified in the show blueprint JSON.",
+                              "",
+                              "Show blueprint JSON:",
+                              showJson,
+                              "",
+                              "Character blueprint JSON:",
+                              characterJson,
+                            ].join("\n");
+                            
+                            onSetEditedPortraitPrompt((prev) => ({
+                              ...prev,
+                              [seed.id]: defaultPrompt,
+                            }));
+                          }
+                        }}
+                      >
+                        Customize prompt & retry →
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        <Textarea
+                          value={editedPortraitPrompts[seed.id] ?? ""}
+                          onChange={(e) => {
+                            onSetEditedPortraitPrompt((prev) => ({
+                              ...prev,
+                              [seed.id]: e.target.value,
+                            }));
+                          }}
+                          placeholder="Edit the portrait prompt..."
+                          className="min-h-[120px] text-xs font-mono"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => {
+                              const customPrompt = editedPortraitPrompts[seed.id];
+                              if (customPrompt) {
+                                onGeneratePortrait(seed.id, customPrompt);
+                              }
+                            }}
+                            disabled={!editedPortraitPrompts[seed.id] || portraitLoading}
+                            className="flex-1 rounded-full text-xs"
+                          >
+                            Retry with custom prompt
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              onSetEditedPortraitPrompt((prev) => {
+                                const next = { ...prev };
+                                delete next[seed.id];
+                                return next;
+                              });
+                            }}
+                            className="rounded-full text-xs"
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
                 ) : null}
                 <Button
                   type="button"
@@ -2380,11 +2499,14 @@ function ResultView({
                     "Build dossier"
                   )}
                 </Button>
-                {doc && posterAvailable ? (
+                {doc && posterAvailable && !portraitError ? (
                   <Button
                     type="button"
                     variant={portraitUrl ? "outline" : "secondary"}
-                    onClick={() => onGeneratePortrait(seed.id)}
+                    onClick={() => {
+                      const customPrompt = editedPortraitPrompts[seed.id];
+                      onGeneratePortrait(seed.id, customPrompt);
+                    }}
                     disabled={portraitLoading}
                     className="w-full justify-center rounded-full text-sm transition-all duration-200"
                   >
@@ -2394,9 +2516,9 @@ function ResultView({
                         Rendering…
                       </>
                     ) : portraitUrl ? (
-                      "Re-render portrait"
+                      editedPortraitPrompts[seed.id] ? "Re-render with custom" : "Re-render portrait"
                     ) : (
-                      "Render portrait"
+                      editedPortraitPrompts[seed.id] ? "Render with custom" : "Render portrait"
                     )}
                   </Button>
                 ) : null}
@@ -2776,6 +2898,65 @@ function ResultView({
     </div>
   );
 
+  const assetStatusItems = [
+    { key: "poster", label: "Hero poster", ready: Boolean(posterUrl) },
+    { key: "libraryPoster", label: "Library poster", ready: Boolean(libraryPosterUrl) },
+    { key: "grid", label: "Character grid", ready: Boolean(portraitGridUrl) },
+    { key: "trailer", label: "Series trailer", ready: Boolean(trailerUrl) },
+  ] as const;
+  const assetsReadyCount = assetStatusItems.filter((item) => item.ready).length;
+  const assetsSummary = (
+    <section className="rounded-3xl border border-white/12 bg-black/40 px-6 py-6 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+            Asset readiness
+          </p>
+          <p className="text-3xl font-bold text-foreground">{assetsReadyCount} / {assetStatusItems.length}</p>
+          <p className="text-sm text-foreground/60">Ready for export</p>
+        </div>
+        <Badge
+          variant="outline"
+          className={cn(
+            "rounded-full border px-3 py-1 text-xs font-semibold tracking-wide",
+            posterAvailable ? "border-emerald-400/40 text-emerald-200" : "border-white/20 text-foreground/60"
+          )}
+        >
+          {posterAvailable ? "Automation unlocked" : "Automation locked"}
+        </Badge>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {assetStatusItems.map((item) => (
+          <div
+            key={item.key}
+            className="rounded-2xl border border-white/10 bg-black/50 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
+          >
+            <div className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className={cn(
+                  "h-2.5 w-2.5 rounded-full",
+                  item.ready ? "bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.65)]" : "bg-white/25"
+                )}
+              />
+              <p
+                className={cn(
+                  "text-sm font-semibold",
+                  item.ready ? "text-foreground" : "text-foreground/60"
+                )}
+              >
+                {item.ready ? "Ready" : "Pending"}
+              </p>
+            </div>
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-foreground/50">
+              {item.label}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+
   return (
     <>
       <Tabs defaultValue="master" className="space-y-4">
@@ -2837,15 +3018,34 @@ function ResultView({
         {masterContent}
       </TabsContent>
       <TabsContent value="assets" className="space-y-4 sm:space-y-5 pb-32">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] max-w-[1200px] mx-auto">
-          <div className="space-y-4 sm:space-y-6">{posterSection}</div>
-          <div className="space-y-4 sm:space-y-6">
-            {libraryPosterSection}
-            {trailerSection}
+        <div className="space-y-8">
+          {assetsSummary}
+          <div className="grid gap-8 lg:grid-cols-2">
+            <section className="space-y-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+                  Key art delivery
+                </p>
+                <p className="text-sm text-foreground/65">
+                  Poster-ready stills staged for decks, look books, and library carousels.
+                </p>
+              </div>
+              {posterSection}
+              {libraryPosterSection}
+            </section>
+            <section className="space-y-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+                  Companion media
+                </p>
+                <p className="text-sm text-foreground/65">
+                  Character grids and the auto-cut trailer for packaging and pitches.
+                </p>
+              </div>
+              {portraitGridSection}
+              {trailerSection}
+            </section>
           </div>
-        </div>
-        <div className="max-w-[800px] mx-auto">
-          {portraitGridSection}
         </div>
       </TabsContent>
       <TabsContent value="characters" className="space-y-4 sm:space-y-5 pb-32">
@@ -2896,6 +3096,7 @@ export default function Home() {
   const [characterPortraits, setCharacterPortraits] = useState<Record<string, string | null>>({});
   const [characterPortraitLoading, setCharacterPortraitLoading] = useState<Record<string, boolean>>({});
   const [characterPortraitErrors, setCharacterPortraitErrors] = useState<Record<string, string>>({});
+  const [editedPortraitPrompts, setEditedPortraitPrompts] = useState<Record<string, string>>({});
   const [characterVideos, setCharacterVideos] = useState<Record<string, string[]>>({});
   const [characterVideoLoading, setCharacterVideoLoading] = useState<Record<string, boolean>>({});
   const [characterVideoErrors, setCharacterVideoErrors] = useState<Record<string, string>>({});
@@ -2909,6 +3110,7 @@ export default function Home() {
   const [libraryPosterLoading, setLibraryPosterLoading] = useState(false);
   const [portraitGridUrl, setPortraitGridUrl] = useState<string | null>(null);
   const [portraitGridLoading, setPortraitGridLoading] = useState(false);
+  const [portraitGridError, setPortraitGridError] = useState<string | null>(null);
   const [trailerUrl, setTrailerUrl] = useState<string | null>(null);
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [trailerError, setTrailerError] = useState<string | null>(null);
@@ -2989,6 +3191,7 @@ export default function Home() {
         setCharacterVideoErrors({});
         setPortraitGridUrl(null);
         setPortraitGridLoading(false);
+        setPortraitGridError(null);
         portraitGridDigestRef.current = "";
         
         // Update show with character seeds
@@ -3015,6 +3218,7 @@ export default function Home() {
         setCharacterVideoErrors({});
         setPortraitGridUrl(null);
         setPortraitGridLoading(false);
+        setPortraitGridError(null);
         portraitGridDigestRef.current = "";
       } finally {
         setCharactersLoading(false);
@@ -3109,7 +3313,7 @@ export default function Home() {
   }, [blueprint, characterSeeds, characterDocs, characterBuilding, buildCharacter]);
 
   const generateCharacterPortrait = useCallback(
-    async (characterId: string) => {
+    async (characterId: string, customPrompt?: string) => {
       if (!blueprint) {
         setCharacterPortraitErrors((prev) => ({
           ...prev,
@@ -3134,17 +3338,30 @@ export default function Home() {
         return next;
       });
 
+      // Set a 3-minute timeout
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Generation took longer than expected. The server may be busy—try again in a moment or edit the prompt below.")), 180000);
+      });
+
       try {
-        const response = await fetch("/api/characters/portrait", {
+        const characterWithPrompt = customPrompt ? {
+          ...doc,
+          _customPortraitPrompt: customPrompt,
+        } : doc;
+
+        const fetchPromise = fetch("/api/characters/portrait", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
             show: blueprint,
-            character: doc,
+            character: characterWithPrompt,
+            customPrompt: customPrompt || undefined,
           }),
         });
+
+        const response = await Promise.race([fetchPromise, timeoutPromise]);
 
         if (!response.ok) {
           const body = (await response.json().catch(() => null)) as
@@ -3184,11 +3401,11 @@ export default function Home() {
           setTimeout(() => void saveCurrentShow(true), 1000); // Give state time to update
         }
       } catch (err) {
-        console.error(err);
+        console.error("Portrait generation error:", err);
+        const errorMessage = err instanceof Error ? err.message : "Unable to render portrait.";
         setCharacterPortraitErrors((prev) => ({
           ...prev,
-          [characterId]:
-            err instanceof Error ? err.message : "Unable to render portrait.",
+          [characterId]: errorMessage,
         }));
       } finally {
         setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
@@ -3205,6 +3422,7 @@ export default function Home() {
       if (!characterDocs[seed.id]) return;
       if (characterPortraits[seed.id]) return;
       if (characterPortraitLoading[seed.id]) return;
+      if (characterPortraitErrors[seed.id]) return; // Don't auto-retry errors
       void generateCharacterPortrait(seed.id);
     });
   }, [
@@ -3214,6 +3432,7 @@ export default function Home() {
     characterDocs,
     characterPortraits,
     characterPortraitLoading,
+    characterPortraitErrors,
     generateCharacterPortrait,
   ]);
 
@@ -3557,6 +3776,7 @@ export default function Home() {
 
     portraitGridDigestRef.current = signature;
     setPortraitGridLoading(true);
+    setPortraitGridError(null);
 
     void (async () => {
       try {
@@ -3576,11 +3796,15 @@ export default function Home() {
         const result = (await response.json()) as { url?: string };
         if (result.url) {
           setPortraitGridUrl(result.url);
+          setPortraitGridError(null);
         } else {
           throw new Error("Portrait grid response missing URL.");
         }
       } catch (error) {
         console.error("Failed to compose portrait grid:", error);
+        const message =
+          error instanceof Error ? error.message : "Unable to compose portrait grid.";
+        setPortraitGridError(message);
         portraitGridDigestRef.current = "";
       } finally {
         setPortraitGridLoading(false);
@@ -3635,6 +3859,7 @@ export default function Home() {
       setLibraryPosterLoading(false);
       setPortraitGridUrl(null);
       setPortraitGridLoading(false);
+      setPortraitGridError(null);
       posterDigestRef.current = "";
       portraitGridDigestRef.current = "";
       setLastPrompt(null);
@@ -3790,6 +4015,7 @@ export default function Home() {
     setLibraryPosterLoading(false);
     setPortraitGridUrl(null);
     setPortraitGridLoading(false);
+    setPortraitGridError(null);
     setTrailerUrl(null);
     setTrailerLoading(false);
     setTrailerError(null);
@@ -3841,6 +4067,7 @@ export default function Home() {
       setPosterUrl(show.posterUrl || null);
       setLibraryPosterUrl(show.libraryPosterUrl || null);
       setPortraitGridUrl(show.portraitGridUrl || null);
+      setPortraitGridError(null);
       setTrailerUrl(show.trailerUrl || null);
       setTrailerError(null);
       setPosterAvailable(true);
@@ -4175,6 +4402,8 @@ export default function Home() {
             characterPortraits={characterPortraits}
             characterPortraitLoading={characterPortraitLoading}
             characterPortraitErrors={characterPortraitErrors}
+            editedPortraitPrompts={editedPortraitPrompts}
+            onSetEditedPortraitPrompt={setEditedPortraitPrompts}
             characterVideos={characterVideos}
             characterVideoLoading={characterVideoLoading}
             characterVideoErrors={characterVideoErrors}
@@ -4205,6 +4434,7 @@ export default function Home() {
             libraryPosterLoading={libraryPosterLoading}
             portraitGridUrl={portraitGridUrl}
             portraitGridLoading={portraitGridLoading}
+            portraitGridError={portraitGridError}
             trailerUrl={trailerUrl}
             trailerLoading={trailerLoading}
             trailerError={trailerError}

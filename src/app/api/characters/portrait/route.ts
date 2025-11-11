@@ -5,6 +5,7 @@ import Replicate from "replicate";
 type PortraitBody = {
   show: unknown;
   character: unknown;
+  customPrompt?: string;
 };
 
 const replicate = new Replicate({
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
   const showJson = trimJson(body.show);
   const characterJson = trimJson(body.character);
 
-  const prompt = [
+  const prompt = body.customPrompt || [
     "Create a highly art-directed 1:1 square character portrait.",
     "Focus on cinematic lighting, intentional wardrobe, and expressive posture.",
     "Respect the show's aesthetic while capturing the essence of the character.",
@@ -87,6 +88,9 @@ export async function POST(request: Request) {
 
   try {
     console.log("🎨 Generating 1:1 character portrait...");
+    if (body.customPrompt) {
+      console.log("Using custom prompt:", body.customPrompt.slice(0, 150) + "...");
+    }
     
     const result = (await replicate.run("openai/gpt-image-1", {
       input: {

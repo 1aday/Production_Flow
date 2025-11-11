@@ -61,16 +61,20 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
   console.log("Character grid URL:", characterGridUrl);
 
   try {
-    // Use Sora 2 Pro for high-quality trailer
+    // Use Sora 2 Pro for high-quality 12-second trailer
     const input = {
       prompt: trailerPrompt,
       image: characterGridUrl,
       aspect_ratio: "landscape",
-      duration: 12, // Sora 2 Pro max is 12 seconds
+      duration: 12,
       resolution: "high",
     };
 
-    console.log("Trailer input:", JSON.stringify(input, null, 2));
+    console.log("=== Sora 2 Pro Trailer Input ===");
+    console.log("Duration: 12 seconds");
+    console.log("Resolution: high");
+    console.log("Aspect: landscape");
+    console.log("Input:", JSON.stringify(input, null, 2));
 
     // Use direct API call to ensure proper serialization
     const createResponse = await fetch("https://api.replicate.com/v1/models/openai/sora-2-pro/predictions", {

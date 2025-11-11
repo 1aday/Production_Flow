@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Replicate from "replicate";
+import sharp from "sharp";
 
 export const maxDuration = 120;
 
@@ -12,25 +12,11 @@ type PortraitGridBody = {
   columns?: number;
 };
 
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-});
+const GRID_WIDTH = 1280;
+const GRID_HEIGHT = 720;
+const BACKGROUND_COLOR = { r: 18, g: 18, b: 18 }; // #121212
 
 export async function POST(request: NextRequest) {
-  if (!process.env.REPLICATE_API_TOKEN) {
-    return NextResponse.json(
-      { error: "Missing REPLICATE_API_TOKEN environment variable." },
-      { status: 500 }
-    );
-  }
-
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { error: "Missing OPENAI_API_KEY environment variable." },
-      { status: 500 }
-    );
-  }
-
   let body: PortraitGridBody;
   try {
     body = (await request.json()) as PortraitGridBody;
@@ -47,65 +33,86 @@ export async function POST(request: NextRequest) {
 
   const columns = body.columns ?? 3;
   const portraitCount = body.portraits.length;
+  const rows = Math.ceil(portraitCount / columns);
 
-  console.log("🎨 Generating character grid:", {
+  console.log("🎨 Compositing character grid from actual portraits:", {
     characters: portraitCount,
-    columns,
-    portraits: body.portraits.map(p => p.name),
+    grid: `${columns}x${rows}`,
+    output: `${GRID_WIDTH}x${GRID_HEIGHT}`,
   });
 
-  // Create a prompt to composite all portraits into a grid
-  const gridPrompt = `Create a professional character lineup grid showing all ${portraitCount} characters from this series.
-Arrange them in a ${columns}-column grid layout with consistent spacing and presentation.
-Each character should be clearly visible in their portrait.
-Clean, professional presentation suitable for a show bible or press kit.
-High-quality composite image, studio lighting, premium production value.
-
-Characters:
-${body.portraits.map((p, i) => `${i + 1}. ${p.name}`).join("\n")}
-
-Style: Professional character lineup grid, Netflix-style presentation, clean background, 
-consistent framing for each portrait, premium quality.`;
-
   try {
-    // Use DALL-E 3 for compositing since we need precise control
-    const result = (await replicate.run("openai/gpt-image-1", {
-      input: {
-        prompt: gridPrompt,
-        quality: "high",
-        aspect_ratio: "16:9",
-        background: "auto",
-        number_of_images: 1,
-        openai_api_key: process.env.OPENAI_API_KEY,
-      },
-    })) as unknown;
-
-    let url: string | undefined;
-
-    if (Array.isArray(result) && result.length > 0) {
-      const first = result[0];
-      if (typeof first === "string") {
-        url = first;
-      } else if (first && typeof first === "object" && "url" in first) {
-        const candidate = (first as { url?: unknown }).url;
-        if (typeof candidate === "string") {
-          url = candidate;
+    // Download all portrait images
+    const portraitBuffers = await Promise.all(
+      body.portraits.map(async (portrait) => {
+        const response = await fetch(portrait.url);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch portrait: ${portrait.name}`);
         }
-      }
-    }
+        const buffer = await response.arrayBuffer();
+        return {
+          name: portrait.name,
+          buffer: Buffer.from(buffer),
+        };
+      })
+    );
 
-    if (!url) {
-      return NextResponse.json(
-        {
-          error: "Unexpected grid response format.",
-          details: result,
-        },
-        { status: 502 }
-      );
-    }
+    console.log(`Downloaded ${portraitBuffers.length} portraits`);
 
-    console.log("✅ Character grid generated successfully");
-    return NextResponse.json({ url });
+    // Calculate cell dimensions with padding
+    const padding = 20;
+    const cellWidth = Math.floor((GRID_WIDTH - padding * (columns + 1)) / columns);
+    const cellHeight = Math.floor((GRID_HEIGHT - padding * (rows + 1)) / rows);
+
+    console.log(`Grid cells: ${cellWidth}x${cellHeight}`);
+
+    // Resize all portraits to fit cells (maintaining aspect ratio)
+    const resizedPortraits = await Promise.all(
+      portraitBuffers.map(async ({ name, buffer }) => {
+        const resized = await sharp(buffer)
+          .resize(cellWidth, cellHeight, {
+            fit: "contain",
+            background: BACKGROUND_COLOR,
+          })
+          .toBuffer();
+        return { name, buffer: resized };
+      })
+    );
+
+    // Create base canvas
+    const canvas = sharp({
+      create: {
+        width: GRID_WIDTH,
+        height: GRID_HEIGHT,
+        channels: 3,
+        background: BACKGROUND_COLOR,
+      },
+    });
+
+    // Position each portrait in the grid
+    const compositeOperations = resizedPortraits.map((portrait, index) => {
+      const col = index % columns;
+      const row = Math.floor(index / columns);
+      const x = padding + col * (cellWidth + padding);
+      const y = padding + row * (cellHeight + padding);
+
+      return {
+        input: portrait.buffer,
+        top: y,
+        left: x,
+      };
+    });
+
+    // Composite all portraits onto canvas
+    const gridBuffer = await canvas.composite(compositeOperations).webp({ quality: 95 }).toBuffer();
+
+    console.log(`✅ Character grid composited: ${GRID_WIDTH}x${GRID_HEIGHT}`);
+
+    // Convert to base64 data URL
+    const base64 = gridBuffer.toString("base64");
+    const dataUrl = `data:image/webp;base64,${base64}`;
+
+    return NextResponse.json({ url: dataUrl });
   } catch (error) {
     console.error("[portrait-grid] Error:", error);
     const message =
