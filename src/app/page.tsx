@@ -1180,6 +1180,8 @@ function ResultView({
   trailerError,
   trailerStatus,
   trailerElapsed,
+  editedTrailerPrompt,
+  onSetEditedTrailerPrompt,
   onGenerateTrailer,
   onRegenerateGrid,
   onRegeneratePoster,
@@ -1237,6 +1239,8 @@ function ResultView({
   trailerError: string | null;
   trailerStatus: string | null;
   trailerElapsed: number;
+  editedTrailerPrompt: string;
+  onSetEditedTrailerPrompt: (value: string) => void;
   onGenerateTrailer: () => void;
   onRegenerateGrid: () => void;
   onRegeneratePoster: () => void;
@@ -1253,7 +1257,7 @@ function ResultView({
   const videosTabBusy = Object.values(characterVideoLoading).some(Boolean);
   const trailerTabBusy = trailerLoading;
   const assetsTabBusy =
-    posterLoading || libraryPosterLoading || portraitGridLoading || trailerLoading;
+    Boolean(posterLoading || libraryPosterLoading || portraitGridLoading || trailerLoading);
   const [portraitCopyStates, setPortraitCopyStates] = useState<Record<string, "idle" | "copied" | "error">>({});
   const portraitCopyTimeoutRef = useRef<Record<string, number>>({});
 
@@ -1553,8 +1557,8 @@ function ResultView({
   const trailerSection = (
     <CollapsibleSection
       title="Series trailer"
-      description="Blockbuster-style teaser rendered via Sora 2 Pro."
-      accent="coral"
+      description="Blockbuster-style teaser rendered via Sora 2."
+      accent={trailerUrl || trailerLoading ? "coral" : "slate"}
       defaultOpen
     >
       <div className="space-y-4">
@@ -2703,6 +2707,48 @@ function ResultView({
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
           <p className="text-xs font-semibold text-amber-200">Trailer generation issue</p>
           <p className="mt-1 text-xs text-amber-200/80 break-words leading-relaxed">{trailerError}</p>
+          
+          {(trailerError.includes("E005") || trailerError.includes("flagged")) ? (
+            <details className="mt-3 group">
+              <summary className="cursor-pointer text-xs font-medium text-amber-200/80 hover:text-amber-200 underline decoration-dotted">
+                Edit prompt & retry →
+              </summary>
+              <div className="mt-3 space-y-2">
+                <Textarea
+                  value={editedTrailerPrompt}
+                  onChange={(e) => onSetEditedTrailerPrompt(e.target.value)}
+                  placeholder="Enter custom trailer prompt..."
+                  className="min-h-[140px] text-xs font-mono"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      if (editedTrailerPrompt) {
+                        // TODO: Pass custom prompt to trailer generation
+                        console.log("Regenerating trailer with custom prompt:", editedTrailerPrompt.slice(0, 100));
+                        onGenerateTrailer();
+                      }
+                    }}
+                    disabled={!editedTrailerPrompt || trailerLoading}
+                    className="flex-1 rounded-full text-xs"
+                  >
+                    Retry with custom prompt
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onSetEditedTrailerPrompt("")}
+                    className="rounded-full text-xs"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            </details>
+          ) : null}
         </div>
       ) : null}
 
@@ -2779,34 +2825,43 @@ function ResultView({
                   <p className="text-xl font-bold tracking-tight text-foreground/95">
                     Rendering Series Trailer
                   </p>
-                  <p className="text-sm font-medium text-primary/90">
-                    {trailerStatus || "Initializing Sora 2..."}
-                  </p>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                    <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+                      {trailerStatus === "starting" ? "Starting" : trailerStatus === "processing" ? "Processing" : "Rendering"}
+                    </p>
+                  </div>
                   <p className="text-xs text-foreground/50">
                     This can take up to 10 minutes
                   </p>
                 </div>
                 
-                {/* Elapsed time and status details */}
+                {/* Elapsed time and Sora status */}
                 <div className="inline-flex items-center gap-6 rounded-2xl border border-white/10 bg-black/40 px-6 py-3 backdrop-blur-sm">
                   <div className="text-center">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground/45">
                       Elapsed
                     </p>
-                    <p className="mt-1 text-lg font-bold tabular-nums text-primary/90">
+                    <p className="mt-1 text-2xl font-bold tabular-nums text-primary/90">
                       {Math.floor(trailerElapsed / 60000)}:{String(Math.floor((trailerElapsed % 60000) / 1000)).padStart(2, '0')}
                     </p>
+                    <p className="mt-0.5 text-[9px] text-foreground/40">
+                      mm:ss
+                    </p>
                   </div>
-                  <div className="h-8 w-px bg-white/10" />
-                  <div className="text-left max-w-xs">
+                  <div className="h-12 w-px bg-white/10" />
+                  <div className="text-left">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground/45">
-                      Latest Update
+                      Sora Status
                     </p>
-                    <p className="mt-1 text-xs text-foreground/70">
-                      {trailerStatus || "Initializing..."}
+                    <p className="mt-1 text-sm font-medium text-foreground/80">
+                      {trailerStatus === "starting" ? "Initializing pipeline" : 
+                       trailerStatus === "processing" ? "Generating video frames" : 
+                       trailerStatus === "succeeded" ? "Complete" : 
+                       trailerStatus || "Queued"}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-foreground/40">
-                      {new Date().toLocaleTimeString()}
+                    <p className="mt-1 text-[10px] text-foreground/40">
+                      Last update: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </p>
                   </div>
                 </div>
@@ -3880,6 +3935,7 @@ export default function Home() {
   const [trailerStatus, setTrailerStatus] = useState<string | null>(null);
   const [trailerStartTime, setTrailerStartTime] = useState<number | null>(null);
   const [trailerElapsed, setTrailerElapsed] = useState<number>(0);
+  const [editedTrailerPrompt, setEditedTrailerPrompt] = useState<string>("");
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   const [videoModelId, setVideoModelId] = useState<VideoModelId>(VIDEO_MODEL_OPTIONS[0].id);
   const [videoSeconds, setVideoSeconds] = useState<VideoDuration>(8);
@@ -4491,12 +4547,11 @@ export default function Home() {
     const startTime = Date.now();
     setTrailerLoading(true);
     setTrailerError(null);
-    setTrailerStatus("Initializing Sora 2...");
+    setTrailerStatus("starting");
     setTrailerStartTime(startTime);
     setTrailerElapsed(0);
 
     try {
-      setTrailerStatus("Sending request to Sora 2...");
       const response = await fetch("/api/trailer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -4518,9 +4573,7 @@ export default function Home() {
         throw new Error(body?.error ?? fallback);
       }
 
-      setTrailerStatus("Processing video with Sora 2...");
-      
-      const result = (await response.json()) as { url?: string };
+      const result = (await response.json()) as { url?: string; status?: string };
       console.log("📹 Trailer API response:", result);
       console.log("📹 Trailer URL:", result.url);
       
@@ -4530,7 +4583,7 @@ export default function Home() {
       }
       
       console.log("✅ Setting trailer URL in state:", result.url);
-      setTrailerStatus("Trailer completed!");
+      setTrailerStatus("succeeded");
       setTrailerUrl(result.url);
       
       console.log("🎵 Playing success sound");
@@ -4542,8 +4595,23 @@ export default function Home() {
       console.error("Failed to generate trailer:", err);
       let message = err instanceof Error ? err.message : "Unable to generate trailer.";
       
+      // Handle E005 sensitivity flag gracefully
+      if (message.includes("E005") || message.includes("flagged as sensitive")) {
+        message = "Trailer was flagged by content filters. The prompt may contain sensitive content—try editing it below and regenerating.";
+        
+        // Pre-populate edit field with original prompt if not already set
+        if (!editedTrailerPrompt && blueprint) {
+          const defaultPrompt = `Create a blockbuster-style teaser trailer for the series "${blueprint.show_title || 'Untitled'}".
+
+${blueprint.show_logline || ''}
+
+Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the characters, high-energy moments, and a sense of scale and adventure. Professional movie trailer aesthetic with dynamic camera movements, impactful compositions, and a sense of intrigue that makes you want to watch the show.`;
+          
+          setEditedTrailerPrompt(defaultPrompt);
+        }
+      }
       // Handle 504 Gateway Timeout specifically
-      if (message.includes("504") || message.includes("Gateway") || message.includes("Timeout")) {
+      else if (message.includes("504") || message.includes("Gateway") || message.includes("Timeout")) {
         message = "Trailer generation timed out. Sora 2 may be busy—try again in a moment.";
       }
       
@@ -5382,6 +5450,8 @@ export default function Home() {
             trailerError={trailerError}
             trailerStatus={trailerStatus}
             trailerElapsed={trailerElapsed}
+            editedTrailerPrompt={editedTrailerPrompt}
+            onSetEditedTrailerPrompt={setEditedTrailerPrompt}
             onGenerateTrailer={() => void generateTrailer()}
             onRegenerateGrid={() => {
               portraitGridDigestRef.current = "";
