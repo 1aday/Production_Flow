@@ -2754,21 +2754,48 @@ function ResultView({
               Your browser does not support the video tag.
             </video>
           ) : trailerLoading ? (
-            <div className="flex items-center justify-center bg-gradient-to-br from-primary/10 via-black/50 to-black/60 px-8 py-32">
-              <div className="text-center space-y-6">
-                <div className="relative mx-auto">
-                  <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                  <div className="absolute inset-0 animate-ping">
-                    <div className="h-full w-full rounded-full border-2 border-primary/30" />
-                  </div>
+            <div className="relative flex items-center justify-center bg-black px-8 py-40 overflow-hidden">
+              {/* Netflix-style background animation */}
+              <div className="absolute inset-0 opacity-30">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(229,9,20,0.15)_0%,_transparent_70%)]" />
+              </div>
+              
+              {/* Netflix-style loader */}
+              <div className="relative text-center space-y-8 z-10">
+                <div className="netflix-loader netflix-loader-lg mx-auto" aria-hidden>
+                  {Array.from({ length: 12 }).map((_, index) => (
+                    <span
+                      key={index}
+                      className="netflix-loader-bar"
+                      style={{ animationDelay: `${index * 0.06}s` }}
+                    />
+                  ))}
                 </div>
-                <div>
-                  <p className="text-lg font-semibold text-foreground/90">Rendering Series Trailer</p>
-                  <p className="mt-2 text-sm text-foreground/60">{trailerStatus || "Initializing..."}</p>
-                  <p className="mt-4 text-xs text-foreground/45">This can take up to 10 minutes</p>
+                
+                <div className="space-y-3">
+                  <p className="text-xl font-bold tracking-tight text-foreground/95">
+                    Rendering Series Trailer
+                  </p>
+                  <p className="text-sm font-medium text-primary/90">
+                    {trailerStatus || "Initializing Sora 2..."}
+                  </p>
+                  <p className="text-xs text-foreground/50">
+                    This can take up to 10 minutes
+                  </p>
                 </div>
-                <div className="mx-auto h-1.5 w-64 overflow-hidden rounded-full bg-white/10">
-                  <div className="h-full w-full animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                
+                {/* Elegant progress indicator */}
+                <div className="flex items-center justify-center gap-1.5">
+                  {[...Array(5)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-1.5 w-1.5 rounded-full bg-primary/40"
+                      style={{
+                        animation: `pulse 1.5s ease-in-out ${i * 0.2}s infinite`,
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
@@ -2796,16 +2823,71 @@ function ResultView({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center bg-gradient-to-br from-white/5 via-black/50 to-black/60 px-8 py-20">
-              <div className="text-center space-y-3 max-w-md">
-                <div className="text-5xl opacity-30">🎥</div>
+            <div className="bg-gradient-to-br from-white/5 via-black/50 to-black/60 px-8 py-16">
+              <div className="text-center space-y-8 max-w-3xl mx-auto">
                 <div>
-                  <p className="text-base font-semibold text-foreground/70">
-                    Trailer Awaiting Character Portraits
+                  <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/40 px-5 py-2 mb-4">
+                    <div className="h-2 w-2 rounded-full bg-amber-500/70 animate-pulse" />
+                    <span className="text-xs font-semibold uppercase tracking-[0.26em] text-foreground/60">
+                      Trailer Pending
+                    </span>
+                  </div>
+                  <p className="text-lg font-semibold text-foreground/80">
+                    Building Character Lineup
                   </p>
                   <p className="mt-2 text-sm text-foreground/50">
-                    Generate at least 4 character portraits to unlock the series trailer
+                    Need 4 character portraits to unlock the series trailer • {completedPortraits.length} of {characterSeeds?.length || 0} complete
                   </p>
+                </div>
+                
+                {/* Character Portrait Preview Grid */}
+                <div className="grid grid-cols-5 sm:grid-cols-10 gap-3 max-w-2xl mx-auto">
+                  {characterSeeds?.slice(0, 10).map((seed) => {
+                    const portraitUrl = characterPortraits[seed.id];
+                    const isLoading = characterPortraitLoading[seed.id];
+                    const hasError = characterPortraitErrors[seed.id];
+                    
+                    return (
+                      <div 
+                        key={seed.id}
+                        className="group relative"
+                        title={seed.name}
+                      >
+                        <div className="overflow-hidden rounded-xl border border-white/12 bg-black/50 shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:border-primary/30 group-hover:shadow-[0_8px_32px_rgba(229,9,20,0.3)]">
+                          <div className="relative h-0 w-full pb-[100%]">
+                            {portraitUrl ? (
+                              <Image
+                                src={portraitUrl}
+                                alt={seed.name}
+                                fill
+                                className="object-cover transition-opacity duration-500"
+                                sizes="120px"
+                              />
+                            ) : isLoading ? (
+                              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-black/60">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary/80" />
+                              </div>
+                            ) : hasError ? (
+                              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-500/15 to-black/60">
+                                <span className="text-xs text-amber-300/70">!</span>
+                              </div>
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/5 to-black/60">
+                                <div className="h-8 w-8 rounded-full border-2 border-dashed border-white/20" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <p className="mt-1.5 text-center text-[9px] font-medium uppercase tracking-wider text-foreground/40 truncate">
+                          {seed.name.split(' ')[0]}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="text-xs text-foreground/40">
+                  Portraits will appear here as they're generated
                 </div>
               </div>
             </div>
@@ -4058,7 +4140,13 @@ export default function Home() {
         }
       } catch (err) {
         console.error("Portrait generation error:", err);
-        const errorMessage = err instanceof Error ? err.message : "Unable to render portrait.";
+        let errorMessage = err instanceof Error ? err.message : "Unable to render portrait.";
+        
+        // Handle E005 sensitivity flag gracefully
+        if (errorMessage.includes("E005") || errorMessage.includes("flagged as sensitive")) {
+          errorMessage = "Portrait was flagged by content filters. Try editing the character description or regenerating with a custom prompt.";
+        }
+        
         setCharacterPortraitErrors((prev) => ({
           ...prev,
           [characterId]: errorMessage,

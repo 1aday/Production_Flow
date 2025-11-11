@@ -64,7 +64,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
     // Use Sora 2 (regular) for trailer generation
     const input = {
       prompt: trailerPrompt,
-      image: characterGridUrl,
+      input_reference: characterGridUrl, // CORRECT PARAMETER IS "input_reference" NOT "image"
       seconds: 12,
       aspect_ratio: "landscape",
     };
@@ -72,6 +72,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
     console.log("=== Sora 2 Trailer Input ===");
     console.log("Seconds:", input.seconds);
     console.log("Aspect:", input.aspect_ratio);
+    console.log("Input reference (character grid):", characterGridUrl.slice(0, 80) + "...");
     console.log("Model: openai/sora-2");
     console.log("\nFull input object:");
     console.log(JSON.stringify(input, null, 2));
