@@ -2852,18 +2852,18 @@ function ResultView({
                   <div className="h-12 w-px bg-white/10" />
                   <div className="text-left">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-foreground/45">
-                      Sora Status
+                      Status
                     </p>
                     <p className="mt-1 text-sm font-medium text-foreground/80">
-                      {trailerStatus === "starting" ? "Initializing pipeline" : 
-                       trailerStatus === "processing" ? "Generating video frames" : 
-                       trailerStatus === "succeeded" ? "Complete" :
-                       trailerStatus === "succeeded (VEO fallback)" ? "Complete (VEO)" :
-                       trailerStatus?.includes("VEO") ? "Trying VEO fallback" :
+                      {trailerStatus === "starting" ? "Initializing Sora 2" : 
+                       trailerStatus === "processing" ? "Processing with Sora 2" : 
+                       trailerStatus === "succeeded" ? "Complete (Sora 2)" :
+                       trailerStatus === "succeeded (VEO fallback)" ? "Complete (VEO 3.1)" :
+                       trailerStatus?.includes("VEO") ? "Trying VEO 3.1 fallback" :
                        trailerStatus || "Queued"}
                     </p>
                     <p className="mt-1 text-[10px] text-foreground/40">
-                      Last update: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </p>
                   </div>
                 </div>
@@ -2883,17 +2883,80 @@ function ResultView({
               </div>
             </div>
           ) : canGenerateTrailerFromPartial ? (
-            <div className="flex items-center justify-center bg-gradient-to-br from-white/5 via-black/50 to-black/60 px-8 py-20">
-              <div className="text-center space-y-4 max-w-md">
-                <div className="text-6xl">🎬</div>
+            <div className="bg-gradient-to-br from-white/5 via-black/50 to-black/60 px-8 py-16">
+              <div className="text-center space-y-8 max-w-3xl mx-auto">
                 <div>
+                  <div className="inline-flex items-center gap-3 rounded-full border border-primary/30 bg-primary/10 px-5 py-2 mb-4">
+                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                    <span className="text-xs font-semibold uppercase tracking-[0.26em] text-primary">
+                      Ready to Generate
+                    </span>
+                  </div>
                   <p className="text-lg font-semibold text-foreground/80">
-                    Ready to Generate Trailer
+                    Trailer Ready
                   </p>
                   <p className="mt-2 text-sm text-foreground/60">
-                    {completedPortraits.length} character portrait{completedPortraits.length === 1 ? '' : 's'} ready
+                    {completedPortraits.length} of {characterSeeds?.length || 0} character portraits complete
                   </p>
                 </div>
+                
+                {/* Character Portrait Preview Grid */}
+                <div className="grid grid-cols-5 sm:grid-cols-10 gap-3 max-w-2xl mx-auto">
+                  {characterSeeds?.slice(0, 10).map((seed) => {
+                    const portraitUrl = characterPortraits[seed.id];
+                    const isLoading = characterPortraitLoading[seed.id];
+                    const hasError = characterPortraitErrors[seed.id];
+                    
+                    return (
+                      <button
+                        key={seed.id}
+                        type="button"
+                        className="group relative"
+                        title={`${seed.name} - Click to view in Characters tab`}
+                        onClick={() => {
+                          // Switch to Characters tab and scroll
+                          const tabsElement = document.querySelector('[value="characters"]') as HTMLElement;
+                          if (tabsElement) {
+                            tabsElement.click();
+                            setTimeout(() => {
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }, 100);
+                          }
+                        }}
+                      >
+                        <div className="overflow-hidden rounded-xl border border-white/12 bg-black/50 shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:border-primary/30 group-hover:shadow-[0_8px_32px_rgba(229,9,20,0.3)]">
+                          <div className="relative h-0 w-full pb-[100%]">
+                            {portraitUrl ? (
+                              <Image
+                                src={portraitUrl}
+                                alt={seed.name}
+                                fill
+                                className="object-cover transition-opacity duration-500"
+                                sizes="120px"
+                              />
+                            ) : isLoading ? (
+                              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-black/60">
+                                <Loader2 className="h-6 w-6 animate-spin text-primary/80" />
+                              </div>
+                            ) : hasError ? (
+                              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-500/15 to-black/60">
+                                <span className="text-xs text-amber-300/70">!</span>
+                              </div>
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/5 to-black/60">
+                                <div className="h-8 w-8 rounded-full border-2 border-dashed border-white/20" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <p className="mt-1.5 text-center text-[9px] font-medium uppercase tracking-wider text-foreground/40 truncate">
+                          {seed.name.split(' ')[0]}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <Button
                   type="button"
                   size="lg"
@@ -2931,10 +2994,21 @@ function ResultView({
                     const hasError = characterPortraitErrors[seed.id];
                     
                     return (
-                      <div 
+                      <button
                         key={seed.id}
+                        type="button"
                         className="group relative"
-                        title={seed.name}
+                        title={`${seed.name} - Click to view in Characters tab`}
+                        onClick={() => {
+                          // Switch to Characters tab and scroll
+                          const tabsElement = document.querySelector('[value="characters"]') as HTMLElement;
+                          if (tabsElement) {
+                            tabsElement.click();
+                            setTimeout(() => {
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }, 100);
+                          }
+                        }}
                       >
                         <div className="overflow-hidden rounded-xl border border-white/12 bg-black/50 shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:border-primary/30 group-hover:shadow-[0_8px_32px_rgba(229,9,20,0.3)]">
                           <div className="relative h-0 w-full pb-[100%]">
@@ -2964,13 +3038,13 @@ function ResultView({
                         <p className="mt-1.5 text-center text-[9px] font-medium uppercase tracking-wider text-foreground/40 truncate">
                           {seed.name.split(' ')[0]}
                         </p>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
 
                 <div className="text-xs text-foreground/40">
-                  Portraits will appear here as they're generated
+                  Click portraits to view in Characters tab
                 </div>
               </div>
             </div>
@@ -3781,7 +3855,7 @@ function ResultView({
 
   return (
     <>
-      <Tabs defaultValue="master" className="space-y-6">
+      <Tabs defaultValue="master" className="space-y-6" id="main-tabs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 max-w-[1600px] mx-auto">
         <TabsList className="w-full sm:w-auto justify-start">
           <TabsTrigger value="master" className="flex-1 sm:flex-none">
@@ -4591,6 +4665,10 @@ export default function Home() {
       if (result.model === "veo-3.1") {
         setTrailerStatus("succeeded (VEO fallback)");
         console.log("ℹ️ Trailer generated with VEO 3.1 fallback (8 seconds)");
+        // Show notification that VEO was used
+        setTimeout(() => {
+          alert("Note: Sora 2 flagged the content, so VEO 3.1 was used as fallback. Trailer is 8 seconds instead of 12.");
+        }, 500);
       } else {
         setTrailerStatus("succeeded");
       }
@@ -5488,19 +5566,14 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         </div>
       </main>
 
-      <div className={cn(
-        "sticky bottom-0 z-40 border-t backdrop-blur transition-all duration-300",
-        !blueprint 
-          ? "border-primary/30 bg-gradient-to-t from-primary/10 via-black/95 to-black/90" 
-          : "border-white/12 bg-black/90"
-      )}>
+      <div className="sticky bottom-0 z-40 border-t border-white/12 bg-black/90 backdrop-blur">
         <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6 py-4">
           <form onSubmit={handleSubmit}>
             <div
               className={cn(
-                "flex items-center gap-3 rounded-2xl border border-white/15 bg-black/70 px-4 sm:px-5 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all duration-200",
+                "flex items-center gap-3 rounded-2xl border bg-black/70 px-4 sm:px-5 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-colors duration-200",
                 "focus-within:border-primary/40 focus-within:bg-black/80",
-                !blueprint && "border-primary/40 bg-black/60"
+                !blueprint ? "border-primary/40" : "border-white/15"
               )}
             >
             <Textarea
