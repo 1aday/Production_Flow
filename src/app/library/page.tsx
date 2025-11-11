@@ -36,7 +36,20 @@ export default function LibraryPage() {
       const data = await response.json() as { shows: LibraryShow[] };
       console.timeEnd("Library load");
       console.log(`Loaded ${data.shows.length} shows`);
-      setShows(data.shows);
+      
+      // Sort: Shows with library posters first, then by date
+      const sorted = data.shows.sort((a, b) => {
+        const aHasLibraryPoster = Boolean(a.libraryPosterUrl);
+        const bHasLibraryPoster = Boolean(b.libraryPosterUrl);
+        
+        if (aHasLibraryPoster && !bHasLibraryPoster) return -1;
+        if (!aHasLibraryPoster && bHasLibraryPoster) return 1;
+        
+        // Both same poster status, sort by date
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+      
+      setShows(sorted);
     } catch (error) {
       console.error("Failed to load library:", error);
     } finally {
@@ -166,20 +179,6 @@ export default function LibraryPage() {
                         </span>
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-                    <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 py-3 text-xs font-semibold uppercase tracking-[0.28em] text-white/90">
-                      <Badge variant="outline" className="rounded-full border-white/30 bg-black/30 text-[10px]">
-                        {show.model}
-                      </Badge>
-                      <span className="text-[10px] text-white/70">
-                        {new Date(show.updatedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 p-5 text-left">
-                    <h3 className="line-clamp-2 text-lg font-semibold text-white drop-shadow-[0_10px_18px_rgba(0,0,0,0.55)]">
-                      {show.showTitle || show.title}
-                    </h3>
                   </div>
                 </button>
                 <Button

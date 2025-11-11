@@ -1466,7 +1466,11 @@ function ResultView({
               Rendering library poster…
             </div>
           ) : libraryPosterUrl ? (
-            <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+            <button
+              type="button"
+              onClick={() => onOpenLightbox(libraryPosterUrl)}
+              className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)] cursor-zoom-in transition-transform hover:scale-[1.01] w-full"
+            >
               <div className="relative h-0 w-full pb-[177%]">
                 <Image
                   src={libraryPosterUrl}
@@ -1476,7 +1480,10 @@ function ResultView({
                   sizes="(min-width: 768px) 420px, 100vw"
                 />
               </div>
-            </div>
+              <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
+                9:16 • Library poster • Click to view full size
+              </div>
+            </button>
           ) : (
             <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
               <p>Library poster will appear once a finished portrait exists.</p>
@@ -2667,7 +2674,7 @@ function ResultView({
             </div>
             <div className="flex-1">
               <p className="text-sm font-semibold text-foreground/90">Generating Trailer</p>
-              <p className="mt-1 text-xs text-foreground/60">Rendering 12s blockbuster trailer with Sora 2 Pro...</p>
+              <p className="mt-1 text-xs text-foreground/60">Rendering 12s blockbuster trailer with Sora 2...</p>
               <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/10">
                 <div className="h-full w-full animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
               </div>
@@ -2685,7 +2692,7 @@ function ResultView({
             Your browser does not support the video tag.
           </video>
           <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
-            12s • Sora 2 Pro • Landscape
+            12s • Sora 2 • Landscape
           </div>
         </div>
       ) : null}
@@ -2733,6 +2740,79 @@ function ResultView({
 
   const masterContent = (
     <div className="space-y-8 sm:space-y-10">
+      {/* Trailer Hero - Always visible at top */}
+      <div className="max-w-[1400px] mx-auto">
+        <div className="overflow-hidden rounded-3xl border border-white/12 bg-black/60 shadow-[0_24px_80px_rgba(0,0,0,0.7)]">
+          {trailerUrl ? (
+            <video
+              controls
+              className="h-full w-full"
+              poster={portraitGridUrl ?? undefined}
+              autoPlay={false}
+            >
+              <source src={trailerUrl} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          ) : trailerLoading ? (
+            <div className="flex items-center justify-center bg-gradient-to-br from-primary/10 via-black/50 to-black/60 px-8 py-32">
+              <div className="text-center space-y-6">
+                <div className="relative mx-auto">
+                  <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                  <div className="absolute inset-0 animate-ping">
+                    <div className="h-full w-full rounded-full border-2 border-primary/30" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-foreground/90">Rendering Series Trailer</p>
+                  <p className="mt-2 text-sm text-foreground/60">{trailerStatus || "Initializing..."}</p>
+                  <p className="mt-4 text-xs text-foreground/45">This can take up to 10 minutes</p>
+                </div>
+                <div className="mx-auto h-1.5 w-64 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full w-full animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                </div>
+              </div>
+            </div>
+          ) : canGenerateTrailerFromPartial ? (
+            <div className="flex items-center justify-center bg-gradient-to-br from-white/5 via-black/50 to-black/60 px-8 py-20">
+              <div className="text-center space-y-4 max-w-md">
+                <div className="text-6xl">🎬</div>
+                <div>
+                  <p className="text-lg font-semibold text-foreground/80">
+                    Ready to Generate Trailer
+                  </p>
+                  <p className="mt-2 text-sm text-foreground/60">
+                    {completedPortraits.length} character portrait{completedPortraits.length === 1 ? '' : 's'} ready
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={onGenerateTrailer}
+                  className="rounded-full"
+                >
+                  Generate 12s Trailer with Sora 2
+                </Button>
+                <p className="text-xs text-foreground/45">Generation can take up to 10 minutes</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center bg-gradient-to-br from-white/5 via-black/50 to-black/60 px-8 py-20">
+              <div className="text-center space-y-3 max-w-md">
+                <div className="text-5xl opacity-30">🎥</div>
+                <div>
+                  <p className="text-base font-semibold text-foreground/70">
+                    Trailer Awaiting Character Portraits
+                  </p>
+                  <p className="mt-2 text-sm text-foreground/50">
+                    Generate at least 4 character portraits to unlock the series trailer
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Hero Section - Show Overview */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] max-w-[1400px] mx-auto">
         <div className="space-y-6">
@@ -4283,10 +4363,10 @@ export default function Home() {
 
     setTrailerLoading(true);
     setTrailerError(null);
-    setTrailerStatus("Initializing Sora 2 Pro...");
+    setTrailerStatus("Initializing Sora 2...");
 
     try {
-      setTrailerStatus("Sending request to Sora 2 Pro...");
+      setTrailerStatus("Sending request to Sora 2...");
       const response = await fetch("/api/trailer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -4308,7 +4388,7 @@ export default function Home() {
         throw new Error(body?.error ?? fallback);
       }
 
-      setTrailerStatus("Processing video with Sora 2 Pro...");
+      setTrailerStatus("Processing video with Sora 2...");
       
       const result = (await response.json()) as { url?: string };
       console.log("📹 Trailer API response:", result);
@@ -4334,7 +4414,7 @@ export default function Home() {
       
       // Handle 504 Gateway Timeout specifically
       if (message.includes("504") || message.includes("Gateway") || message.includes("Timeout")) {
-        message = "Trailer generation timed out. Sora 2 Pro may be busy—try again in a moment.";
+        message = "Trailer generation timed out. Sora 2 may be busy—try again in a moment.";
       }
       
       setTrailerError(message);
@@ -5020,25 +5100,31 @@ export default function Home() {
       {/* Lightbox */}
       {lightboxImage ? (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm cursor-zoom-out"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/98 backdrop-blur-md cursor-zoom-out animate-in fade-in duration-200"
           onClick={() => setLightboxImage(null)}
         >
           <button
             type="button"
             onClick={() => setLightboxImage(null)}
-            className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white/90 backdrop-blur-sm transition-colors hover:bg-black/80"
+            className="absolute right-6 top-6 z-10 rounded-full border border-white/20 bg-black/80 p-3 text-white shadow-lg backdrop-blur-md transition-all hover:bg-primary hover:border-primary/40 hover:scale-110"
+            aria-label="Close"
           >
-            <X className="h-6 w-6" />
+            <X className="h-5 w-5" />
           </button>
-          <div className="relative max-h-[90vh] max-w-[90vw] p-4">
-            <Image
-              src={lightboxImage}
-              alt="Full size view"
-              width={1920}
-              height={1920}
-              className="h-auto max-h-[90vh] w-auto max-w-full object-contain"
-              onClick={(e) => e.stopPropagation()}
-            />
+          <div className="relative max-h-[92vh] max-w-[92vw] animate-in zoom-in-95 duration-300">
+            <div className="rounded-2xl overflow-hidden border border-white/10 shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
+              <Image
+                src={lightboxImage}
+                alt="Full size view"
+                width={2048}
+                height={2048}
+                className="h-auto max-h-[92vh] w-auto max-w-[92vw] object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+            <p className="mt-4 text-center text-sm text-white/60">
+              Click anywhere to close
+            </p>
           </div>
         </div>
       ) : null}

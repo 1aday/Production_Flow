@@ -61,20 +61,18 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
   console.log("Character grid URL:", characterGridUrl);
 
   try {
-    // Use Sora 2 Pro for high-quality 12-second trailer
+    // Use Sora 2 (regular) for trailer generation
     const input = {
       prompt: trailerPrompt,
       image: characterGridUrl,
-      seconds: 12, // CORRECT PARAMETER IS "seconds" NOT "duration"
+      seconds: 12,
       aspect_ratio: "landscape",
-      resolution: "high",
     };
 
-    console.log("=== Sora 2 Pro Trailer Input ===");
-    console.log("Seconds:", input.seconds, "(MUST BE 12)");
-    console.log("Resolution:", input.resolution);
+    console.log("=== Sora 2 Trailer Input ===");
+    console.log("Seconds:", input.seconds);
     console.log("Aspect:", input.aspect_ratio);
-    console.log("Model: openai/sora-2-pro");
+    console.log("Model: openai/sora-2");
     console.log("\nFull input object:");
     console.log(JSON.stringify(input, null, 2));
     
@@ -83,7 +81,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
     console.log(requestBody);
 
     // Use direct API call to ensure proper serialization
-    const createResponse = await fetch("https://api.replicate.com/v1/models/openai/sora-2-pro/predictions", {
+    const createResponse = await fetch("https://api.replicate.com/v1/models/openai/sora-2/predictions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
