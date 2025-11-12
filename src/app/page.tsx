@@ -1141,6 +1141,7 @@ function ResultView({
   characterBuildErrors,
   characterPortraits,
   characterPortraitLoading,
+  characterPortraitLoaded,
   characterPortraitErrors,
   editedPortraitPrompts,
   onSetEditedPortraitPrompt,
@@ -1155,6 +1156,7 @@ function ResultView({
   onSelectCharacter,
   onClearActiveCharacter,
   onGeneratePortrait,
+  onPortraitLoaded,
   onGenerateVideo,
   activeCharacterId,
   posterUrl,
@@ -1200,6 +1202,7 @@ function ResultView({
   characterBuildErrors: Record<string, string>;
   characterPortraits: Record<string, string | null>;
   characterPortraitLoading: Record<string, boolean>;
+  characterPortraitLoaded: Record<string, boolean>;
   characterPortraitErrors: Record<string, string>;
   editedPortraitPrompts: Record<string, string>;
   onSetEditedPortraitPrompt: (value: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => void;
@@ -1214,6 +1217,7 @@ function ResultView({
   onSelectCharacter: (characterId: string) => void;
   onClearActiveCharacter: () => void;
   onGeneratePortrait: (characterId: string, customPrompt?: string) => void;
+  onPortraitLoaded: (characterId: string) => void;
   onGenerateVideo: (characterId: string, customPrompt?: string) => void;
   activeCharacterId: string | null;
   posterUrl: string | null;
@@ -1260,6 +1264,51 @@ function ResultView({
     Boolean(posterLoading || libraryPosterLoading || portraitGridLoading || trailerLoading);
   const [portraitCopyStates, setPortraitCopyStates] = useState<Record<string, "idle" | "copied" | "error">>({});
   const portraitCopyTimeoutRef = useRef<Record<string, number>>({});
+  const trailerStatusLower = trailerStatus?.toLowerCase() ?? "";
+  const trailerStatusIsVeo = trailerStatusLower.includes("veo");
+  const trailerStatusIsStarting = trailerStatusLower.includes("starting");
+  const trailerStatusIsProcessing = trailerStatusLower.includes("processing");
+  const trailerStatusIsSucceeded = trailerStatusLower.startsWith("succeeded");
+  const trailerStatusBadgeLabel = (() => {
+    if (trailerStatusIsStarting) {
+      return trailerStatusIsVeo ? "Starting VEO fallback" : "Starting";
+    }
+    if (trailerStatusIsProcessing) {
+      return trailerStatusIsVeo ? "Processing (VEO)" : "Processing";
+    }
+    if (trailerStatusIsSucceeded) {
+      return "Complete";
+    }
+    if (trailerStatus === "failed") {
+      return "Failed";
+    }
+    if (trailerStatus) {
+      return trailerStatus;
+    }
+    return "Rendering";
+  })();
+  const trailerStatusDetailLabel = (() => {
+    if (trailerStatusIsStarting) {
+      return trailerStatusIsVeo
+        ? "Initializing VEO 3.1 fallback"
+        : "Initializing Sora 2";
+    }
+    if (trailerStatusIsProcessing) {
+      return trailerStatusIsVeo
+        ? "Processing with VEO 3.1"
+        : "Processing with Sora 2";
+    }
+    if (trailerStatusIsSucceeded) {
+      return trailerStatusIsVeo ? "Complete (VEO 3.1)" : "Complete (Sora 2)";
+    }
+    if (trailerStatus === "failed") {
+      return "Failed — please review the error below";
+    }
+    if (trailerStatus?.includes("veo")) {
+      return "Trying VEO 3.1 fallback";
+    }
+    return trailerStatus || "Queued";
+  })();
 
   const buildPortraitPrompt = useCallback((characterId: string) => {
     if (!blueprint) return null;
@@ -2107,6 +2156,7 @@ function ResultView({
           const buildError = characterBuildErrors[seed.id];
           const portraitUrl = characterPortraits[seed.id];
           const portraitLoading = Boolean(characterPortraitLoading[seed.id]);
+          const portraitLoaded = Boolean(characterPortraitLoaded[seed.id]);
           const portraitError = characterPortraitErrors[seed.id];
           const isActive = Boolean(doc && activeCharacterId === seed.id);
 
@@ -2235,7 +2285,7 @@ function ResultView({
                   )}
                 >
                   <div className="relative h-0 w-full pb-[100%]">
-                    {portraitLoading ? (
+                    {(portraitLoading || !portraitLoaded) ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/80">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                       </div>
@@ -2248,6 +2298,7 @@ function ResultView({
                       sizes="(min-width: 768px) 280px, 100vw"
                       onLoad={(e) => {
                         e.currentTarget.style.opacity = "1";
+                        onPortraitLoaded(seed.id);
                       }}
                       style={{ opacity: 0 }}
                     />
@@ -2828,7 +2879,7 @@ function ResultView({
                   <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5">
                     <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                     <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                      {trailerStatus === "starting" ? "Starting" : trailerStatus === "processing" ? "Processing" : "Rendering"}
+                      {trailerStatusBadgeLabel}
                     </p>
                   </div>
                   <p className="text-xs text-foreground/50">
@@ -2855,12 +2906,7 @@ function ResultView({
                       Status
                     </p>
                     <p className="mt-1 text-sm font-medium text-foreground/80">
-                      {trailerStatus === "starting" ? "Initializing Sora 2" : 
-                       trailerStatus === "processing" ? "Processing with Sora 2" : 
-                       trailerStatus === "succeeded" ? "Complete (Sora 2)" :
-                       trailerStatus === "succeeded (VEO fallback)" ? "Complete (VEO 3.1)" :
-                       trailerStatus?.includes("VEO") ? "Trying VEO 3.1 fallback" :
-                       trailerStatus || "Queued"}
+                      {trailerStatusDetailLabel}
                     </p>
                     <p className="mt-1 text-[10px] text-foreground/40">
                       {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -3989,6 +4035,7 @@ export default function Home() {
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
   const [characterPortraits, setCharacterPortraits] = useState<Record<string, string | null>>({});
   const [characterPortraitLoading, setCharacterPortraitLoading] = useState<Record<string, boolean>>({});
+  const [characterPortraitLoaded, setCharacterPortraitLoaded] = useState<Record<string, boolean>>({});
   const [characterPortraitErrors, setCharacterPortraitErrors] = useState<Record<string, string>>({});
   const [editedPortraitPrompts, setEditedPortraitPrompts] = useState<Record<string, string>>({});
   const [characterVideos, setCharacterVideos] = useState<Record<string, string[]>>({});
@@ -4021,6 +4068,67 @@ export default function Home() {
     () => VIDEO_MODEL_OPTION_MAP[videoModelId] ?? VIDEO_MODEL_OPTIONS[0],
     [videoModelId]
   );
+  const trailerStatusJobIdRef = useRef<string | null>(null);
+  const trailerStatusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopTrailerStatusPolling = useCallback(() => {
+    if (trailerStatusPollRef.current) {
+      clearInterval(trailerStatusPollRef.current);
+      trailerStatusPollRef.current = null;
+    }
+  }, []);
+
+  const startTrailerStatusPolling = useCallback((jobId: string) => {
+    if (trailerStatusPollRef.current) {
+      clearInterval(trailerStatusPollRef.current);
+      trailerStatusPollRef.current = null;
+    }
+    trailerStatusJobIdRef.current = jobId;
+
+    const poll = async () => {
+      try {
+        const response = await fetch(
+          `/api/trailer/status?jobId=${encodeURIComponent(jobId)}`,
+          { cache: "no-store" }
+        );
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          status?: string | null;
+          detail?: string | null;
+        };
+        console.log("📊 Trailer status poll:", data.status);
+        if (typeof data.status === "string") {
+          setTrailerStatus(data.status);
+        }
+        if (
+          data.status === null ||
+          data.status === "failed" ||
+          (typeof data.status === "string" && data.status.startsWith("succeeded"))
+        ) {
+          if (data.status === "failed" && data.detail) {
+            setTrailerError((prev) => prev ?? data.detail ?? null);
+          }
+          if (trailerStatusPollRef.current) {
+            clearInterval(trailerStatusPollRef.current);
+            trailerStatusPollRef.current = null;
+          }
+        }
+      } catch (pollError) {
+        console.error("Failed to poll trailer status:", pollError);
+      }
+    };
+
+    void poll();
+    trailerStatusPollRef.current = setInterval(poll, 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (trailerStatusPollRef.current) {
+        clearInterval(trailerStatusPollRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (blueprint) {
@@ -4094,6 +4202,7 @@ export default function Home() {
         setActiveCharacterId(null);
         setCharacterPortraits({});
         setCharacterPortraitLoading({});
+        setCharacterPortraitLoaded({});
         setCharacterPortraitErrors({});
         setCharacterVideos({});
         setCharacterVideoLoading({});
@@ -4121,6 +4230,7 @@ export default function Home() {
         setActiveCharacterId(null);
         setCharacterPortraits({});
         setCharacterPortraitLoading({});
+        setCharacterPortraitLoaded({});
         setCharacterPortraitErrors({});
         setCharacterVideos({});
         setCharacterVideoLoading({});
@@ -4289,6 +4399,10 @@ export default function Home() {
           ...prev,
           [characterId]: result.url ?? null,
         }));
+        setCharacterPortraitLoaded((prev) => ({
+          ...prev,
+          [characterId]: false, // Mark as not loaded yet until image loads in browser
+        }));
         setCharacterVideos((prev) => {
           const next = { ...prev };
           delete next[characterId];
@@ -4329,10 +4443,20 @@ export default function Home() {
     [blueprint, characterDocs]
   );
 
+  const handlePortraitLoaded = useCallback((characterId: string) => {
+    setCharacterPortraitLoaded((prev) => ({
+      ...prev,
+      [characterId]: true,
+    }));
+  }, []);
+
+  // Auto-generate portraits for built characters (only when creating new show, not loading from library)
   useEffect(() => {
     if (!blueprint) return;
     if (!posterAvailable) return;
     if (!characterSeeds?.length) return;
+    if (isLoadingShow) return; // Don't auto-generate when loading from library
+    
     characterSeeds.forEach((seed) => {
       if (!characterDocs[seed.id]) return;
       if (characterPortraits[seed.id]) return;
@@ -4349,6 +4473,7 @@ export default function Home() {
     characterPortraitLoading,
     characterPortraitErrors,
     generateCharacterPortrait,
+    isLoadingShow,
   ]);
 
   const generateCharacterVideo = useCallback(
@@ -4617,6 +4742,10 @@ export default function Home() {
       }
     }
 
+    const jobId =
+      typeof crypto?.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `trailer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const digest = gridUrl;
     trailerDigestRef.current = digest;
 
@@ -4626,6 +4755,7 @@ export default function Home() {
     setTrailerStatus("starting");
     setTrailerStartTime(startTime);
     setTrailerElapsed(0);
+    startTrailerStatusPolling(jobId);
 
     try {
       const response = await fetch("/api/trailer", {
@@ -4636,6 +4766,7 @@ export default function Home() {
           logline: blueprint.show_logline ?? "",
           characterGridUrl: gridUrl,
           show: blueprint,
+          jobId,
         }),
       }).catch((fetchError) => {
         throw new Error(`Network error: ${fetchError.message || "Check your connection and try again"}`);
@@ -4663,7 +4794,7 @@ export default function Home() {
       
       // Update status based on which model was used
       if (result.model === "veo-3.1") {
-        setTrailerStatus("succeeded (VEO fallback)");
+        setTrailerStatus("succeeded (veo)");
         console.log("ℹ️ Trailer generated with VEO 3.1 fallback (8 seconds)");
         // Show notification that VEO was used
         setTimeout(() => {
@@ -4711,10 +4842,12 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       
       setTrailerError(message);
       setTrailerUrl(null);
-      setTrailerStatus(null);
+      setTrailerStatus("failed");
       setTrailerStartTime(null);
       trailerDigestRef.current = ""; // Allow retry
     } finally {
+      stopTrailerStatusPolling();
+      trailerStatusJobIdRef.current = null;
       setTrailerLoading(false);
       setTimeout(() => {
         setTrailerStatus(null);
@@ -4722,7 +4855,14 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         setTrailerElapsed(0);
       }, 3000);
     }
-  }, [blueprint, portraitGridUrl, characterSeeds, characterPortraits]);
+  }, [
+    blueprint,
+    portraitGridUrl,
+    characterSeeds,
+    characterPortraits,
+    startTrailerStatusPolling,
+    stopTrailerStatusPolling,
+  ]);
 
   useEffect(() => {
     if (!posterAvailable) return;
@@ -4872,6 +5012,8 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
   const submitPrompt = useCallback(
     async (value: string, chosenModel: ModelId) => {
       if (!value.trim()) return;
+      stopTrailerStatusPolling();
+      trailerStatusJobIdRef.current = null;
       setIsLoading(true);
       setError(null);
       setCharacterSeeds(null);
@@ -4895,8 +5037,15 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       setPortraitGridUrl(null);
       setPortraitGridLoading(false);
       setPortraitGridError(null);
+      setTrailerUrl(null);
+      setTrailerLoading(false);
+      setTrailerError(null);
+      setTrailerStatus(null);
+      setTrailerElapsed(0);
+      setTrailerStartTime(null);
       posterDigestRef.current = "";
       portraitGridDigestRef.current = "";
+      trailerDigestRef.current = "";
       setLastPrompt(null);
 
       try {
@@ -5002,7 +5151,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         setIsLoading(false);
       }
     },
-    [generateCharacterSeeds, generatePoster]
+    [generateCharacterSeeds, generatePoster, stopTrailerStatusPolling]
   );
 
   const handleSubmit = useCallback(
@@ -5023,6 +5172,8 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
 
   const startNewShow = useCallback(() => {
     // Clear all state for a fresh start
+    stopTrailerStatusPolling();
+    trailerStatusJobIdRef.current = null;
     setBlueprint(null);
     setUsage(undefined);
     setRawJson(null);
@@ -5054,14 +5205,19 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
     setTrailerUrl(null);
     setTrailerLoading(false);
     setTrailerError(null);
+    setTrailerStatus(null);
+    setTrailerElapsed(0);
+    setTrailerStartTime(null);
     setLastPrompt(null);
     setCurrentShowId(null);
     posterDigestRef.current = "";
     portraitGridDigestRef.current = "";
     trailerDigestRef.current = "";
-  }, [model]);
+  }, [model, stopTrailerStatusPolling]);
 
   const loadShow = useCallback(async (showId: string) => {
+    stopTrailerStatusPolling();
+    trailerStatusJobIdRef.current = null;
     setIsLoadingShow(true);
     try {
       const response = await fetch(`/api/library/${showId}`);
@@ -5105,6 +5261,9 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       setPortraitGridError(null);
       setTrailerUrl(show.trailerUrl || null);
       setTrailerError(null);
+      setTrailerStatus(null);
+      setTrailerElapsed(0);
+      setTrailerStartTime(null);
       setPosterAvailable(true);
       setCurrentShowId(show.id);
       setPortraitGridLoading(false);
@@ -5117,6 +5276,16 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       setCharacterBuilding({});
       setCharacterBuildErrors({});
       setCharacterPortraitLoading({});
+      
+      // Mark existing portraits as loaded so they don't show spinner
+      const loadedPortraits: Record<string, boolean> = {};
+      Object.entries(show.characterPortraits || {}).forEach(([id, url]) => {
+        if (url) {
+          loadedPortraits[id] = true;
+        }
+      });
+      setCharacterPortraitLoaded(loadedPortraits);
+      
       setCharacterPortraitErrors({});
       setCharacterVideoLoading({});
       setCharacterVideoErrors({});
@@ -5147,7 +5316,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       setError("Failed to load show from library");
       setIsLoadingShow(false);
     }
-  }, []);
+  }, [stopTrailerStatusPolling]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -5506,6 +5675,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
             characterBuildErrors={characterBuildErrors}
             characterPortraits={characterPortraits}
             characterPortraitLoading={characterPortraitLoading}
+            characterPortraitLoaded={characterPortraitLoaded}
             characterPortraitErrors={characterPortraitErrors}
             editedPortraitPrompts={editedPortraitPrompts}
             onSetEditedPortraitPrompt={setEditedPortraitPrompts}
@@ -5520,6 +5690,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
             onSelectCharacter={handleSelectCharacter}
             onClearActiveCharacter={handleClearActiveCharacter}
             onGeneratePortrait={generateCharacterPortrait}
+            onPortraitLoaded={handlePortraitLoaded}
             onGenerateVideo={generateCharacterVideo}
             activeCharacterId={activeCharacterId}
             posterUrl={posterUrl}
@@ -5557,8 +5728,13 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
               setPosterUrl(null);
             }}
             onClearTrailer={() => {
+              stopTrailerStatusPolling();
+              trailerStatusJobIdRef.current = null;
               setTrailerUrl(null);
               setTrailerError(null);
+              setTrailerStatus(null);
+              setTrailerElapsed(0);
+              setTrailerStartTime(null);
               trailerDigestRef.current = "";
             }}
             onOpenLightbox={(url) => setLightboxImage(url)}

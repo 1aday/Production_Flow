@@ -46,7 +46,16 @@ export async function POST(request: NextRequest) {
     // Download all portrait images
     const portraitBuffers = await Promise.all(
       body.portraits.map(async (portrait) => {
-        const response = await fetch(portrait.url);
+        // Convert relative URLs to absolute URLs using the request origin
+        let url = portrait.url;
+        if (url.startsWith('/')) {
+          const origin = request.headers.get('origin') || 
+                         request.headers.get('referer')?.split('/').slice(0, 3).join('/') ||
+                         `${request.nextUrl.protocol}//${request.nextUrl.host}`;
+          url = `${origin}${url}`;
+        }
+        
+        const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`Failed to fetch portrait: ${portrait.name}`);
         }
@@ -89,7 +98,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Create base canvas
-    let canvas = sharp({
+    const canvas = sharp({
       create: {
         width: GRID_WIDTH,
         height: GRID_HEIGHT,

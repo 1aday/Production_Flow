@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Replicate from "replicate";
+
+import {
+  pruneTrailerStatusRecords,
+  setTrailerStatusRecord,
+} from "@/lib/trailer-status";
 
 export const maxDuration = 300; // 5 minutes for trailer generation
 
@@ -8,11 +12,8 @@ type TrailerBody = {
   logline: string;
   characterGridUrl: string;
   show: unknown;
+  jobId?: string;
 };
-
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-});
 
 export async function POST(request: NextRequest) {
   if (!process.env.REPLICATE_API_TOKEN) {
@@ -32,7 +33,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { title, logline, characterGridUrl, show } = body;
+  pruneTrailerStatusRecords();
+
+  const { title, logline, characterGridUrl, show, jobId: incomingJobId } = body;
+  const jobId =
+    typeof incomingJobId === "string" && incomingJobId.trim().length > 0
+      ? incomingJobId.trim()
+      : undefined;
 
   if (!title || !logline || !characterGridUrl) {
     return NextResponse.json(
@@ -62,9 +69,9 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
   // Try Sora 2 first, fallback to VEO 3.1 on E005
   let finalUrl: string | undefined;
-  let usedModel = "sora-2";
 
   try {
+    setTrailerStatusRecord(jobId, "starting");
     // Attempt 1: Sora 2 (12 seconds, faster)
     console.log("🎬 Attempting trailer with Sora 2...");
     const soraInput = {
@@ -87,6 +94,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
     if (!soraResponse.ok) {
       const errorBody = await soraResponse.text();
+      console.error("Sora 2 request failed body:", errorBody);
       throw new Error(`Sora 2 request failed: ${soraResponse.status}`);
     }
 
@@ -95,6 +103,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
     // Poll for completion
     let result = soraPrediction;
+    setTrailerStatusRecord(jobId, result.status);
     while (result.status === "starting" || result.status === "processing") {
       await new Promise(resolve => setTimeout(resolve, 3000));
       const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
@@ -102,6 +111,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
       });
       result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
       console.log("Sora status:", result.status);
+      setTrailerStatusRecord(jobId, result.status);
     }
 
     if (result.status === "failed") {
@@ -134,6 +144,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
     if (finalUrl) {
       console.log("✅ Trailer generated with Sora 2:", finalUrl);
+      setTrailerStatusRecord(jobId, "succeeded");
       return NextResponse.json({ url: finalUrl, model: "sora-2" });
     }
 
@@ -143,6 +154,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
     // Fallback to VEO 3.1 on E005
     if (errorMessage === "E005_FALLBACK") {
       console.log("🔄 Falling back to VEO 3.1...");
+      setTrailerStatusRecord(jobId, "veo-starting");
       
       try {
         const veoInput = {
@@ -174,6 +186,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
         // Poll for VEO completion
         let veoResult = veoPrediction;
+        setTrailerStatusRecord(jobId, `veo-${veoResult.status}`);
         while (veoResult.status === "starting" || veoResult.status === "processing") {
           await new Promise(resolve => setTimeout(resolve, 3000));
           const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${veoResult.id}`, {
@@ -181,6 +194,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
           });
           veoResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
           console.log("VEO status:", veoResult.status);
+          setTrailerStatusRecord(jobId, `veo-${veoResult.status}`);
         }
 
         if (veoResult.status === "failed") {
@@ -196,6 +210,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
         if (finalUrl) {
           console.log("✅ Trailer generated with VEO 3.1 (fallback):", finalUrl);
+          setTrailerStatusRecord(jobId, "succeeded (veo)");
           return NextResponse.json({ url: finalUrl, model: "veo-3.1" });
         }
 
@@ -207,6 +222,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
     
     console.error("[trailer] Error:", error);
     const message = error instanceof Error ? error.message : "Failed to generate trailer.";
+    setTrailerStatusRecord(jobId, "failed", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 
