@@ -99,7 +99,14 @@ export async function POST(request: Request) {
     stylization_level?: string;
   } }).production_style;
 
+  console.log("=== PORTRAIT REQUEST DEBUG ===");
+  console.log("body.show exists:", !!body.show);
+  if (body.show) {
+    console.log("body.show.show_title:", (body.show as { show_title?: string }).show_title);
+  }
+  
   const showTitle = (body.show as { show_title?: string }).show_title || "the show";
+  console.log("Extracted showTitle for portrait:", showTitle);
 
   const prompt = body.customPrompt || (() => {
     // Build prominent style header

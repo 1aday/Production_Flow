@@ -157,6 +157,12 @@ type ShowBlueprint = {
   show_title: string;
   show_logline: string;
   poster_description: string;
+  production_style?: {
+    medium?: string;
+    cinematic_references?: string[];
+    visual_treatment?: string;
+    stylization_level?: string;
+  };
   visual_aesthetics: VisualAesthetics;
 };
 
@@ -4775,7 +4781,7 @@ export default function Home() {
             characterGridUrl: gridUrl,
             show: blueprint ? {
               show_title: blueprint.show_title,
-              production_style: (blueprint as { production_style?: unknown }).production_style,
+              production_style: blueprint.production_style,
             } : undefined,
           }),
         });
@@ -5328,6 +5334,11 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         setRawJson(result.raw);
         setActiveModel(chosenModel);
         setLastPrompt(value);
+
+        // Debug: Check if show_title is in blueprint
+        console.log("=== BLUEPRINT DEBUG ===");
+        console.log("Blueprint show_title:", result.data?.show_title);
+        console.log("Blueprint production_style:", result.data?.production_style?.medium);
 
         // Generate show ID immediately
         const newShowId = `show-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

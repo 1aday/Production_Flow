@@ -66,8 +66,21 @@ export async function POST(request: Request) {
   }
 
   const userPrompt = trimWithEllipsis(body.prompt, MAX_USER_PROMPT);
+  
+  // Debug logging
+  console.log("=== POSTER REQUEST DEBUG ===");
+  console.log("body.show exists:", !!body.show);
+  console.log("body.show type:", typeof body.show);
+  if (body.show) {
+    console.log("body.show.show_title:", (body.show as { show_title?: string }).show_title);
+    console.log("body.show keys:", Object.keys(body.show));
+  }
+  
   const showTitle = body.show?.show_title || "Untitled Series";
   const productionStyle = body.show?.production_style;
+  
+  console.log("Extracted showTitle:", showTitle);
+  console.log("Extracted productionStyle:", productionStyle ? "exists" : "missing");
 
   // Build prominent style header
   const styleHeader = productionStyle ? [
