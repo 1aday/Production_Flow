@@ -38,7 +38,7 @@ export async function uploadToSupabase(
   contentType: string,
   maxRetries = 2
 ): Promise<string | null> {
-  const fileSize = file instanceof Buffer ? file.length : file.size;
+  const fileSize = file instanceof Buffer ? file.length : (file as Blob).size;
   
   // Skip files larger than 50MB
   if (fileSize > 50 * 1024 * 1024) {
