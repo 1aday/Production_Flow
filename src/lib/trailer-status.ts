@@ -1,6 +1,8 @@
 type TrailerStatusRecord = {
   status: string;
   detail?: string;
+  outputUrl?: string;
+  model?: string;
   updatedAt: number;
 };
 
@@ -17,12 +19,16 @@ export const trailerStatusStore: TrailerStatusStore =
 export function setTrailerStatusRecord(
   jobId: string | undefined,
   status: string,
-  detail?: string
+  detail?: string,
+  outputUrl?: string,
+  model?: string
 ) {
   if (!jobId) return;
   trailerStatusStore.set(jobId, {
     status,
     detail,
+    outputUrl,
+    model,
     updatedAt: Date.now(),
   });
 }

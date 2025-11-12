@@ -4214,36 +4214,44 @@ export default function Home() {
 
   // Resume trailer polling on mount if there's an active job
   useEffect(() => {
+    // Skip if we're already polling
+    if (trailerStatusPollRef.current) return;
+    
     try {
       const savedJob = localStorage.getItem('production-flow.trailer-job');
-      if (savedJob) {
-        const { jobId, showId, startedAt } = JSON.parse(savedJob);
-        const elapsed = Date.now() - startedAt;
+      if (!savedJob) return;
+      
+      const { jobId, showId, startedAt } = JSON.parse(savedJob);
+      const elapsed = Date.now() - startedAt;
+      
+      // Job is too old, clear it
+      if (elapsed >= 600000) {
+        console.log("⏰ Trailer job expired (>10 min), clearing");
+        localStorage.removeItem('production-flow.trailer-job');
+        return;
+      }
+      
+      // If currentShowId matches OR isn't set yet, resume polling
+      const shouldResume = !currentShowId || showId === currentShowId;
+      
+      if (jobId && shouldResume) {
+        console.log("🔄 Resuming trailer polling for job:", jobId);
+        console.log(`   Show ID: ${showId}, Current: ${currentShowId || 'not set yet'}`);
+        console.log(`   Elapsed time: ${Math.floor(elapsed / 1000)}s`);
         
-        // Only resume if job is less than 10 minutes old
-        if (elapsed < 600000 && jobId && showId === currentShowId) {
-          console.log("🔄 Resuming trailer polling for job:", jobId);
-          console.log(`   Elapsed time: ${Math.floor(elapsed / 1000)}s`);
-          trailerStatusJobIdRef.current = jobId;
-          setTrailerLoading(true);
-          setTrailerStatus("processing");
-          setTrailerStartTime(startedAt);
-          setTrailerElapsed(Math.floor(elapsed / 1000));
-          startTrailerStatusPolling(jobId, showId);
-        } else if (elapsed >= 600000) {
-          // Job is too old, clear it
-          console.log("⏰ Trailer job expired (>10 min), clearing");
-          localStorage.removeItem('production-flow.trailer-job');
-        }
+        trailerStatusJobIdRef.current = jobId;
+        setTrailerLoading(true);
+        setTrailerStatus("processing");
+        setTrailerStartTime(startedAt);
+        setTrailerElapsed(Math.floor(elapsed / 1000));
+        startTrailerStatusPolling(jobId, showId);
       }
     } catch (e) {
       console.warn("Failed to resume trailer job:", e);
     }
     
     return () => {
-      if (trailerStatusPollRef.current) {
-        clearInterval(trailerStatusPollRef.current);
-      }
+      // Don't stop polling on unmount - let it continue
     };
   }, [currentShowId, startTrailerStatusPolling]);
 
