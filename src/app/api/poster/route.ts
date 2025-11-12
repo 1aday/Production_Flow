@@ -11,6 +11,7 @@ type PosterBody = {
       medium?: string;
       cinematic_references?: string[];
       visual_treatment?: string;
+      stylization_level?: string;
     };
   };
 };
