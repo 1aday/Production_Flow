@@ -67,16 +67,40 @@ Stylization: ${productionStyle.stylization_level || 'cinematic'}
 IMPORTANT: Match this exact visual style. Do NOT use photorealistic or realistic rendering.` : '';
 
   // Build a blockbuster-style trailer prompt
-  const trailerPrompt = `Create a blockbuster-style teaser trailer for the series "${title}".
+  const trailerPrompt = `Create an iconic teaser trailer for the series "${title}".
 
 ${logline}${styleGuidance}
 
-Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the characters, high-energy moments, 
-and a sense of scale and adventure. Professional movie trailer aesthetic with dynamic camera movements,
-impactful compositions, and a sense of intrigue that makes you want to watch the show.
+TRAILER REQUIREMENTS:
 
-The character grid reference image shows the main cast - ensure they appear throughout the trailer.
-Capture the tone, visual style, and atmosphere described above. Match the specified production style exactly.
+1. DO NOT show character names or text labels - this is a visual-only teaser
+2. Study the character grid reference image to understand the cast, but let the visuals speak for themselves
+3. Create a well-paced, exciting montage that captures the show's core vibe and genre
+4. Showcase the MOST INTERESTING and ICONIC moments that would make viewers want to watch
+5. Build anticipation and intrigue through dynamic editing and compelling visuals
+
+PACING & STRUCTURE:
+- Open with an attention-grabbing establishing shot that sets the tone
+- Quick cuts showcasing key characters in signature moments
+- Build energy and tension throughout
+- Include 2-3 memorable "money shots" that define the show's unique appeal
+- End on an intriguing moment or cliffhanger that leaves viewers wanting more
+
+TONE & GENRE GUIDANCE:
+- If COMEDY: Focus on visual humor, comedic timing, absurd situations, character reactions
+- If ACTION: Emphasize dynamic movement, tension, stakes, explosive moments
+- If HORROR: Build dread, use atmosphere, shadows, unsettling imagery
+- If DRAMA: Focus on emotion, character conflict, relationships, dramatic moments
+- If ADVENTURE: Show scope, wonder, discovery, exciting set pieces
+
+VISUAL APPROACH:
+- Use dynamic camera movements and impactful compositions
+- Vary shot sizes: wide establishing shots, dramatic close-ups, mid-shots for action
+- Match the show's visual style and production medium exactly (see above)
+- Create a sense of scale and production value
+- Every frame should feel intentional and exciting
+
+The character grid shows your cast - use them throughout but focus on MOMENTS and ATMOSPHERE, not introductions.
 
 Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 

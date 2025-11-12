@@ -134,28 +134,42 @@ export async function POST(request: NextRequest) {
           left: x + Math.floor((maxCellWidth - portraitSize) / 2), // Center in cell
         });
         
-        // Add character name label using SVG text
-        const name = resizedPortraits[i].name;
-        const escapedName = escapeXml(name);
-        const textSvg = Buffer.from(`
-          <svg width="${maxCellWidth}" height="${labelHeight}">
-            <text 
-              x="50%" 
-              y="20" 
-              text-anchor="middle" 
-              font-family="sans-serif" 
-              font-size="16" 
-              font-weight="600"
-              fill="#E5E5E5"
-            >${escapedName}</text>
-          </svg>
-        `);
-        
-        compositeOperations.push({
-          input: textSvg,
-          top: y + portraitSize + 4,
-          left: x,
-        });
+        // Try to add character name label - skip if it fails (font issues)
+        try {
+          const name = resizedPortraits[i].name;
+          const escapedName = escapeXml(name);
+          
+          // Try to render only ASCII characters to avoid font issues
+          // If name has non-ASCII, just skip the label
+          const hasNonAscii = /[^\x00-\x7F]/.test(name);
+          
+          if (!hasNonAscii) {
+            const textSvg = Buffer.from(`
+              <svg width="${maxCellWidth}" height="${labelHeight}" xmlns="http://www.w3.org/2000/svg">
+                <text 
+                  x="50%" 
+                  y="20" 
+                  text-anchor="middle" 
+                  font-family="Arial, Helvetica, sans-serif" 
+                  font-size="16" 
+                  font-weight="600"
+                  fill="#E5E5E5"
+                >${escapedName}</text>
+              </svg>
+            `);
+            
+            compositeOperations.push({
+              input: textSvg,
+              top: y + portraitSize + 4,
+              left: x,
+            });
+          } else {
+            console.log(`Skipping label for "${name}" (contains non-ASCII characters)`);
+          }
+        } catch (textError) {
+          console.warn(`Failed to render text label for portrait ${i}:`, textError);
+          // Continue without the label
+        }
       }
       // Empty slots remain black background
     }

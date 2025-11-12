@@ -66,11 +66,29 @@ type VideoBody = {
 
 const MAX_JSON_LENGTH = 20000;
 
+// Sanitize JSON to remove photorealistic language
+const sanitizeForPrompt = (text: string): string => {
+  return text
+    .replace(/\bphotorealistic\b/gi, 'animated')
+    .replace(/\bphoto-realistic\b/gi, 'animated')
+    .replace(/\bphoto-like\b/gi, 'illustrated')
+    .replace(/\brealistic matte\b/gi, 'cartoon matte')
+    .replace(/\brealistic\s+(?=skin|texture|finish|rendering|surface)/gi, 'stylized ')
+    .replace(/\bnatural(?=istic)?\s+(?=skin|texture|photography|rendering)/gi, 'stylized ')
+    .replace(/\bdocumentary style\b/gi, 'animated style')
+    .replace(/\blive-action\b/gi, 'animated')
+    .replace(/\bcinematic finish\b/gi, 'animated finish')
+    .replace(/\bcinematic highlights\b/gi, 'animated highlights')
+    .replace(/\breal-world\b/gi, 'animated')
+    .replace(/\bflesh-and-blood\b/gi, 'animated character');
+};
+
 const trimJson = (value: unknown, limit = MAX_JSON_LENGTH) => {
   try {
     const text = JSON.stringify(value);
-    if (text.length <= limit) return text;
-    return `${text.slice(0, limit - 1)}…`;
+    const sanitized = sanitizeForPrompt(text);
+    if (sanitized.length <= limit) return sanitized;
+    return `${sanitized.slice(0, limit - 1)}…`;
   } catch {
     return "";
   }
@@ -261,6 +279,23 @@ export async function POST(request: Request) {
   const aspectRatio = normalizeAspectRatio(body.aspectRatio, modelConfig.aspectRatios);
   const resolution = normalizeResolution(body.resolution, modelConfig.resolutions);
 
+  // Extract production style
+  const productionStyle = (body.show as { production_style?: {
+    medium?: string;
+    cinematic_references?: string[];
+    visual_treatment?: string;
+  } }).production_style;
+
+  const styleGuidance = productionStyle ? [
+    "",
+    "VISUAL STYLE (CRITICAL - Match exactly):",
+    `Medium: ${productionStyle.medium || 'Stylized cinematic'}`,
+    `References: ${(productionStyle.cinematic_references || []).join(', ')}`,
+    `Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}`,
+    "Do NOT use photorealistic rendering if the style specifies animation or stylization.",
+    "",
+  ] : [];
+
   const prompt = [
     `Produce a ${seconds}-second, ${describeAspectRatio(aspectRatio)} cinematic showcase featuring ONLY the specified character.`,
     "Anchor every creative choice in the show blueprint's visual rules and the character dossier.",
@@ -268,7 +303,7 @@ export async function POST(request: Request) {
       ? `Render using ${resolution === "high" ? "high (1024p)" : "standard (720p)"} fidelity while keeping likeness stable.`
       : null,
     "The scene must embody their hallmark voice, action, and attitude described in the showcase prompt.",
-    "",
+    ...styleGuidance,
     "Series logline:",
     showLogline || "N/A",
     "",

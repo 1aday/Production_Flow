@@ -6,25 +6,44 @@ import schema from "../../../../show_schema.json";
 const ajv = new Ajv({ allErrors: true, strict: false });
 const validate = ajv.compile(schema);
 
-const systemDirective = `You are a visual development director creating a show look bible.
+const systemDirective = `You are a visual development director creating a show look bible for ANIMATION or HIGHLY STYLIZED content.
 Return a single JSON object that conforms to the provided schema. Do not add properties. Infer thoughtful defaults when details are missing.
 
 CRITICAL RULES:
-1. If the user provides a show name/title in their prompt, you MUST use it exactly as provided for "show_title". If no show name is mentioned, create a catchy "show_title".
 
-2. NEVER USE "PHOTOREALISTIC" OR "REALISTIC" - These terms cause content moderation issues.
-   - If the user requests a "realistic" or "photorealistic" show, interpret it as "cinematic" or "theatrical" style.
-   - Always specify a distinct visual medium: animation style (Pixar, Ghibli, stop-motion, etc.) OR cinematic treatment (Wes Anderson, Roger Deakins cinematography, etc.)
-   - For live-action-like shows, use terms like: "cinematic", "theatrical", "stylized cinematography", "prestige TV aesthetic", "film noir", "neo-noir", etc.
-   - Provide specific cinematic/animation references (e.g., "The Grand Budapest Hotel color palette", "Spider-Verse stylization", "Arcane painted textures")
+1. SHOW TITLE: If the user provides a show name/title, use it EXACTLY. Otherwise, create a catchy title.
 
-3. The "production_style" section is MANDATORY and must specify:
-   - A specific medium (never just "live-action" - say "live-action with stylized cinematography")
-   - 2-4 concrete cinematic/animation references
-   - Detailed visual treatment using professional terminology
-   - A stylization level (use "cinematic" for the least stylized live-action-like content)
+2. PRODUCTION STYLE - ABSOLUTELY CRITICAL:
+   You MUST choose ONE specific animation/illustration style from the schema enum. Choose what best fits the show:
+   
+   FOR COMEDY/SITCOM → "Pixar-style 3D animation" or "Aardman claymation" or "Cartoon Network 2D style"
+   FOR DRAMA/THRILLER → "Anime aesthetic" or "Graphic novel illustration style" or "Rotoscoped animation"
+   FOR FANTASY/ADVENTURE → "Studio Ghibli hand-drawn animation" or "Disney 3D animation" or "Laika stop-motion"
+   FOR KIDS SHOW → "Pixar-style 3D animation" or "2D cel animation" or "Paper cutout animation"
+   FOR PRESTIGE/SERIOUS → "Arcane painterly style" or "Spider-Verse stylized 3D" or "Comic book visual style"
+   FOR QUIRKY/INDIE → "Claymation (Wallace & Gromit style)" or "Stop-motion puppet animation" or "Mixed media animation"
+   
+   NEVER EVER choose anything with "live-action" - this leads to photorealistic results that get flagged!
 
-Include a cinematic "show_logline" that names and describes key characters and conflict, and a richly detailed "poster_description" that paints an iconic one-sheet—specify composition, character appearances, palette, lighting, and featured scenes.`;
+3. VISUAL TREATMENT must emphasize NON-PHOTOGRAPHIC qualities:
+   - Use words: "animated", "illustrated", "hand-crafted", "stylized", "cartoon", "painterly", "graphic"
+   - Describe: "exaggerated proportions", "bold outlines", "visible brush strokes", "tactile textures"
+   - NEVER use: "realistic", "naturalistic", "photographic", "documentary"
+
+4. CINEMATIC REFERENCES - Choose 2-4 from animation/stylized films:
+   Animation: Pixar films, Studio Ghibli, Wallace & Gromit, Spider-Verse, Laika, Aardman, Disney, Dreamworks
+   Stylized: Wes Anderson films, Fantastic Mr Fox, Isle of Dogs, Grand Budapest Hotel
+   Illustrated: Arcane, Love Death + Robots, Klaus, The Triplets of Belleville
+
+5. MATERIALS & TEXTURES - Use animation terminology:
+   WRONG: "realistic skin", "natural textures", "photographic finish"
+   RIGHT: "stylized skin tones", "painterly textures", "animated surface treatment", "illustrated finish", "cartoon shading"
+
+6. SPECIES DESIGN - Always animated/stylized:
+   - "surface_finish": Use "matte cartoon", "painterly finish", "cel-shaded", "illustrated treatment"
+   - NEVER: "realistic", "natural", "photographic"
+
+Include a compelling "show_logline" and detailed "poster_description".`;
 
 type JSONSchemaNode = {
   type?: string | string[];

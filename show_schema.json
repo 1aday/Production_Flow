@@ -25,29 +25,51 @@
       "production_style": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["medium", "cinematic_references", "visual_treatment"],
-        "description": "CRITICAL: Never use 'photorealistic' or 'realistic'. Always specify a distinct visual style.",
+        "required": ["medium", "cinematic_references", "visual_treatment", "stylization_level"],
+        "description": "CRITICAL: Must choose a concrete non-photorealistic visual style. Avoid anything that looks like real photography or live-action footage.",
         "properties": {
           "medium": {
             "type": "string",
-            "description": "Primary production medium. Examples: '3D animation', 'hand-drawn 2D animation', 'stop-motion', 'claymation', 'puppet animation', 'mixed media animation', 'stylized 3D', 'rotoscoped animation', 'paper cutout animation', 'pixel art animation', 'live-action with cinematic treatment', 'live-action stylized'. NEVER use 'photorealistic' or 'realistic'."
+            "enum": [
+              "Pixar-style 3D animation",
+              "Studio Ghibli hand-drawn animation",
+              "Claymation (Wallace & Gromit style)",
+              "Stop-motion puppet animation",
+              "2D cel animation",
+              "Rotoscoped animation",
+              "Paper cutout animation",
+              "Mixed media animation",
+              "Spider-Verse stylized 3D",
+              "Laika stop-motion",
+              "Aardman claymation",
+              "Cartoon Network 2D style",
+              "Disney 3D animation",
+              "Dreamworks animation style",
+              "Anime aesthetic",
+              "Graphic novel illustration style",
+              "Comic book visual style",
+              "Art deco animation",
+              "Retro cartoon aesthetic",
+              "Painterly 3D animation"
+            ],
+            "description": "MUST choose from this list. These are proven non-photorealistic styles that work well with image/video generators. DO NOT create custom descriptions or use any 'live-action' terminology."
           },
           "cinematic_references": {
             "type": "array",
             "minItems": 2,
             "maxItems": 4,
             "items": { "type": "string" },
-            "description": "2-4 specific cinematic or animation references that define the visual style. Examples: 'Wes Anderson symmetry and color palette', 'Pixar character design', 'Studio Ghibli backgrounds', 'Wallace & Gromit claymation', 'Spider-Verse stylized animation', 'Laika stop-motion', 'The Grand Budapest Hotel production design', 'Fantastic Mr Fox texture work', 'Arcane painted style', 'Klaus 2D lighting techniques'."
+            "description": "2-4 specific animation films, cartoon series, or highly stylized films that define the visual style. Examples: 'The Incredibles character design', 'Spirited Away backgrounds', 'Wallace & Gromit texture work', 'Into the Spider-Verse animation style', 'Arcane painted rendering', 'Kubo and the Two Strings stop-motion', 'Adventure Time color palette', 'Avatar: The Last Airbender art style', 'Fantastic Mr Fox craftsmanship', 'Klaus lighting techniques'."
           },
           "visual_treatment": {
             "type": "string",
             "minLength": 50,
-            "description": "Detailed description of the visual treatment using professional cinematography and animation terminology. Specify: rendering style, lighting approach, color grading philosophy, texture treatment, level of stylization. Examples: 'Highly stylized with bold rim lighting and painterly textures', 'Soft matte painting aesthetic with impressionistic details', 'Graphic novel inspired with high contrast and limited palette', 'Handcrafted tactile look with visible brush strokes and imperfections'. NEVER mention 'photorealistic' - instead use terms like 'cinematic', 'theatrical', 'painterly', 'stylized', 'illustrative'."
+            "description": "Detailed description emphasizing the ANIMATED or ILLUSTRATED nature of the visuals. Must use terms like: 'hand-crafted', 'animated', 'illustrated', 'painterly', 'stylized rendering', 'cartoon aesthetic', 'animated textures', 'non-photographic'. Examples: 'Vibrant 3D animation with exaggerated character proportions and painterly lighting', 'Hand-drawn aesthetic with visible brush strokes and watercolor backgrounds', 'Claymation with tactile textures and imperfect surfaces', 'Stylized 3D with bold outlines and graphic shadows'."
           },
           "stylization_level": {
             "type": "string",
-            "enum": ["highly_stylized", "moderately_stylized", "subtly_stylized", "cinematic"],
-            "description": "Level of artistic stylization. 'cinematic' is the LEAST stylized option for live-action-like content, but still maintains theatrical/artistic qualities."
+            "enum": ["highly_stylized", "moderately_stylized"],
+            "description": "Level of artistic stylization. Only 'highly_stylized' or 'moderately_stylized' allowed - no realistic options."
           }
         }
       },

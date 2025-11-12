@@ -5,6 +5,14 @@ import Replicate from "replicate";
 type PosterBody = {
   prompt: string;
   characterGridUrl?: string;
+  show?: {
+    show_title?: string;
+    production_style?: {
+      medium?: string;
+      cinematic_references?: string[];
+      visual_treatment?: string;
+    };
+  };
 };
 
 const MAX_PROMPT_LENGTH = 12000;
@@ -58,13 +66,56 @@ export async function POST(request: Request) {
   }
 
   const userPrompt = trimWithEllipsis(body.prompt, MAX_USER_PROMPT);
+  const showTitle = body.show?.show_title || "Untitled Series";
+  const productionStyle = body.show?.production_style;
+
+  // Build prominent style header
+  const styleHeader = productionStyle ? [
+    "!! VISUAL STYLE - CRITICAL - MUST FOLLOW !!",
+    "",
+    `Show Title: "${showTitle}"`,
+    `Production Medium: ${productionStyle.medium || 'Stylized cinematic'}`,
+    `Visual References: ${(productionStyle.cinematic_references || []).join(' + ')}`,
+    `Stylization: ${productionStyle.stylization_level || 'moderately stylized'}`,
+    "",
+    `Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}`,
+    "",
+    "CRITICAL REQUIREMENTS:",
+    "1. The poster MUST prominently display the show title in bold theatrical typography",
+    "2. DO NOT use photorealistic rendering",
+    "3. DO NOT create a photo-like realistic image",
+    "4. MUST match the specified visual style exactly",
+    "5. Use artistic/stylized interpretation, NOT documentary realism",
+    "",
+    "---",
+    "",
+  ].join("\n") : [
+    "!! CRITICAL - DO NOT CREATE PHOTOREALISTIC IMAGE !!",
+    "",
+    `Show Title: "${showTitle}" (MUST be displayed prominently on poster)`,
+    "",
+    "CRITICAL REQUIREMENTS:",
+    "- Use theatrical/stylized treatment, NOT photorealistic rendering",
+    "- Display the show title prominently with bold typography",
+    "- Use artistic interpretation, NOT realistic photography",
+    "",
+    "---",
+    "",
+  ].join("\n");
 
   let compositePrompt = body.characterGridUrl 
-    ? `${BASE_PROMPT}\n\nHere are the characters (shown in the reference image grid):\n${userPrompt}`
-    : `${BASE_PROMPT}\n\nCharacter prompt:\n${userPrompt}`;
+    ? `${styleHeader}${BASE_PROMPT}\n\nHere are the characters (shown in the reference image grid):\n${userPrompt}`
+    : `${styleHeader}${BASE_PROMPT}\n\nCharacter prompt:\n${userPrompt}`;
 
   if (compositePrompt.length > MAX_PROMPT_LENGTH) {
     compositePrompt = trimWithEllipsis(compositePrompt, MAX_PROMPT_LENGTH);
+  }
+
+  console.log("=== POSTER GENERATION ===");
+  console.log("Show Title:", showTitle);
+  console.log("Has character grid:", !!body.characterGridUrl);
+  if (productionStyle) {
+    console.log("Production Style:", productionStyle.medium);
   }
 
   // Build input ensuring array stays as array

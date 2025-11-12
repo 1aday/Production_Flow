@@ -53,7 +53,9 @@ For each character provide:
 - the "name",
 - a short "summary" (<= 280 characters),
 - a "role" (use null if unknown) and a "vibe" descriptor (use null if unknown).
-Use concise language and ensure identifiers are unique.`;
+Use concise language and ensure identifiers are unique.
+
+IMPORTANT: Avoid using "realistic" or "photorealistic" in summaries or vibes. Use terms like "cinematic", "theatrical", "stylized" instead.`;
 
 const trimJSON = (input: unknown): string | undefined => {
   if (!input) return undefined;

@@ -4680,6 +4680,10 @@ export default function Home() {
           body: JSON.stringify({
             prompt: trimmedPrompt || value.slice(0, 4950),
             characterGridUrl: gridUrl,
+            show: blueprint ? {
+              show_title: blueprint.show_title,
+              production_style: (blueprint as { production_style?: unknown }).production_style,
+            } : undefined,
           }),
         });
 
@@ -4755,7 +4759,7 @@ export default function Home() {
         setPosterLoading(false);
       }
     },
-    []
+    [blueprint]
   );
 
   const generateTrailer = useCallback(async () => {

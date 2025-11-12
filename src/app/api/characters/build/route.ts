@@ -32,16 +32,60 @@ async function loadCharacterTemplate() {
   return fs.readFile(templatePath, "utf8");
 }
 
-const SYSTEM_DIRECTIVE = `You are the casting director for this show.
+const SYSTEM_DIRECTIVE = `You are the casting director for an ANIMATED or HIGHLY STYLIZED show.
 Generate a complete character bible entry that mirrors the provided template.
 Respect the show blueprint and the supplied character seed.
-Always respond with a JSON object adhering to the provided schema.`;
+Always respond with a JSON object adhering to the provided schema.
+
+!! CRITICAL - ANIMATION/STYLIZATION REQUIREMENTS !!
+
+The show has a specific animation/illustration style (check production_style.medium). You MUST use terminology that matches:
+
+ABSOLUTELY FORBIDDEN WORDS (cause moderation failures):
+- "photorealistic", "realistic", "photo-like", "documentary", "naturalistic", "live-action", "flesh-and-blood", "real-world"
+
+REQUIRED TERMINOLOGY based on production_style.medium:
+
+IF ANIMATION (Pixar, Ghibli, claymation, etc.):
+- Materials: "animated textures", "cartoon surfaces", "stylized materials", "illustrated finishes"
+- Skin: "stylized skin tones", "animated skin treatment", "cartoon shading"
+- Finish: "matte cartoon", "cel-shaded", "painterly finish", "illustrated treatment"
+- Features: "animated proportions", "cartoon expressions", "stylized anatomy"
+
+IF GRAPHIC/ILLUSTRATED:
+- Materials: "illustrated textures", "graphic surfaces", "painterly materials"
+- Skin: "illustrated skin tones", "graphic rendering", "painterly complexion"
+- Finish: "graphic matte", "illustrated finish", "comic book treatment"
+
+EXAMPLES:
+✗ WRONG: "realistic matte", "natural human skin", "flesh-and-blood performer", "live-action subtype"
+✓ RIGHT: "cartoon matte", "stylized human features", "animated character", "animated subtype"
+
+Always describe characters as if they exist in the show's animation/illustration style, NOT as photographed real people.`;
+
+// Sanitize JSON to remove photorealistic language
+const sanitizeForPrompt = (text: string): string => {
+  return text
+    .replace(/\bphotorealistic\b/gi, 'animated')
+    .replace(/\bphoto-realistic\b/gi, 'animated')
+    .replace(/\bphoto-like\b/gi, 'illustrated')
+    .replace(/\brealistic matte\b/gi, 'cartoon matte')
+    .replace(/\brealistic\s+(?=skin|texture|finish|rendering|surface)/gi, 'stylized ')
+    .replace(/\bnatural(?=istic)?\s+(?=skin|texture|photography|rendering)/gi, 'stylized ')
+    .replace(/\bdocumentary style\b/gi, 'animated style')
+    .replace(/\blive-action\b/gi, 'animated')
+    .replace(/\bcinematic finish\b/gi, 'animated finish')
+    .replace(/\bcinematic highlights\b/gi, 'animated highlights')
+    .replace(/\breal-world\b/gi, 'animated')
+    .replace(/\bflesh-and-blood\b/gi, 'animated character');
+};
 
 const trimJson = (value: unknown, limit = 18000) => {
   try {
     const text = JSON.stringify(value);
-    if (text.length <= limit) return text;
-    return `${text.slice(0, limit - 1)}…`;
+    const sanitized = sanitizeForPrompt(text);
+    if (sanitized.length <= limit) return sanitized;
+    return `${sanitized.slice(0, limit - 1)}…`;
   } catch {
     return "";
   }
