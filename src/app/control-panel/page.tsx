@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Save, RotateCcw, Settings, User, Image as ImageIcon, Video, Film, Clapperboard, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ type ShowPrompts = {
   characterSeeds?: Array<{ id: string; name: string }>;
 };
 
-export default function ControlPanelPage() {
+function ControlPanelContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const showId = searchParams.get("show");
@@ -410,6 +410,21 @@ export default function ControlPanelPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ControlPanelPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-black text-foreground">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <p className="text-foreground/70">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ControlPanelContent />
+    </Suspense>
   );
 }
 

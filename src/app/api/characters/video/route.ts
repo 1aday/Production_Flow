@@ -66,29 +66,11 @@ type VideoBody = {
 
 const MAX_JSON_LENGTH = 20000;
 
-// Sanitize JSON to remove photorealistic language
-const sanitizeForPrompt = (text: string): string => {
-  return text
-    .replace(/\bphotorealistic\b/gi, 'animated')
-    .replace(/\bphoto-realistic\b/gi, 'animated')
-    .replace(/\bphoto-like\b/gi, 'illustrated')
-    .replace(/\brealistic matte\b/gi, 'cartoon matte')
-    .replace(/\brealistic\s+(?=skin|texture|finish|rendering|surface)/gi, 'stylized ')
-    .replace(/\bnatural(?=istic)?\s+(?=skin|texture|photography|rendering)/gi, 'stylized ')
-    .replace(/\bdocumentary style\b/gi, 'animated style')
-    .replace(/\blive-action\b/gi, 'animated')
-    .replace(/\bcinematic finish\b/gi, 'animated finish')
-    .replace(/\bcinematic highlights\b/gi, 'animated highlights')
-    .replace(/\breal-world\b/gi, 'animated')
-    .replace(/\bflesh-and-blood\b/gi, 'animated character');
-};
-
 const trimJson = (value: unknown, limit = MAX_JSON_LENGTH) => {
   try {
     const text = JSON.stringify(value);
-    const sanitized = sanitizeForPrompt(text);
-    if (sanitized.length <= limit) return sanitized;
-    return `${sanitized.slice(0, limit - 1)}…`;
+    if (text.length <= limit) return text;
+    return `${text.slice(0, limit - 1)}…`;
   } catch {
     return "";
   }
