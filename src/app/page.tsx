@@ -2998,6 +2998,38 @@ function ResultView({
                 </div>
               </div>
             </div>
+          ) : trailerLoading ? (
+            <div className="bg-gradient-to-br from-primary/10 via-black/50 to-black/60 px-8 py-16">
+              <div className="text-center space-y-6 max-w-2xl mx-auto">
+                <div className="inline-flex items-center justify-center">
+                  <div className="relative">
+                    <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                    <div className="absolute inset-0 animate-ping opacity-20">
+                      <div className="h-full w-full rounded-full border-4 border-primary" />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground/90">
+                    {trailerStatusDetailLabel || "Generating Trailer"}
+                  </p>
+                  <p className="mt-2 text-sm text-foreground/60">
+                    {trailerStatusBadgeLabel || "Processing"}
+                  </p>
+                  {trailerElapsed > 0 ? (
+                    <p className="mt-3 text-xs font-mono text-foreground/50">
+                      Elapsed: {Math.floor(trailerElapsed / 60)}:{String(trailerElapsed % 60).padStart(2, '0')}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="h-1 w-full max-w-md mx-auto overflow-hidden rounded-full bg-white/10">
+                  <div className="h-full w-full animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+                </div>
+                <p className="text-xs text-foreground/45">
+                  This may take several minutes. You can navigate away - generation will continue.
+                </p>
+              </div>
+            </div>
           ) : canGenerateTrailerFromPartial ? (
             <div className="bg-gradient-to-br from-white/5 via-black/50 to-black/60 px-8 py-16">
               <div className="text-center space-y-8 max-w-3xl mx-auto">
