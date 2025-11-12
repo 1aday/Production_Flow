@@ -124,7 +124,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log("=== LIBRARY POSTER DEBUG ===");
+    console.log("showData exists:", !!showData);
+    console.log("showData type:", typeof showData);
+    if (showData) {
+      console.log("showData.show_title:", showData.show_title);
+      console.log("showData keys:", Object.keys(showData).slice(0, 10));
+    }
+    
     const showTitle = showData?.show_title || "Untitled";
+    console.log("Extracted showTitle:", showTitle);
     
     // Create a Netflix-style movie poster prompt with 9:16 aspect ratio
     const posterPrompt = `Netflix-style movie poster, cinematic composition, dramatic lighting, professional design. 
@@ -136,8 +145,9 @@ Character-focused composition, moody atmospheric background, premium quality, th
 High contrast, rich colors, professional color grading, award-winning poster design.`;
 
     console.log("=== LIBRARY POSTER GENERATION ===");
+    console.log("Show Title Being Used:", showTitle);
     console.log("Logline:", logline.slice(0, 150));
-    console.log("Character image:", characterImageUrl);
+    console.log("Character image:", characterImageUrl.slice(0, 80) + "...");
     console.log("\n--- FULL PROMPT ---");
     console.log(posterPrompt);
     console.log("--- END PROMPT ---\n");
