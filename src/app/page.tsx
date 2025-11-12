@@ -1472,102 +1472,6 @@ function ResultView({
       </Badge>
     ) : null;
 
-  const posterSection = posterAvailable
-    ? posterLoading || posterError || posterUrl
-      ? posterLoading
-        ? (
-          <div className="flex items-center gap-3 rounded-3xl bg-black/45 px-5 py-4 text-sm text-foreground/70 shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            Generating poster…
-          </div>
-        )
-        : posterError
-          ? (
-            <div className="space-y-3 rounded-3xl bg-red-500/10 px-5 py-4 text-sm shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
-            <p className="font-semibold text-red-200">Poster generation failed</p>
-            <p className="text-red-200/80">{posterError}</p>
-          </div>
-          )
-          : posterUrl
-            ? (
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => onOpenLightbox(posterUrl)}
-                  className="overflow-hidden rounded-3xl bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)] cursor-zoom-in transition-transform hover:scale-[1.01] w-full"
-                >
-                  <div className="relative h-0 w-full pb-[100%]">
-                    <Image
-                      src={posterUrl}
-                      alt="Generated poster concept"
-                      fill
-                      className="object-contain"
-                      sizes="(min-width: 768px) 560px, 100vw"
-                      priority
-                    />
-                  </div>
-                  <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
-                    1024×1792 • Sora output • Click to view full size
-                  </div>
-                </button>
-                <details className="group">
-                  <summary className="cursor-pointer">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={posterLoading}
-                      className="w-full justify-center rounded-full text-sm pointer-events-none"
-                    >
-                      Re-generate Poster
-                    </Button>
-                  </summary>
-                  <div className="mt-3 space-y-3">
-                    <Textarea
-                      value={editedPosterPrompt}
-                      onChange={(e) => onSetEditedPosterPrompt(e.target.value)}
-                      placeholder="Optional: Customize the poster prompt..."
-                      className="min-h-[120px] resize-y rounded-2xl bg-black/40 text-sm"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="default"
-                        onClick={() => {
-                          onRegeneratePoster();
-                          if (editedPosterPrompt.trim()) {
-                            // Store custom prompt for regeneration
-                          }
-                        }}
-                        disabled={posterLoading}
-                        className="flex-1 rounded-full text-sm"
-                      >
-                        {posterLoading ? "Generating..." : "Generate"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => {
-                          onSetEditedPosterPrompt("");
-                          const details = document.activeElement?.closest("details");
-                          if (details) details.removeAttribute("open");
-                        }}
-                        className="rounded-full text-sm"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                </details>
-              </div>
-            )
-            : null
-      : null
-    : (
-      <div className="rounded-3xl bg-black/45 px-5 py-4 text-sm text-foreground/65 shadow-[0_18px_60px_rgba(0,0,0,0.45)]">
-        Poster generation is disabled. Add a Replicate token to unlock one-click key art.
-      </div>
-    );
-
   const libraryPosterSection =
     !posterAvailable
       ? (
@@ -1580,40 +1484,54 @@ function ResultView({
       )
       : (
         <CollapsibleSection
-          title="Library-ready poster"
-          description="Polished 9:16 artwork staged for the library carousel."
+          title="Show poster"
+          description="Netflix-style 9:16 poster featuring your characters."
           accent="lagoon"
           defaultOpen
         >
           {libraryPosterLoading ? (
             <div className="flex items-center gap-3 rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/70">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              Rendering library poster…
+              Generating poster…
             </div>
           ) : libraryPosterUrl ? (
-            <button
-              type="button"
-              onClick={() => onOpenLightbox(libraryPosterUrl)}
-              className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)] cursor-zoom-in transition-transform hover:scale-[1.01] w-full"
-            >
-              <div className="relative h-0 w-full pb-[177%]">
-                <Image
-                  src={libraryPosterUrl}
-                  alt="Library-ready poster"
-                  fill
-                  className="object-cover"
-                  sizes="(min-width: 768px) 420px, 100vw"
-                />
-              </div>
-              <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
-                9:16 • Library poster • Click to view full size
-              </div>
-            </button>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => onOpenLightbox(libraryPosterUrl)}
+                className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)] cursor-zoom-in transition-transform hover:scale-[1.01] w-full"
+              >
+                <div className="relative h-0 w-full pb-[177%]">
+                  <Image
+                    src={libraryPosterUrl}
+                    alt="Show poster"
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 768px) 420px, 100vw"
+                  />
+                </div>
+                <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
+                  9:16 • {blueprint?.show_title || "Show poster"} • Click to view full size
+                </div>
+              </button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  // Clear URL to trigger regeneration on next save
+                  onRegeneratePoster();
+                }}
+                disabled={libraryPosterLoading}
+                className="w-full justify-center rounded-full text-sm"
+              >
+                {libraryPosterLoading ? "Generating..." : "Re-generate Poster"}
+              </Button>
+            </div>
           ) : (
             <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
-              <p>Library poster will appear once a finished portrait exists.</p>
+              <p>Show poster generates automatically after first character portrait.</p>
               <p className="text-foreground/55">
-                Portraits trigger this automatically—no additional action needed.
+                No additional action needed.
               </p>
             </div>
           )}
@@ -3210,7 +3128,7 @@ function ResultView({
           {loglinePanel}
         </div>
         <div className="space-y-6">
-          {posterSection}
+          {libraryPosterSection}
         </div>
       </div>
 
@@ -3947,8 +3865,7 @@ function ResultView({
   );
 
   const assetStatusItems = [
-    { key: "poster", label: "Hero poster", ready: Boolean(posterUrl) },
-    { key: "libraryPoster", label: "Library poster", ready: Boolean(libraryPosterUrl) },
+    { key: "libraryPoster", label: "Show poster", ready: Boolean(libraryPosterUrl) },
     { key: "grid", label: "Character grid", ready: Boolean(portraitGridUrl) },
     { key: "trailer", label: "Series trailer", ready: Boolean(trailerUrl) },
   ] as const;
@@ -4078,7 +3995,6 @@ function ResultView({
                   Poster-ready stills staged for decks, look books, and library carousels.
                 </p>
               </div>
-              {posterSection}
               {libraryPosterSection}
             </section>
             <section className="space-y-4">
@@ -6255,8 +6171,10 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
               setPortraitGridUrl(null);
             }}
             onRegeneratePoster={() => {
-              posterDigestRef.current = "";
-              setPosterUrl(null);
+              console.log("🔄 Regenerating library poster...");
+              setLibraryPosterUrl(null);
+              // Will auto-regenerate on next save
+              setTimeout(() => void saveCurrentShow(true), 500);
             }}
             onClearTrailer={() => {
               stopTrailerStatusPolling();
