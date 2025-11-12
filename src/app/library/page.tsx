@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Library, Loader2, Trash2, ArrowLeft } from "lucide-react";
+import { Library, Loader2, Trash2, ArrowLeft, Share2, CheckCircle2, Clock, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
+import { calculateShowCompletion, getCompletionBadgeVariant } from "@/lib/show-completion";
 
 type LibraryShow = {
   id: string;
@@ -19,6 +20,11 @@ type LibraryShow = {
   libraryPosterUrl?: string;
   portraitGridUrl?: string;
   trailerUrl?: string;
+  // For completion calculation
+  characterSeeds?: Array<{ id: string }>;
+  characterDocs?: Record<string, unknown>;
+  characterPortraits?: Record<string, string | null>;
+  characterVideos?: Record<string, string[]>;
 };
 
 export default function LibraryPage() {
@@ -81,6 +87,18 @@ export default function LibraryPage() {
       }
     }
     router.push("/");
+  };
+
+  const copyShowUrl = async (showId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    const url = `${window.location.origin}/show/${showId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      // Could add toast notification here
+      console.log("✅ Show URL copied:", url);
+    } catch (error) {
+      console.error("Failed to copy URL:", error);
+    }
   };
 
   useEffect(() => {
@@ -150,7 +168,11 @@ export default function LibraryPage() {
               </div>
             ) : null}
             <div className="grid gap-4 sm:gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            {shows.map((show, index) => (
+            {shows.map((show, index) => {
+              const completion = calculateShowCompletion(show);
+              const badgeVariant = getCompletionBadgeVariant(completion.completionPercentage);
+              
+              return (
               <div
                 key={show.id}
                 className="group relative overflow-hidden rounded-2xl border border-white/5 bg-black/30 shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-primary/40 hover:shadow-[0_18px_60px_rgba(229,9,20,0.35)]"
@@ -179,19 +201,84 @@ export default function LibraryPage() {
                         </span>
                       </div>
                     )}
+                    
+                    {/* Completion Badge */}
+                    <div className="absolute bottom-3 left-3 flex gap-2">
+                      <Badge variant={badgeVariant} className="text-[10px] font-semibold">
+                        {completion.isFullyComplete ? (
+                          <><CheckCircle2 className="mr-1 h-3 w-3" /> Complete</>
+                        ) : (
+                          <><Clock className="mr-1 h-3 w-3" /> {completion.completionPercentage}%</>
+                        )}
+                      </Badge>
+                    </div>
                   </div>
                 </button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={(e) => void deleteShow(show.id, e)}
-                  className="absolute right-3 top-3 h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-red-500/80 group-hover:opacity-100"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                
+                {/* Action buttons */}
+                <div className="absolute right-3 top-3 flex gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/control-panel?show=${show.id}`);
+                    }}
+                    className="h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-blue-500/80 group-hover:opacity-100"
+                    title="Edit prompts"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => void copyShowUrl(show.id, e)}
+                    className="h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-primary/80 group-hover:opacity-100"
+                    title="Copy show URL"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => void deleteShow(show.id, e)}
+                    className="h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-red-500/80 group-hover:opacity-100"
+                    title="Delete show"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                {/* Show title and info */}
+                <div className="p-4 space-y-2">
+                  <h3 className="font-semibold text-sm line-clamp-2 text-foreground">
+                    {show.showTitle || show.title}
+                  </h3>
+                  
+                  {!completion.isFullyComplete && completion.missingItems.length > 0 ? (
+                    <p className="text-[11px] text-amber-400/70 line-clamp-2">
+                      Missing: {completion.missingItems.slice(0, 2).join(", ")}
+                      {completion.missingItems.length > 2 ? `, +${completion.missingItems.length - 2} more` : ""}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-foreground/50">
+                      {new Date(show.updatedAt).toLocaleDateString()}
+                    </p>
+                  )}
+                  
+                  <div className="flex items-center gap-2 text-[10px] text-foreground/40">
+                    <span>{show.model}</span>
+                    {completion.stats.totalCharacters > 0 ? (
+                      <span>• {completion.stats.totalCharacters} chars</span>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-            ))}
+              );
+            })}
             </div>
           </>
         )}

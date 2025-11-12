@@ -1,16 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readdir, readFile, writeFile, mkdir } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
-
-const LIBRARY_DIR = join(process.cwd(), "library");
-
-// Ensure library directory exists
-async function ensureLibraryDir() {
-  if (!existsSync(LIBRARY_DIR)) {
-    await mkdir(LIBRARY_DIR, { recursive: true });
-  }
-}
+import { createServerSupabaseClient, uploadToSupabase, downloadAsBuffer } from "@/lib/supabase";
 
 type ShowMetadata = {
   id: string;
@@ -29,52 +18,42 @@ type ShowMetadata = {
 export async function GET() {
   try {
     console.time("Library GET - total");
-    await ensureLibraryDir();
+    const supabase = createServerSupabaseClient();
     
-    console.time("Read directory");
-    const files = await readdir(LIBRARY_DIR);
-    const jsonFiles = files.filter((f) => f.endsWith(".json"));
-    console.timeEnd("Read directory");
+    const { data: shows, error } = await supabase
+      .from('shows')
+      .select('id, title, created_at, updated_at, model, poster_url, library_poster_url, portrait_grid_url, trailer_url, blueprint, character_seeds, character_docs, character_portraits, character_videos')
+      .order('updated_at', { ascending: false });
     
-    console.log(`Found ${jsonFiles.length} show files`);
-    
-    const shows: ShowMetadata[] = [];
-    
-    console.time("Parse all files");
-    for (const file of jsonFiles) {
-      try {
-        const filePath = join(LIBRARY_DIR, file);
-        const content = await readFile(filePath, "utf-8");
-        
-        // Only parse the fields we need for listing
-        const data = JSON.parse(content);
-        
-        shows.push({
-          id: data.id,
-          title: data.title || data.blueprint?.show_logline?.slice(0, 100) || "Untitled Show",
-          showTitle: data.blueprint?.show_title,
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-          model: data.model,
-          posterUrl: data.posterUrl,
-          libraryPosterUrl: data.libraryPosterUrl,
-          portraitGridUrl: data.portraitGridUrl,
-          trailerUrl: data.trailerUrl,
-        });
-      } catch (err) {
-        console.error(`Failed to read ${file}:`, err);
-      }
+    if (error) {
+      console.error("Supabase query error:", error);
+      throw error;
     }
-    console.timeEnd("Parse all files");
     
-    // Sort by updated date, newest first
-    console.time("Sort shows");
-    shows.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    console.timeEnd("Sort shows");
+    console.log(`Found ${shows?.length || 0} shows in Supabase`);
+    
+    // Transform to expected format
+    const showMetadata: ShowMetadata[] = (shows || []).map(show => ({
+      id: show.id,
+      title: show.title,
+      showTitle: (show.blueprint as { show_title?: string })?.show_title,
+      createdAt: show.created_at,
+      updatedAt: show.updated_at,
+      model: show.model,
+      posterUrl: show.poster_url,
+      libraryPosterUrl: show.library_poster_url,
+      portraitGridUrl: show.portrait_grid_url,
+      trailerUrl: show.trailer_url,
+      // For completion calculation
+      characterSeeds: show.character_seeds as Array<{ id: string }> | undefined,
+      characterDocs: show.character_docs as Record<string, unknown> | undefined,
+      characterPortraits: show.character_portraits as Record<string, string | null> | undefined,
+      characterVideos: show.character_videos as Record<string, string[]> | undefined,
+    }));
     
     console.timeEnd("Library GET - total");
     
-    return NextResponse.json({ shows });
+    return NextResponse.json({ shows: showMetadata });
   } catch (error) {
     console.error("Failed to list shows:", error);
     return NextResponse.json(
@@ -87,59 +66,120 @@ export async function GET() {
 // POST - Save a show
 export async function POST(request: NextRequest) {
   try {
-    await ensureLibraryDir();
-    
     const body = await request.json();
-    const { id, blueprint, rawJson, usage, model, characterSeeds, characterDocs, characterPortraits, characterVideos, posterUrl, libraryPosterUrl, portraitGridUrl, trailerUrl } = body;
+    const { 
+      id, 
+      blueprint, 
+      rawJson, 
+      usage, 
+      model, 
+      characterSeeds, 
+      characterDocs, 
+      characterPortraits, 
+      characterVideos, 
+      posterUrl, 
+      libraryPosterUrl, 
+      portraitGridUrl, 
+      trailerUrl,
+      // NEW: Essential missing data
+      originalPrompt,
+      customPortraitPrompts,
+      customVideoPrompts,
+      customPosterPrompt,
+      customTrailerPrompt,
+      videoModelId,
+      videoSeconds,
+      videoAspectRatio,
+      videoResolution,
+      trailerModel,
+    } = body;
     
     if (!id || !blueprint) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: id and blueprint" },
         { status: 400 }
       );
     }
     
+    const supabase = createServerSupabaseClient();
     const now = new Date().toISOString();
     const title = blueprint.show_title || blueprint.show_logline?.slice(0, 100) || "Untitled Show";
     
-    const videosData = (characterVideos || {}) as Record<string, string[]>;
+    // Upload assets to Supabase Storage if they're data URLs
+    const uploadedAssets = await uploadAssetsToStorage(supabase, id, {
+      characterPortraits: characterPortraits || {},
+      characterVideos: characterVideos || {},
+      posterUrl,
+      libraryPosterUrl,
+      portraitGridUrl,
+      trailerUrl,
+    });
     
     const showData = {
       id,
       title,
-      createdAt: body.createdAt || now,
-      updatedAt: now,
-      blueprint,
-      rawJson,
-      usage,
+      created_at: body.createdAt || now,
+      updated_at: now,
+      
+      // Core data
       model,
-      characterSeeds: characterSeeds || [],
-      characterDocs: characterDocs || {},
-      characterPortraits: characterPortraits || {},
-      characterVideos: videosData,
-      posterUrl: posterUrl || null,
-      libraryPosterUrl: libraryPosterUrl || null,
-      portraitGridUrl: portraitGridUrl || null,
-      trailerUrl: trailerUrl || null,
+      original_prompt: originalPrompt || null,
+      blueprint,
+      raw_json: rawJson || null,
+      usage: usage || null,
+      
+      // Character data
+      character_seeds: characterSeeds || [],
+      character_docs: characterDocs || {},
+      character_portraits: uploadedAssets.characterPortraits,
+      character_videos: uploadedAssets.characterVideos,
+      
+      // Custom prompts
+      custom_portrait_prompts: customPortraitPrompts || {},
+      custom_video_prompts: customVideoPrompts || {},
+      custom_poster_prompt: customPosterPrompt || null,
+      custom_trailer_prompt: customTrailerPrompt || null,
+      
+      // Asset URLs
+      poster_url: uploadedAssets.posterUrl,
+      library_poster_url: uploadedAssets.libraryPosterUrl,
+      portrait_grid_url: uploadedAssets.portraitGridUrl,
+      trailer_url: uploadedAssets.trailerUrl,
+      
+      // Generation metadata
+      trailer_model: trailerModel || null,
+      
+      // User preferences
+      video_model_id: videoModelId || 'openai/sora-2',
+      video_seconds: videoSeconds || 8,
+      video_aspect_ratio: videoAspectRatio || 'landscape',
+      video_resolution: videoResolution || 'standard',
     };
     
-    const filePath = join(LIBRARY_DIR, `${id}.json`);
-    await writeFile(filePath, JSON.stringify(showData, null, 2), "utf-8");
+    // Upsert to Supabase
+    const { error } = await supabase
+      .from('shows')
+      .upsert(showData, { onConflict: 'id' });
     
-    const totalVideos = Object.values(videosData).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+    if (error) {
+      console.error("Supabase upsert error:", error);
+      throw error;
+    }
     
-    console.log("💾 Show saved to library:", {
+    const totalVideos = Object.values(characterVideos || {}).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+    const portraitCount = Object.keys(characterPortraits || {}).filter(k => characterPortraits[k]).length;
+    
+    console.log("💾 Show saved to Supabase:", {
       id,
       title,
-      path: filePath,
-      characterSeeds: showData.characterSeeds.length,
-      characterDocs: Object.keys(showData.characterDocs).length,
-      portraits: Object.keys(showData.characterPortraits).filter(k => showData.characterPortraits[k]).length,
+      characterSeeds: (characterSeeds || []).length,
+      characterDocs: Object.keys(characterDocs || {}).length,
+      portraits: portraitCount,
       videos: totalVideos,
-      hasPoster: !!showData.posterUrl,
-      hasLibraryPoster: !!showData.libraryPosterUrl,
-      hasPortraitGrid: !!showData.portraitGridUrl,
-      hasTrailer: !!showData.trailerUrl,
+      hasPoster: !!uploadedAssets.posterUrl,
+      hasLibraryPoster: !!uploadedAssets.libraryPosterUrl,
+      hasPortraitGrid: !!uploadedAssets.portraitGridUrl,
+      hasTrailer: !!uploadedAssets.trailerUrl,
     });
     
     return NextResponse.json({ success: true, id });
@@ -149,5 +189,185 @@ export async function POST(request: NextRequest) {
       { error: "Failed to save show" },
       { status: 500 }
     );
+  }
+}
+
+// Helper function to upload assets to Supabase Storage
+async function uploadAssetsToStorage(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  showId: string,
+  assets: {
+    characterPortraits: Record<string, string | null>;
+    characterVideos: Record<string, string[]>;
+    posterUrl?: string | null;
+    libraryPosterUrl?: string | null;
+    portraitGridUrl?: string | null;
+    trailerUrl?: string | null;
+  }
+) {
+  const result = {
+    characterPortraits: {} as Record<string, string | null>,
+    characterVideos: {} as Record<string, string[]>,
+    posterUrl: assets.posterUrl || null,
+    libraryPosterUrl: assets.libraryPosterUrl || null,
+    portraitGridUrl: assets.portraitGridUrl || null,
+    trailerUrl: assets.trailerUrl || null,
+  };
+
+  try {
+    // Upload character portraits
+    for (const [charId, url] of Object.entries(assets.characterPortraits)) {
+      if (!url) continue;
+      
+      let buffer: Buffer | null = null;
+      
+      if (url.startsWith('data:')) {
+        buffer = dataUrlToBuffer(url);
+      } else if (url.startsWith('http')) {
+        // Download from Replicate
+        buffer = await downloadAsBuffer(url);
+        console.log(`⬇️ Downloaded portrait for ${charId}`);
+      } else if (url.startsWith('/')) {
+        // Local file path
+        try {
+          const fs = await import('fs/promises');
+          const path = await import('path');
+          const filePath = path.join(process.cwd(), 'public', url);
+          buffer = await fs.readFile(filePath);
+          console.log(`📁 Read local portrait for ${charId}`);
+        } catch (fsError) {
+          console.warn(`Failed to read local file ${url}:`, fsError);
+        }
+      }
+      
+      if (buffer) {
+        const storagePath = `${showId}/portraits/${charId}.webp`;
+        const uploaded = await uploadToSupabase(supabase, 'show-assets', storagePath, buffer, 'image/webp');
+        result.characterPortraits[charId] = uploaded || url;
+        console.log(`✅ Uploaded portrait for ${charId} to Supabase`);
+      } else {
+        result.characterPortraits[charId] = url;
+      }
+    }
+
+    // Upload character videos
+    for (const [charId, urls] of Object.entries(assets.characterVideos)) {
+      result.characterVideos[charId] = [];
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        let buffer: Buffer | null = null;
+        
+        if (url.startsWith('data:')) {
+          buffer = dataUrlToBuffer(url);
+        } else if (url.startsWith('http')) {
+          // Download from Replicate
+          buffer = await downloadAsBuffer(url);
+          console.log(`⬇️ Downloaded video ${i} for ${charId}`);
+        } else if (url.startsWith('/')) {
+          // Local file path
+          try {
+            const fs = await import('fs/promises');
+            const path = await import('path');
+            const filePath = path.join(process.cwd(), 'public', url);
+            buffer = await fs.readFile(filePath);
+            console.log(`📁 Read local video ${i} for ${charId}`);
+          } catch (fsError) {
+            console.warn(`Failed to read local file ${url}:`, fsError);
+          }
+        }
+        
+        if (buffer) {
+          const storagePath = `${showId}/videos/${charId}-${i}.mp4`;
+          const uploaded = await uploadToSupabase(supabase, 'show-assets', storagePath, buffer, 'video/mp4');
+          result.characterVideos[charId].push(uploaded || url);
+          console.log(`✅ Uploaded video ${i} for ${charId} to Supabase`);
+        } else {
+          result.characterVideos[charId].push(url);
+        }
+      }
+    }
+
+    // Upload poster
+    if (assets.posterUrl) {
+      result.posterUrl = await uploadAsset(supabase, showId, assets.posterUrl, 'poster.webp', 'image/webp');
+    }
+
+    // Upload library poster
+    if (assets.libraryPosterUrl) {
+      result.libraryPosterUrl = await uploadAsset(supabase, showId, assets.libraryPosterUrl, 'library-poster.webp', 'image/webp');
+    }
+
+    // Upload portrait grid
+    if (assets.portraitGridUrl) {
+      result.portraitGridUrl = await uploadAsset(supabase, showId, assets.portraitGridUrl, 'portrait-grid.webp', 'image/webp');
+    }
+
+    // Upload trailer
+    if (assets.trailerUrl) {
+      result.trailerUrl = await uploadAsset(supabase, showId, assets.trailerUrl, 'trailer.mp4', 'video/mp4');
+    }
+
+  } catch (error) {
+    console.warn("Some assets failed to upload:", error);
+  }
+
+  return result;
+}
+
+// Helper to upload a single asset
+async function uploadAsset(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  showId: string,
+  url: string | null,
+  filename: string,
+  contentType: string
+): Promise<string | null> {
+  if (!url) return null;
+  
+  try {
+    let buffer: Buffer | null = null;
+    
+    if (url.startsWith('data:')) {
+      buffer = dataUrlToBuffer(url);
+    } else if (url.startsWith('http')) {
+      buffer = await downloadAsBuffer(url);
+    } else if (url.startsWith('/')) {
+      // Local file path - read from public directory
+      try {
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        const filePath = path.join(process.cwd(), 'public', url);
+        buffer = await fs.readFile(filePath);
+        console.log(`📁 Read local file: ${url}`);
+      } catch (fsError) {
+        console.warn(`Failed to read local file ${url}:`, fsError);
+        return url;
+      }
+    }
+    
+    if (!buffer) return url; // Keep original if can't convert
+    
+    const storagePath = `${showId}/${filename}`;
+    const uploaded = await uploadToSupabase(supabase, 'show-assets', storagePath, buffer, contentType);
+    
+    if (uploaded) {
+      console.log(`✅ Uploaded ${filename} to Supabase Storage`);
+    }
+    
+    return uploaded || url;
+  } catch (error) {
+    console.error(`Failed to upload ${filename}:`, error);
+    return url; // Fallback to original URL
+  }
+}
+
+// Convert data URL to Buffer
+function dataUrlToBuffer(dataUrl: string): Buffer | null {
+  try {
+    const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) return null;
+    return Buffer.from(matches[2], 'base64');
+  } catch {
+    return null;
   }
 }

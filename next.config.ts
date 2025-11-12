@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         hostname: "replicate.delivery",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
     ],
   },
 };

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X } from "lucide-react";
+import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
+import { calculateShowCompletion } from "@/lib/show-completion";
 
 type FrameRates = {
   animation_capture: number;
@@ -947,6 +948,17 @@ type SavedShow = {
   libraryPosterUrl?: string | null;
   portraitGridUrl?: string | null;
   trailerUrl?: string | null;
+  // NEW: Essential data
+  originalPrompt?: string | null;
+  customPortraitPrompts?: Record<string, string>;
+  customVideoPrompts?: Record<string, string>;
+  customPosterPrompt?: string | null;
+  customTrailerPrompt?: string | null;
+  videoModelId?: string;
+  videoSeconds?: number;
+  videoAspectRatio?: string;
+  videoResolution?: string;
+  trailerModel?: string | null;
 };
 
 const accentVariants = {
@@ -4064,6 +4076,7 @@ export default function Home() {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [isLoadingShow, setIsLoadingShow] = useState(false);
   const [currentShowId, setCurrentShowId] = useState<string | null>(null);
+  const [showCompletionBanner, setShowCompletionBanner] = useState(false);
   const [input, setInput] = useState("");
   const [blueprint, setBlueprint] = useState<ShowBlueprint | null>(null);
   const [usage, setUsage] = useState<ApiResponse["usage"]>();
@@ -4112,6 +4125,7 @@ export default function Home() {
   const [trailerStartTime, setTrailerStartTime] = useState<number | null>(null);
   const [trailerElapsed, setTrailerElapsed] = useState<number>(0);
   const [editedTrailerPrompt, setEditedTrailerPrompt] = useState<string>("");
+  const [trailerModel, setTrailerModel] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   const [videoModelId, setVideoModelId] = useState<VideoModelId>(VIDEO_MODEL_OPTIONS[0].id);
   const [videoSeconds, setVideoSeconds] = useState<VideoDuration>(8);
@@ -4129,14 +4143,31 @@ export default function Home() {
       clearInterval(trailerStatusPollRef.current);
       trailerStatusPollRef.current = null;
     }
+    // Clear from localStorage when manually stopped
+    try {
+      localStorage.removeItem('production-flow.trailer-job');
+    } catch (e) {
+      // Ignore
+    }
   }, []);
 
-  const startTrailerStatusPolling = useCallback((jobId: string) => {
+  const startTrailerStatusPolling = useCallback((jobId: string, showId?: string) => {
     if (trailerStatusPollRef.current) {
       clearInterval(trailerStatusPollRef.current);
       trailerStatusPollRef.current = null;
     }
     trailerStatusJobIdRef.current = jobId;
+    
+    // Persist to localStorage so it survives navigation
+    try {
+      localStorage.setItem('production-flow.trailer-job', JSON.stringify({
+        jobId,
+        showId: showId || currentShowId,
+        startedAt: Date.now(),
+      }));
+    } catch (e) {
+      console.warn("Failed to persist trailer job to localStorage:", e);
+    }
 
     const poll = async () => {
       try {
@@ -4165,6 +4196,12 @@ export default function Home() {
             clearInterval(trailerStatusPollRef.current);
             trailerStatusPollRef.current = null;
           }
+          // Clear from localStorage when complete
+          try {
+            localStorage.removeItem('production-flow.trailer-job');
+          } catch (e) {
+            // Ignore
+          }
         }
       } catch (pollError) {
         console.error("Failed to poll trailer status:", pollError);
@@ -4173,15 +4210,42 @@ export default function Home() {
 
     void poll();
     trailerStatusPollRef.current = setInterval(poll, 3000);
-  }, []);
+  }, [currentShowId]);
 
+  // Resume trailer polling on mount if there's an active job
   useEffect(() => {
+    try {
+      const savedJob = localStorage.getItem('production-flow.trailer-job');
+      if (savedJob) {
+        const { jobId, showId, startedAt } = JSON.parse(savedJob);
+        const elapsed = Date.now() - startedAt;
+        
+        // Only resume if job is less than 10 minutes old
+        if (elapsed < 600000 && jobId && showId === currentShowId) {
+          console.log("🔄 Resuming trailer polling for job:", jobId);
+          console.log(`   Elapsed time: ${Math.floor(elapsed / 1000)}s`);
+          trailerStatusJobIdRef.current = jobId;
+          setTrailerLoading(true);
+          setTrailerStatus("processing");
+          setTrailerStartTime(startedAt);
+          setTrailerElapsed(Math.floor(elapsed / 1000));
+          startTrailerStatusPolling(jobId, showId);
+        } else if (elapsed >= 600000) {
+          // Job is too old, clear it
+          console.log("⏰ Trailer job expired (>10 min), clearing");
+          localStorage.removeItem('production-flow.trailer-job');
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to resume trailer job:", e);
+    }
+    
     return () => {
       if (trailerStatusPollRef.current) {
         clearInterval(trailerStatusPollRef.current);
       }
     };
-  }, []);
+  }, [currentShowId, startTrailerStatusPolling]);
 
   useEffect(() => {
     if (blueprint) {
@@ -4768,6 +4832,27 @@ export default function Home() {
       return;
     }
     
+    // Check if there's already a trailer job in progress
+    if (trailerStatusJobIdRef.current) {
+      console.log("⏸️ Trailer generation already in progress, skipping");
+      return;
+    }
+    
+    // Check localStorage for active job
+    try {
+      const savedJob = localStorage.getItem('production-flow.trailer-job');
+      if (savedJob) {
+        const { jobId, startedAt } = JSON.parse(savedJob);
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < 600000) {
+          console.log("⏸️ Active trailer job detected in localStorage, skipping");
+          return;
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
+    
     // Generate grid first if we don't have one but have 4+ portraits
     let gridUrl = portraitGridUrl;
     if (!gridUrl) {
@@ -4836,7 +4921,7 @@ export default function Home() {
     setTrailerStatus("starting");
     setTrailerStartTime(startTime);
     setTrailerElapsed(0);
-    startTrailerStatusPolling(jobId);
+    startTrailerStatusPolling(jobId, currentShowId || undefined);
 
     try {
       const response = await fetch("/api/trailer", {
@@ -4872,6 +4957,9 @@ export default function Home() {
       }
       
       console.log("✅ Setting trailer URL in state:", result.url);
+      
+      // Track which model was used
+      setTrailerModel(result.model || "sora-2");
       
       // Update status based on which model was used
       if (result.model === "veo-3.1") {
@@ -5309,8 +5397,29 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
   }, [model, stopTrailerStatusPolling]);
 
   const loadShow = useCallback(async (showId: string) => {
-    stopTrailerStatusPolling();
-    trailerStatusJobIdRef.current = null;
+    // Check if there's an active trailer job for this show
+    let hasActiveTrailerJob = false;
+    try {
+      const savedJob = localStorage.getItem('production-flow.trailer-job');
+      if (savedJob) {
+        const { jobId, showId: jobShowId, startedAt } = JSON.parse(savedJob);
+        const elapsed = Date.now() - startedAt;
+        // If job is for this show and recent, don't stop it
+        if (jobId && jobShowId === showId && elapsed < 600000) {
+          hasActiveTrailerJob = true;
+          console.log("🔄 Active trailer job detected, will resume polling");
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
+    
+    // Only stop polling if no active job for this show
+    if (!hasActiveTrailerJob) {
+      stopTrailerStatusPolling();
+      trailerStatusJobIdRef.current = null;
+    }
+    
     setIsLoadingShow(true);
     try {
       const response = await fetch(`/api/library/${showId}`);
@@ -5362,6 +5471,18 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       setPortraitGridLoading(false);
       setTrailerLoading(false);
       
+      // NEW: Restore prompts and preferences
+      setLastPrompt(show.originalPrompt || null);
+      setEditedPortraitPrompts(show.customPortraitPrompts || {});
+      setEditedVideoPrompts(show.customVideoPrompts || {});
+      setEditedPosterPrompt(show.customPosterPrompt || "");
+      setEditedTrailerPrompt(show.customTrailerPrompt || "");
+      setVideoModelId((show.videoModelId as VideoModelId) || VIDEO_MODEL_OPTIONS[0].id);
+      setVideoSeconds((show.videoSeconds as VideoDuration) || 8);
+      setVideoAspectRatio((show.videoAspectRatio as VideoAspectRatio) || "landscape");
+      setVideoResolution((show.videoResolution as VideoResolution) || "standard");
+      setTrailerModel(show.trailerModel || null);
+      
       console.log("State updated - portraits now:", Object.keys(show.characterPortraits || {}).length);
       console.log("State updated - videos now:", Object.keys(show.characterVideos || {}).length);
       
@@ -5401,6 +5522,27 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       posterDigestRef.current = "";
       trailerDigestRef.current = show.portraitGridUrl ?? "";
       console.log("✅ Show loaded successfully");
+      
+      // Check completion status
+      const completion = calculateShowCompletion({
+        characterSeeds: show.characterSeeds,
+        characterDocs: show.characterDocs,
+        characterPortraits: show.characterPortraits,
+        characterVideos: show.characterVideos,
+        posterUrl: show.posterUrl,
+        libraryPosterUrl: show.libraryPosterUrl,
+        portraitGridUrl: show.portraitGridUrl,
+        trailerUrl: show.trailerUrl,
+      });
+      
+      console.log("📊 Show completion:", completion.completionPercentage + "%");
+      if (!completion.isFullyComplete) {
+        console.log("⚠️ Missing:", completion.missingItems);
+        setShowCompletionBanner(true);
+      } else {
+        console.log("✅ Show is fully complete");
+        setShowCompletionBanner(false);
+      }
       
       // Small delay to ensure state has propagated before allowing saves
       setTimeout(() => setIsLoadingShow(false), 1000);
@@ -5542,46 +5684,8 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       return;
     }
 
-    // First, download all assets locally
-    let savedAssets = {
-      characterPortraits,
-      characterVideos,
-      posterUrl,
-      libraryPosterUrl,
-      portraitGridUrl,
-      trailerUrl,
-    };
-
-    try {
-      const assetResponse = await fetch("/api/library/save-assets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          showId: currentShowId,
-          assets: {
-            characterPortraits,
-            characterVideos,
-            posterUrl,
-            libraryPosterUrl,
-            portraitGridUrl,
-            trailerUrl,
-          },
-        }),
-      });
-
-      if (assetResponse.ok) {
-        const result = await assetResponse.json() as { savedAssets?: typeof savedAssets; downloadCount?: number };
-        if (result.savedAssets) {
-          savedAssets = result.savedAssets;
-          console.log(`✅ Saved ${result.downloadCount || 0} assets locally`);
-        }
-      }
-    } catch (error) {
-      console.warn("Failed to save assets locally, using URLs:", error);
-    }
-
     // Generate library poster ONLY if forced or meets all requirements
-    let finalLibraryPosterUrl = savedAssets.libraryPosterUrl;
+    let finalLibraryPosterUrl = libraryPosterUrl;
     
     if (forceLibraryPoster && !finalLibraryPosterUrl) {
       const canGenerate = canGenerateLibraryPoster();
@@ -5603,12 +5707,23 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         model: activeModel,
         characterSeeds: characterSeeds || [],
         characterDocs: characterDocs || {},
-        characterPortraits: savedAssets.characterPortraits || {},
-        characterVideos: savedAssets.characterVideos || {},
-        posterUrl: savedAssets.posterUrl || null,
+        characterPortraits: characterPortraits || {},
+        characterVideos: characterVideos || {},
+        posterUrl: posterUrl || null,
         libraryPosterUrl: finalLibraryPosterUrl || null,
-        portraitGridUrl: savedAssets.portraitGridUrl || null,
-        trailerUrl: savedAssets.trailerUrl || null,
+        portraitGridUrl: portraitGridUrl || null,
+        trailerUrl: trailerUrl || null,
+        // NEW: Essential data
+        originalPrompt: lastPrompt,
+        customPortraitPrompts: editedPortraitPrompts,
+        customVideoPrompts: editedVideoPrompts,
+        customPosterPrompt: editedPosterPrompt || null,
+        customTrailerPrompt: editedTrailerPrompt || null,
+        videoModelId,
+        videoSeconds,
+        videoAspectRatio,
+        videoResolution,
+        trailerModel,
       };
       
       const totalVideos = Object.values(characterVideos || {}).reduce((sum, arr) => sum + arr.length, 0);
@@ -5637,7 +5752,34 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
     } catch (error) {
       console.error("❌ Failed to save show:", error);
     }
-  }, [blueprint, rawJson, usage, activeModel, characterSeeds, characterDocs, characterPortraits, characterVideos, posterUrl, libraryPosterUrl, portraitGridUrl, trailerUrl, currentShowId, isLoadingShow, generateLibraryPoster, canGenerateLibraryPoster]);
+  }, [
+    blueprint, 
+    rawJson, 
+    usage, 
+    activeModel, 
+    characterSeeds, 
+    characterDocs, 
+    characterPortraits, 
+    characterVideos, 
+    posterUrl, 
+    libraryPosterUrl, 
+    portraitGridUrl, 
+    trailerUrl, 
+    currentShowId, 
+    isLoadingShow, 
+    generateLibraryPoster, 
+    canGenerateLibraryPoster,
+    lastPrompt,
+    editedPortraitPrompts,
+    editedVideoPrompts,
+    editedPosterPrompt,
+    editedTrailerPrompt,
+    videoModelId,
+    videoSeconds,
+    videoAspectRatio,
+    videoResolution,
+    trailerModel,
+  ]);
 
 
   // Auto-save when character data changes
@@ -5726,6 +5868,20 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
                 New Show
               </Button>
             ) : null}
+            
+            <Link href="/prompts">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-2 rounded-full"
+                title="Edit AI prompt templates"
+              >
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Prompts</span>
+              </Button>
+            </Link>
+            
             <Link href="/library">
               <Button
                 type="button"
@@ -5770,6 +5926,63 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
               <p className="text-red-200/85 break-words">{error}</p>
             </div>
           ) : null}
+
+          {showCompletionBanner && blueprint ? (() => {
+            const completion = calculateShowCompletion({
+              characterSeeds: characterSeeds || undefined,
+              characterDocs,
+              characterPortraits,
+              characterVideos,
+              posterUrl,
+              libraryPosterUrl,
+              portraitGridUrl,
+              trailerUrl,
+            });
+            
+            return (
+              <div className="space-y-3 rounded-3xl border border-amber-500/40 bg-amber-500/10 px-4 sm:px-6 py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-5 w-5 text-amber-300" />
+                      <p className="font-semibold text-amber-200">Show loaded - {completion.completionPercentage}% complete</p>
+                    </div>
+                    <p className="text-sm text-amber-200/80">
+                      This show is partially complete. No assets will be automatically generated.
+                    </p>
+                    {completion.missingItems.length > 0 ? (
+                      <div className="mt-2">
+                        <p className="text-xs font-medium text-amber-300/70 mb-1">Missing:</p>
+                        <ul className="text-xs text-amber-200/70 space-y-1">
+                          {completion.missingItems.map((item, i) => (
+                            <li key={i}>• {item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {completion.completedItems.length > 0 ? (
+                      <div className="mt-2">
+                        <p className="text-xs font-medium text-amber-300/70 mb-1">Completed:</p>
+                        <p className="text-xs text-amber-200/60">{completion.completedItems.join(", ")}</p>
+                      </div>
+                    ) : null}
+                    <p className="text-xs text-amber-200/60 mt-3">
+                      Use the buttons in each section to continue building your show.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCompletionBanner(false)}
+                    className="text-amber-200/70 hover:text-amber-200"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              </div>
+            );
+          })() : null}
 
           <ResultView
             blueprint={blueprint}
