@@ -186,7 +186,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
     if (finalUrl) {
       console.log("✅ Trailer generated with Sora 2:", finalUrl);
-      setTrailerStatusRecord(jobId, "succeeded");
+      setTrailerStatusRecord(jobId, "succeeded", undefined, finalUrl, "sora-2");
       return NextResponse.json({ url: finalUrl, model: "sora-2" });
     }
 
@@ -260,7 +260,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
         if (finalUrl) {
           console.log("✅ Trailer generated with VEO 3.1 (fallback):", finalUrl);
-          setTrailerStatusRecord(jobId, "succeeded (veo)");
+          setTrailerStatusRecord(jobId, "succeeded (veo)", undefined, finalUrl, "veo-3.1");
           return NextResponse.json({ url: finalUrl, model: "veo-3.1" });
         }
         
@@ -334,7 +334,7 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
           if (fallbackUrl) {
             console.log("✅ Trailer generated with Sora 2 (final fallback, no grid):", fallbackUrl);
-            setTrailerStatusRecord(jobId, "succeeded");
+            setTrailerStatusRecord(jobId, "succeeded", undefined, fallbackUrl, "sora-2-fallback");
             return NextResponse.json({ url: fallbackUrl, model: "sora-2-fallback" });
           }
 

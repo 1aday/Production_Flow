@@ -21,5 +21,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ status: null });
   }
 
-  return NextResponse.json(record);
+  return NextResponse.json({
+    status: record.status,
+    detail: record.detail,
+    outputUrl: record.outputUrl,
+    model: record.model,
+  });
 }

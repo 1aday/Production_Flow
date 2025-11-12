@@ -4179,11 +4179,25 @@ export default function Home() {
         const data = (await response.json()) as {
           status?: string | null;
           detail?: string | null;
+          outputUrl?: string | null;
+          model?: string | null;
         };
         console.log("📊 Trailer status poll:", data.status);
         if (typeof data.status === "string") {
           setTrailerStatus(data.status);
         }
+        
+        // If succeeded, set the trailer URL and model
+        if (data.status && data.status.startsWith("succeeded")) {
+          if (data.outputUrl) {
+            console.log("✅ Setting trailer URL from polling:", data.outputUrl);
+            setTrailerUrl(data.outputUrl);
+          }
+          if (data.model) {
+            setTrailerModel(data.model);
+          }
+        }
+        
         if (
           data.status === null ||
           data.status === "failed" ||
@@ -4202,6 +4216,7 @@ export default function Home() {
           } catch (e) {
             // Ignore
           }
+          setTrailerLoading(false);
         }
       } catch (pollError) {
         console.error("Failed to poll trailer status:", pollError);
