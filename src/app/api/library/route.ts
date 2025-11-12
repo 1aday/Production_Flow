@@ -295,12 +295,14 @@ async function uploadAssetsToStorage(
     }
 
     // Upload library poster
-    if (assets.libraryPosterUrl) {
+    if (assets.libraryPosterUrl && assets.libraryPosterUrl.trim()) {
       console.log("📤 Uploading library poster:", assets.libraryPosterUrl.slice(0, 80) + "...");
       result.libraryPosterUrl = await uploadAsset(supabase, showId, assets.libraryPosterUrl, 'library-poster.webp', 'image/webp');
       console.log("✅ Library poster upload result:", result.libraryPosterUrl ? "Success" : "Failed");
     } else {
-      console.log("⏭️ No library poster URL provided to upload");
+      console.log("⏭️ No library poster URL provided (libraryPosterUrl is:", assets.libraryPosterUrl || "null/undefined", ")");
+      // Keep it as null
+      result.libraryPosterUrl = null;
     }
 
     // Upload portrait grid

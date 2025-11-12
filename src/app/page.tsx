@@ -3002,17 +3002,21 @@ function ResultView({
             <div className="bg-gradient-to-br from-white/5 via-black/50 to-black/60 px-8 py-16">
               <div className="text-center space-y-8 max-w-3xl mx-auto">
                 <div>
-                  <div className="inline-flex items-center gap-3 rounded-full border border-primary/30 bg-primary/10 px-5 py-2 mb-4">
-                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                    <span className="text-xs font-semibold uppercase tracking-[0.26em] text-primary">
+                  <div className="inline-flex items-center gap-3 rounded-full border border-amber-500/30 bg-amber-500/10 px-5 py-2 mb-4">
+                    <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="text-xs font-semibold uppercase tracking-[0.26em] text-amber-300">
                       Ready to Generate
                     </span>
                   </div>
                   <p className="text-lg font-semibold text-foreground/80">
-                    Trailer Ready
+                    Trailer Not Generated Yet
                   </p>
                   <p className="mt-2 text-sm text-foreground/60">
                     {completedPortraits.length} of {characterSeeds?.length || 0} character portraits complete
+                    {completedPortraits.length >= 4 ? " - Enough to generate trailer!" : " - Need 4 minimum"}
+                  </p>
+                  <p className="mt-1 text-xs text-foreground/50">
+                    Trailer will auto-generate when portrait grid is ready, or click Generate below
                   </p>
                 </div>
                 
@@ -4132,6 +4136,7 @@ export default function Home() {
   const [trailerElapsed, setTrailerElapsed] = useState<number>(0);
   const [editedTrailerPrompt, setEditedTrailerPrompt] = useState<string>("");
   const [trailerModel, setTrailerModel] = useState<string | null>(null);
+  const [trailerModelPreference, setTrailerModelPreference] = useState<"sora-2" | "veo-3.1">("sora-2");
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   const [videoModelId, setVideoModelId] = useState<VideoModelId>(VIDEO_MODEL_OPTIONS[0].id);
   const [videoSeconds, setVideoSeconds] = useState<VideoDuration>(8);
@@ -4575,11 +4580,10 @@ export default function Home() {
         // Play success sound
         playSuccessChime();
         
-        // Trigger library poster generation after first portrait
-        const completedPortraits = Object.values(characterPortraits).filter(url => url).length;
-        if (completedPortraits === 0) { // This is the first portrait
-          console.log("🎨 First portrait completed - will attempt library poster generation");
-          setTimeout(() => void saveCurrentShow(true), 1000); // Give state time to update
+        // Trigger library poster generation if we don't have one yet
+        if (!libraryPosterUrl) {
+          console.log("🎨 Portrait completed - checking if can generate library poster");
+          setTimeout(() => void saveCurrentShow(true), 1500); // Force library poster generation
         }
       } catch (err) {
         console.error("Portrait generation error:", err);
@@ -4598,7 +4602,7 @@ export default function Home() {
         setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
       }
     },
-    [blueprint, characterDocs]
+    [blueprint, characterDocs, libraryPosterUrl]
   );
 
   const handlePortraitLoaded = useCallback((characterId: string) => {
@@ -4868,7 +4872,14 @@ export default function Home() {
   );
 
   const generateTrailer = useCallback(async () => {
+    console.log("🎬 generateTrailer called");
+    console.log("   Has blueprint:", !!blueprint);
+    console.log("   Has portraitGridUrl:", !!portraitGridUrl);
+    console.log("   characterSeeds length:", characterSeeds?.length || 0);
+    console.log("   characterPortraits:", Object.keys(characterPortraits).length);
+    
     if (!blueprint) {
+      console.log("❌ No blueprint - aborting");
       setTrailerError("Blueprint missing.");
       return;
     }
@@ -5228,11 +5239,25 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
   ]);
 
   useEffect(() => {
+    const checkConditions = {
+      hasBlueprint: !!blueprint,
+      hasGrid: !!portraitGridUrl,
+      hasTrailer: !!trailerUrl,
+      isLoading: trailerLoading,
+      hasError: !!trailerError,
+      digestMatch: trailerDigestRef.current === portraitGridUrl,
+      posterAvailable,
+    };
+    
+    console.log("🎬 Trailer auto-gen check:", checkConditions);
+    
     if (!blueprint) return;
     if (!portraitGridUrl) return;
     if (trailerUrl || trailerLoading || trailerError) return; // Don't auto-retry on error!
     if (!posterAvailable) return;
     if (trailerDigestRef.current === portraitGridUrl) return;
+    
+    console.log("✅ All conditions met - auto-generating trailer");
     void generateTrailer();
   }, [
     blueprint,
@@ -5534,13 +5559,36 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       setPortraitGridError(null);
       setTrailerUrl(show.trailerUrl || null);
       setTrailerError(null);
-      setTrailerStatus(null);
-      setTrailerElapsed(0);
-      setTrailerStartTime(null);
+      
+      // Check if there's an active trailer job - don't clear state if so
+      let hasActiveTrailerJob = false;
+      try {
+        const savedJob = localStorage.getItem('production-flow.trailer-job');
+        if (savedJob) {
+          const { jobId, showId: jobShowId, startedAt } = JSON.parse(savedJob);
+          const elapsed = Date.now() - startedAt;
+          if (jobId && jobShowId === show.id && elapsed < 600000) {
+            hasActiveTrailerJob = true;
+            console.log("⏸️ Active trailer job detected - preserving trailer state");
+          }
+        }
+      } catch (e) {
+        // Ignore
+      }
+      
+      // Only clear trailer state if no active job
+      if (!hasActiveTrailerJob) {
+        setTrailerStatus(null);
+        setTrailerElapsed(0);
+        setTrailerStartTime(null);
+        setTrailerLoading(false);
+      } else {
+        console.log("🔄 Trailer job active - keeping loading state");
+      }
+      
       setPosterAvailable(true);
       setCurrentShowId(show.id);
       setPortraitGridLoading(false);
-      setTrailerLoading(false);
       
       // NEW: Restore prompts and preferences
       setLastPrompt(show.originalPrompt || null);
@@ -5591,7 +5639,13 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         portraitGridDigestRef.current = "";
       }
       posterDigestRef.current = "";
-      trailerDigestRef.current = show.portraitGridUrl ?? "";
+      // Only set trailer digest if trailer actually exists
+      if (show.trailerUrl) {
+        trailerDigestRef.current = show.portraitGridUrl ?? "";
+      } else {
+        trailerDigestRef.current = "";
+        console.log("ℹ️  No trailer in show - will allow auto-generation");
+      }
       console.log("✅ Show loaded successfully");
       
       // Check completion status
@@ -5616,7 +5670,25 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       }
       
       // Small delay to ensure state has propagated before allowing saves
-      setTimeout(() => setIsLoadingShow(false), 1000);
+      setTimeout(() => {
+        setIsLoadingShow(false);
+        
+        // Re-check for active trailer job now that show is loaded
+        if (hasActiveTrailerJob) {
+          try {
+            const savedJob = localStorage.getItem('production-flow.trailer-job');
+            if (savedJob) {
+              const { jobId } = JSON.parse(savedJob);
+              if (jobId && !trailerStatusPollRef.current) {
+                console.log("🔄 Re-triggering trailer polling after show load");
+                startTrailerStatusPolling(jobId, show.id);
+              }
+            }
+          } catch (e) {
+            // Ignore
+          }
+        }
+      }, 1000);
     } catch (error) {
       console.error("Failed to load show:", error);
       setError("Failed to load show from library");
@@ -5758,22 +5830,31 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
     // Generate library poster ONLY if forced or meets all requirements
     let finalLibraryPosterUrl = libraryPosterUrl;
     
+    console.log("💾 Save params:", {
+      forceLibraryPoster,
+      hasExistingLibraryPoster: !!finalLibraryPosterUrl,
+      libraryPosterUrlValue: finalLibraryPosterUrl?.slice(0, 60) || "null",
+    });
+    
     if (forceLibraryPoster && !finalLibraryPosterUrl) {
       const canGenerate = canGenerateLibraryPoster();
+      console.log("📝 Can generate library poster?", canGenerate);
       if (canGenerate) {
         console.log("🎬 Force-generating library poster...");
         const generated = await generateLibraryPoster();
         if (generated) {
           finalLibraryPosterUrl = generated;
-          console.log("✅ Library poster generated:", generated.slice(0, 80) + "...");
+          console.log("✅ Library poster generated and will be saved:", generated.slice(0, 80) + "...");
         } else {
           console.log("❌ Library poster generation returned null");
         }
       } else {
-        console.log("⏭️ Cannot generate library poster yet");
+        console.log("⏭️ Cannot generate library poster yet (missing requirements)");
       }
     } else if (finalLibraryPosterUrl) {
-      console.log("✅ Using existing library poster URL");
+      console.log("✅ Using existing library poster URL:", finalLibraryPosterUrl.slice(0, 60));
+    } else {
+      console.log("ℹ️  No library poster (not forced or doesn't exist yet)");
     }
 
     try {

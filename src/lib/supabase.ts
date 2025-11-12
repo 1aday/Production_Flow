@@ -29,37 +29,61 @@ export function createClientSupabaseClient() {
   return createClient(supabaseUrl, supabaseKey);
 }
 
-// Upload file to Supabase Storage
+// Upload file to Supabase Storage with retry logic
 export async function uploadToSupabase(
   supabase: ReturnType<typeof createServerSupabaseClient>,
   bucket: string,
   path: string,
   file: Buffer | Blob,
-  contentType: string
+  contentType: string,
+  maxRetries = 2
 ): Promise<string | null> {
-  try {
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(path, file, {
-        contentType,
-        upsert: true,
-      });
-
-    if (error) {
-      console.error('Supabase upload error:', error);
-      return null;
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(path);
-
-    return urlData.publicUrl;
-  } catch (error) {
-    console.error('Upload failed:', error);
+  const fileSize = file instanceof Buffer ? file.length : file.size;
+  
+  // Skip files larger than 50MB
+  if (fileSize > 50 * 1024 * 1024) {
+    console.warn(`File too large to upload (${Math.round(fileSize / 1024 / 1024)}MB):`, path);
     return null;
   }
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`⬆️  Uploading ${path} (${Math.round(fileSize / 1024)}KB), attempt ${attempt + 1}/${maxRetries + 1}`);
+      
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(path, file, {
+          contentType,
+          upsert: true,
+        });
+
+      if (error) {
+        console.error(`Supabase upload error (attempt ${attempt + 1}):`, error.message);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); // Exponential backoff
+          continue;
+        }
+        return null;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(path);
+
+      console.log(`✅ Upload successful: ${path}`);
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error(`Upload failed (attempt ${attempt + 1}):`, error instanceof Error ? error.message : String(error));
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        continue;
+      }
+      return null;
+    }
+  }
+  
+  return null;
 }
 
 // Download file from URL as Buffer
