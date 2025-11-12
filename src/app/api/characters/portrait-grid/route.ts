@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
               x="50%" 
               y="20" 
               text-anchor="middle" 
-              font-family="Arial, sans-serif" 
+              font-family="sans-serif" 
               font-size="16" 
               font-weight="600"
               fill="#E5E5E5"

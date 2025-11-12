@@ -1163,6 +1163,8 @@ function ResultView({
   posterLoading,
   posterError,
   posterAvailable,
+  editedPosterPrompt,
+  onSetEditedPosterPrompt,
   isLoading,
   videoModelId,
   videoSeconds,
@@ -1224,6 +1226,8 @@ function ResultView({
   posterLoading: boolean;
   posterError: string | null;
   posterAvailable: boolean;
+  editedPosterPrompt: string;
+  onSetEditedPosterPrompt: (value: string) => void;
   isLoading: boolean;
   videoModelId: VideoModelId;
   videoSeconds: VideoDuration;
@@ -1479,15 +1483,54 @@ function ResultView({
                     1024×1792 • Sora output • Click to view full size
                   </div>
                 </button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onRegeneratePoster}
-                  disabled={posterLoading}
-                  className="w-full justify-center rounded-full text-sm"
-                >
-                  Re-generate Poster
-                </Button>
+                <details className="group">
+                  <summary className="cursor-pointer">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={posterLoading}
+                      className="w-full justify-center rounded-full text-sm pointer-events-none"
+                    >
+                      Re-generate Poster
+                    </Button>
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    <Textarea
+                      value={editedPosterPrompt}
+                      onChange={(e) => onSetEditedPosterPrompt(e.target.value)}
+                      placeholder="Optional: Customize the poster prompt..."
+                      className="min-h-[120px] resize-y rounded-2xl bg-black/40 text-sm"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="default"
+                        onClick={() => {
+                          onRegeneratePoster();
+                          if (editedPosterPrompt.trim()) {
+                            // Store custom prompt for regeneration
+                          }
+                        }}
+                        disabled={posterLoading}
+                        className="flex-1 rounded-full text-sm"
+                      >
+                        {posterLoading ? "Generating..." : "Generate"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                          onSetEditedPosterPrompt("");
+                          const details = document.activeElement?.closest("details");
+                          if (details) details.removeAttribute("open");
+                        }}
+                        className="rounded-full text-sm"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </details>
               </div>
             )
             : null
@@ -4047,6 +4090,7 @@ export default function Home() {
   const [posterLoading, setPosterLoading] = useState(false);
   const [posterError, setPosterError] = useState<string | null>(null);
   const [posterAvailable, setPosterAvailable] = useState(false);
+  const [editedPosterPrompt, setEditedPosterPrompt] = useState<string>("");
   const [libraryPosterUrl, setLibraryPosterUrl] = useState<string | null>(null);
   const [libraryPosterLoading, setLibraryPosterLoading] = useState(false);
   const [portraitGridUrl, setPortraitGridUrl] = useState<string | null>(null);
@@ -4183,11 +4227,23 @@ export default function Home() {
         });
 
         if (!response.ok) {
+          // Check if response is HTML (error page) or JSON
+          const contentType = response.headers.get("content-type");
+          if (contentType?.includes("text/html")) {
+            throw new Error(`Character generation failed with server error (${response.status}). The server may be overloaded or timed out. Please try again.`);
+          }
+          
           const body = (await response.json().catch(() => null)) as
             | { error?: string; details?: unknown }
             | null;
           const fallback = `Failed to generate characters (${response.status}).`;
           throw new Error(body?.error ?? fallback);
+        }
+
+        // Check if successful response is JSON
+        const contentType = response.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
+          throw new Error("Character generation returned unexpected response format. The server may have encountered an error.");
         }
 
         const result = (await response.json()) as {
@@ -4619,11 +4675,23 @@ export default function Home() {
         });
 
         if (!response.ok) {
+          // Check if response is HTML (error page) or JSON
+          const contentType = response.headers.get("content-type");
+          if (contentType?.includes("text/html")) {
+            throw new Error(`Poster generation failed with server error (${response.status}). The server may be overloaded or timed out. Please try again.`);
+          }
+          
           const body = (await response.json().catch(() => null)) as
             | { error?: string }
             | null;
           const fallback = `Failed to generate poster (${response.status}).`;
           throw new Error(body?.error ?? fallback);
+        }
+
+        // Check if successful response is JSON
+        const contentType = response.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
+          throw new Error("Poster generation returned unexpected response format. The server may have encountered an error.");
         }
 
         return (await response.json()) as { url?: string };
@@ -5058,6 +5126,12 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         });
 
         if (!response.ok) {
+          // Check if response is HTML (error page) or JSON
+          const contentType = response.headers.get("content-type");
+          if (contentType?.includes("text/html")) {
+            throw new Error(`Show generation failed with server error (${response.status}). The server may be overloaded or timed out. Please try again.`);
+          }
+          
           const body = (await response.json().catch(() => null)) as
             | {
                 error?: string;
@@ -5074,6 +5148,12 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
 
           const fallback = `Request failed (${response.status})`;
           throw new Error(body?.error ?? fallback);
+        }
+
+        // Check if successful response is JSON
+        const contentType = response.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
+          throw new Error("Show generation returned unexpected response format. The server may have encountered an error.");
         }
 
         const result = (await response.json()) as ApiResponse;
@@ -5409,7 +5489,22 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate library poster");
+        // Check if response is HTML (error page) or JSON
+        const contentType = response.headers.get("content-type");
+        if (contentType?.includes("text/html")) {
+          throw new Error(`Library poster generation failed with server error (${response.status}). Please try again.`);
+        }
+        
+        const body = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(body?.error ?? "Failed to generate library poster");
+      }
+
+      // Check if successful response is JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("application/json")) {
+        throw new Error("Library poster generation returned unexpected response format.");
       }
 
       const result = (await response.json()) as { url?: string };
@@ -5698,6 +5793,8 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
             posterLoading={posterLoading}
             posterError={posterError}
             posterAvailable={posterAvailable}
+            editedPosterPrompt={editedPosterPrompt}
+            onSetEditedPosterPrompt={setEditedPosterPrompt}
             isLoading={isLoading}
             videoModelId={videoModelId}
             videoSeconds={videoSeconds}

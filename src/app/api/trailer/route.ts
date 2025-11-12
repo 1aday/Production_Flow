@@ -154,9 +154,11 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
     // Fallback to VEO 3.1 on E005
     if (errorMessage === "E005_FALLBACK") {
       console.log("🔄 Falling back to VEO 3.1...");
+      console.log("Original Sora error was E005 (content moderation)");
       setTrailerStatusRecord(jobId, "veo-starting");
       
       try {
+        console.log("🎬 Setting up VEO 3.1 prediction...");
         const veoInput = {
           prompt: trailerPrompt,
           reference_images: [characterGridUrl],
@@ -201,6 +203,12 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
           throw new Error(veoResult.error || "VEO generation also failed");
         }
 
+        if (veoResult.status === "succeeded") {
+          console.log("✅ VEO succeeded, extracting output...");
+          console.log("VEO output type:", typeof veoResult.output);
+          console.log("VEO output:", veoResult.output);
+        }
+
         // Extract VEO URL
         if (typeof veoResult.output === "string") {
           finalUrl = veoResult.output;
@@ -213,15 +221,32 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
           setTrailerStatusRecord(jobId, "succeeded (veo)");
           return NextResponse.json({ url: finalUrl, model: "veo-3.1" });
         }
+        
+        // VEO fallback completed but produced no URL
+        console.error("VEO fallback completed but produced no output URL");
+        setTrailerStatusRecord(jobId, "failed", "Sora flagged content, VEO fallback produced no output");
+        return NextResponse.json({ 
+          error: "Both Sora and VEO 3.1 failed. Sora flagged content as sensitive, and VEO 3.1 did not produce a video output." 
+        }, { status: 500 });
 
       } catch (veoError) {
         console.error("VEO fallback also failed:", veoError);
-        // Fall through to return error to client
+        const veoMessage = veoError instanceof Error ? veoError.message : "VEO generation failed";
+        setTrailerStatusRecord(jobId, "failed", `Sora flagged content, VEO fallback also failed: ${veoMessage}`);
+        return NextResponse.json({ 
+          error: `Both Sora and VEO 3.1 failed. Sora flagged content as sensitive, and VEO fallback encountered: ${veoMessage}` 
+        }, { status: 500 });
       }
     }
     
     console.error("[trailer] Error:", error);
-    const message = error instanceof Error ? error.message : "Failed to generate trailer.";
+    let message = error instanceof Error ? error.message : "Failed to generate trailer.";
+    
+    // Don't expose internal fallback error code to client
+    if (message === "E005_FALLBACK") {
+      message = "Trailer generation failed - content was flagged by moderation. Please try adjusting your prompt or character descriptions.";
+    }
+    
     setTrailerStatusRecord(jobId, "failed", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
