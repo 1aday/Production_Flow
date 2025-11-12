@@ -5390,7 +5390,8 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       return null;
     }
 
-    const logline = blueprint.show_logline || "Untitled Show";
+    const showTitle = blueprint.show_title || "Untitled Show";
+    const logline = blueprint.show_logline || "";
 
     console.log("🎬 GENERATING LIBRARY POSTER");
     console.log("   Using character portrait:", characterWithPortrait.name);

@@ -17,6 +17,16 @@ const GRID_HEIGHT = 720;
 const BACKGROUND_COLOR = { r: 18, g: 18, b: 18 }; // #121212
 const MAX_CHARACTERS = 10; // Always show 10 slots
 
+// Escape XML special characters for SVG
+function escapeXml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 export async function POST(request: NextRequest) {
   let body: PortraitGridBody;
   try {
@@ -126,6 +136,7 @@ export async function POST(request: NextRequest) {
         
         // Add character name label using SVG text
         const name = resizedPortraits[i].name;
+        const escapedName = escapeXml(name);
         const textSvg = Buffer.from(`
           <svg width="${maxCellWidth}" height="${labelHeight}">
             <text 
@@ -136,7 +147,7 @@ export async function POST(request: NextRequest) {
               font-size="16" 
               font-weight="600"
               fill="#E5E5E5"
-            >${name}</text>
+            >${escapedName}</text>
           </svg>
         `);
         
