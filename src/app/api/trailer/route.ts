@@ -48,17 +48,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Extract production style to avoid photorealistic language
+  const productionStyle = (show as { production_style?: {
+    medium?: string;
+    cinematic_references?: string[];
+    visual_treatment?: string;
+    stylization_level?: string;
+  } }).production_style;
+
+  const styleGuidance = productionStyle ? `
+
+VISUAL STYLE (CRITICAL - Follow exactly):
+Medium: ${productionStyle.medium || 'Stylized cinematic'}
+References: ${(productionStyle.cinematic_references || []).join(', ')}
+Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}
+Stylization: ${productionStyle.stylization_level || 'cinematic'}
+
+IMPORTANT: Match this exact visual style. Do NOT use photorealistic or realistic rendering.` : '';
+
   // Build a blockbuster-style trailer prompt
   const trailerPrompt = `Create a blockbuster-style teaser trailer for the series "${title}".
 
-${logline}
+${logline}${styleGuidance}
 
 Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the characters, high-energy moments, 
 and a sense of scale and adventure. Professional movie trailer aesthetic with dynamic camera movements,
 impactful compositions, and a sense of intrigue that makes you want to watch the show.
 
 The character grid reference image shows the main cast - ensure they appear throughout the trailer.
-Capture the tone, visual style, and atmosphere described in the show's look bible.
+Capture the tone, visual style, and atmosphere described above. Match the specified production style exactly.
 
 Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
@@ -232,10 +250,80 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
       } catch (veoError) {
         console.error("VEO fallback also failed:", veoError);
         const veoMessage = veoError instanceof Error ? veoError.message : "VEO generation failed";
-        setTrailerStatusRecord(jobId, "failed", `Sora flagged content, VEO fallback also failed: ${veoMessage}`);
-        return NextResponse.json({ 
-          error: `Both Sora and VEO 3.1 failed. Sora flagged content as sensitive, and VEO fallback encountered: ${veoMessage}` 
-        }, { status: 500 });
+        
+        // Final fallback: Try Sora 2 again WITHOUT the character grid
+        console.log("🔄 Final fallback: Trying Sora 2 without character grid...");
+        setTrailerStatusRecord(jobId, "final-fallback-starting");
+        
+        try {
+          const soraFallbackInput = {
+            prompt: trailerPrompt,
+            // No reference_images - just use the prompt
+            aspect_ratio: "16:9",
+            duration: 12,
+            resolution: "1080p",
+            generate_audio: true,
+          };
+
+          console.log("Sora 2 (no grid) input:", JSON.stringify(soraFallbackInput, null, 2));
+
+          const soraFallbackResponse = await fetch("https://api.replicate.com/v1/models/openai/sora-2/predictions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ input: soraFallbackInput }),
+          });
+
+          if (!soraFallbackResponse.ok) {
+            throw new Error(`Sora fallback request failed: ${soraFallbackResponse.status}`);
+          }
+
+          const soraFallbackPrediction = await soraFallbackResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+          console.log("Sora 2 (no grid) prediction created:", soraFallbackPrediction.id);
+
+          // Poll for completion
+          let soraFallbackResult = soraFallbackPrediction;
+          setTrailerStatusRecord(jobId, `final-fallback-${soraFallbackResult.status}`);
+          while (soraFallbackResult.status === "starting" || soraFallbackResult.status === "processing") {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${soraFallbackResult.id}`, {
+              headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
+            });
+            soraFallbackResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+            console.log("Sora 2 (no grid) status:", soraFallbackResult.status);
+            setTrailerStatusRecord(jobId, `final-fallback-${soraFallbackResult.status}`);
+          }
+
+          if (soraFallbackResult.status === "failed") {
+            throw new Error(soraFallbackResult.error || "Sora (no grid) also failed");
+          }
+
+          // Extract URL
+          let fallbackUrl: string | undefined;
+          if (typeof soraFallbackResult.output === "string") {
+            fallbackUrl = soraFallbackResult.output;
+          } else if (Array.isArray(soraFallbackResult.output) && soraFallbackResult.output.length > 0) {
+            fallbackUrl = soraFallbackResult.output[0] as string;
+          }
+
+          if (fallbackUrl) {
+            console.log("✅ Trailer generated with Sora 2 (final fallback, no grid):", fallbackUrl);
+            setTrailerStatusRecord(jobId, "succeeded");
+            return NextResponse.json({ url: fallbackUrl, model: "sora-2-fallback" });
+          }
+
+          throw new Error("Sora (no grid) produced no output");
+
+        } catch (finalFallbackError) {
+          console.error("All fallbacks failed:", finalFallbackError);
+          const finalMessage = finalFallbackError instanceof Error ? finalFallbackError.message : "Final fallback failed";
+          setTrailerStatusRecord(jobId, "failed", `All methods failed: Sora (with grid) was flagged, VEO failed (${veoMessage}), Sora (no grid) failed (${finalMessage})`);
+          return NextResponse.json({ 
+            error: `All trailer generation methods failed:\n1. Sora 2 (with character grid) was flagged as sensitive\n2. VEO 3.1 fallback: ${veoMessage}\n3. Sora 2 (without grid) fallback: ${finalMessage}\n\nPlease try adjusting your show description or character details.` 
+          }, { status: 500 });
+        }
       }
     }
     

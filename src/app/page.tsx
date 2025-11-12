@@ -1270,10 +1270,14 @@ function ResultView({
   const portraitCopyTimeoutRef = useRef<Record<string, number>>({});
   const trailerStatusLower = trailerStatus?.toLowerCase() ?? "";
   const trailerStatusIsVeo = trailerStatusLower.includes("veo");
+  const trailerStatusIsFinalFallback = trailerStatusLower.includes("final-fallback");
   const trailerStatusIsStarting = trailerStatusLower.includes("starting");
   const trailerStatusIsProcessing = trailerStatusLower.includes("processing");
   const trailerStatusIsSucceeded = trailerStatusLower.startsWith("succeeded");
   const trailerStatusBadgeLabel = (() => {
+    if (trailerStatusIsFinalFallback) {
+      return trailerStatusIsStarting ? "Starting Final Fallback" : "Processing Final Fallback";
+    }
     if (trailerStatusIsStarting) {
       return trailerStatusIsVeo ? "Starting VEO fallback" : "Starting";
     }
@@ -1292,6 +1296,11 @@ function ResultView({
     return "Rendering";
   })();
   const trailerStatusDetailLabel = (() => {
+    if (trailerStatusIsFinalFallback) {
+      return trailerStatusIsStarting 
+        ? "Trying Sora 2 without character grid (final fallback)"
+        : "Processing with Sora 2 (no character grid)";
+    }
     if (trailerStatusIsStarting) {
       return trailerStatusIsVeo
         ? "Initializing VEO 3.1 fallback"
