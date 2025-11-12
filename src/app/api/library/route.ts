@@ -166,8 +166,10 @@ export async function POST(request: NextRequest) {
       throw error;
     }
     
-    const totalVideos = Object.values(characterVideos || {}).reduce((sum, arr) => sum + (arr?.length || 0), 0);
-    const portraitCount = Object.keys(characterPortraits || {}).filter(k => characterPortraits[k]).length;
+    const videosData = (characterVideos || {}) as Record<string, string[]>;
+    const portraitsData = (characterPortraits || {}) as Record<string, string | null>;
+    const totalVideos = Object.values(videosData).reduce((sum, arr) => sum + (arr?.length || 0), 0);
+    const portraitCount = Object.keys(portraitsData).filter(k => portraitsData[k]).length;
     
     console.log("💾 Show saved to Supabase:", {
       id,
@@ -294,7 +296,11 @@ async function uploadAssetsToStorage(
 
     // Upload library poster
     if (assets.libraryPosterUrl) {
+      console.log("📤 Uploading library poster:", assets.libraryPosterUrl.slice(0, 80) + "...");
       result.libraryPosterUrl = await uploadAsset(supabase, showId, assets.libraryPosterUrl, 'library-poster.webp', 'image/webp');
+      console.log("✅ Library poster upload result:", result.libraryPosterUrl ? "Success" : "Failed");
+    } else {
+      console.log("⏭️ No library poster URL provided to upload");
     }
 
     // Upload portrait grid

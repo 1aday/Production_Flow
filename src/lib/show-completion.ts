@@ -30,10 +30,18 @@ export function calculateShowCompletion(show: {
   const portraitsGenerated = Object.values(show.characterPortraits || {}).filter(url => url).length;
   const videosGenerated = Object.values(show.characterVideos || {}).reduce((sum, arr) => sum + arr.length, 0);
   
-  const hasPoster = Boolean(show.posterUrl);
-  const hasLibraryPoster = Boolean(show.libraryPosterUrl);
-  const hasPortraitGrid = Boolean(show.portraitGridUrl);
-  const hasTrailer = Boolean(show.trailerUrl);
+  // Check if URL is valid (not just a truthy value)
+  const isValidUrl = (url: string | null | undefined): boolean => {
+    if (!url) return false;
+    if (typeof url !== 'string') return false;
+    if (url.trim().length === 0) return false;
+    return true;
+  };
+  
+  const hasPoster = isValidUrl(show.posterUrl);
+  const hasLibraryPoster = isValidUrl(show.libraryPosterUrl);
+  const hasPortraitGrid = isValidUrl(show.portraitGridUrl);
+  const hasTrailer = isValidUrl(show.trailerUrl);
 
   const completedItems: string[] = [];
   const missingItems: string[] = [];

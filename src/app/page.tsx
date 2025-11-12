@@ -4727,6 +4727,12 @@ export default function Home() {
 
   const generatePoster = useCallback(
     async (value: string, gridUrl?: string) => {
+      // Check if already loading (prevent duplicate calls)
+      if (posterLoading) {
+        console.log("⏸️ Poster generation already in progress, skipping");
+        return;
+      }
+      
       setPosterLoading(true);
       setPosterError(null);
 
@@ -4821,9 +4827,15 @@ export default function Home() {
         setPosterUrl(null);
       } finally {
         setPosterLoading(false);
+        // Clear poster job from localStorage
+        try {
+          localStorage.removeItem('production-flow.poster-job');
+        } catch (e) {
+          // Ignore
+        }
       }
     },
-    [blueprint]
+    [blueprint, posterLoading]
   );
 
   const generateTrailer = useCallback(async () => {
@@ -5072,8 +5084,33 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
     if (posterDigestRef.current === signature) {
       return;
     }
+    
+    // Check if poster is already being generated (cross-tab check)
+    try {
+      const activeJob = localStorage.getItem('production-flow.poster-job');
+      if (activeJob) {
+        const { signature: jobSignature, startedAt } = JSON.parse(activeJob);
+        const elapsed = Date.now() - startedAt;
+        if (jobSignature === signature && elapsed < 300000) { // 5 min
+          console.log("⏸️ Poster already generating in another tab/instance, skipping");
+          return;
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
 
     posterDigestRef.current = signature;
+    
+    // Mark as generating in localStorage
+    try {
+      localStorage.setItem('production-flow.poster-job', JSON.stringify({
+        signature,
+        startedAt: Date.now(),
+      }));
+    } catch (e) {
+      // Ignore
+    }
 
     const compositePrompt = [
       `Series logline: ${blueprint.show_logline}`,
@@ -5694,8 +5731,15 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         const generated = await generateLibraryPoster();
         if (generated) {
           finalLibraryPosterUrl = generated;
+          console.log("✅ Library poster generated:", generated.slice(0, 80) + "...");
+        } else {
+          console.log("❌ Library poster generation returned null");
         }
+      } else {
+        console.log("⏭️ Cannot generate library poster yet");
       }
+    } else if (finalLibraryPosterUrl) {
+      console.log("✅ Using existing library poster URL");
     }
 
     try {
@@ -5734,10 +5778,14 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         dossiers: Object.keys(characterDocs || {}).length,
         portraits: portraitCount,
         videos: totalVideos,
+        hasPoster: !!posterUrl,
         hasLibraryPoster: !!finalLibraryPosterUrl,
         hasPortraitGrid: !!portraitGridUrl,
+        hasTrailer: !!trailerUrl,
       });
       
+      console.log("  Library poster URL being saved:", finalLibraryPosterUrl);
+      console.log("  Poster URL being saved:", posterUrl);
       console.log("  Portrait data being saved:", characterPortraits);
       console.log("  Video data being saved:", characterVideos);
       
@@ -5800,6 +5848,8 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
           docs: Object.keys(characterDocs).sort(),
           portraits: Object.keys(characterPortraits).filter(k => characterPortraits[k]).sort(),
           videos: Object.keys(characterVideos).filter(k => characterVideos[k]).sort(),
+          poster: posterUrl ?? null,
+          libraryPoster: libraryPosterUrl ?? null,
           grid: portraitGridUrl ?? null,
           trailer: trailerUrl ?? null,
         });
@@ -5810,8 +5860,18 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [characterDocs, characterPortraits, characterVideos, portraitGridUrl, trailerUrl]);
+  }, [
+    blueprint,
+    currentShowId,
+    characterDocs,
+    characterPortraits,
+    characterVideos,
+    posterUrl,
+    libraryPosterUrl,
+    portraitGridUrl,
+    trailerUrl,
+    saveCurrentShow,
+  ]);
 
   return (
     <div className="flex min-h-screen flex-col bg-black text-foreground">
