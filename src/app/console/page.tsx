@@ -5658,13 +5658,26 @@ export default function Home() {
       console.log("🚀 Starting trailer generation with jobId:", jobId);
       
       // Create a clean, serializable copy of blueprint data
-      const cleanBlueprint = {
-        show_title: blueprint.show_title,
-        show_logline: blueprint.show_logline,
-        production_style: blueprint.production_style,
-        visual_aesthetics: blueprint.visual_aesthetics,
-        character_seeds: characterSeeds,
-      };
+      // Only include simple, serializable data to avoid circular references
+      let cleanBlueprint: any;
+      try {
+        cleanBlueprint = {
+          show_title: blueprint.show_title,
+          show_logline: blueprint.show_logline,
+          production_style: blueprint.production_style ? {
+            medium: blueprint.production_style.medium,
+            cinematic_references: blueprint.production_style.cinematic_references,
+            visual_treatment: blueprint.production_style.visual_treatment,
+            stylization_level: blueprint.production_style.stylization_level,
+          } : undefined,
+        };
+      } catch (err) {
+        console.warn("Failed to serialize full blueprint, using minimal data:", err);
+        cleanBlueprint = {
+          show_title: blueprint.show_title,
+          show_logline: blueprint.show_logline,
+        };
+      }
       
       const response = await fetch("/api/trailer", {
         method: "POST",
