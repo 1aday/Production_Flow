@@ -324,6 +324,9 @@ export default function ShowPage() {
         </div>
       </div>
 
+      {/* Spacer for fixed header */}
+      <div className="h-[72px]" />
+
       {/* Hero Section with Trailer */}
       {assets.trailer ? (
         <div className="relative h-[70vh] w-full overflow-hidden group cursor-pointer" onClick={toggleTrailer}>
@@ -453,17 +456,54 @@ export default function ShowPage() {
           )}
         </section>
 
-        {/* Visual Goal */}
-        {visualAesthetics?.goal && (
-          <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-primary/10 to-transparent p-8">
-            <div className="flex items-start gap-4">
-              <div className="rounded-full bg-primary/20 p-3">
-                <Eye className="h-6 w-6 text-primary" />
+        {/* Visual Goal + Poster */}
+        {(visualAesthetics?.goal || posterDesc) && (
+          <section className="grid gap-6 lg:grid-cols-3">
+            {/* Poster */}
+            {(assets.libraryPoster || assets.poster) && (
+              <div className="lg:col-span-1">
+                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/10 shadow-2xl">
+                  <Image
+                    src={assets.libraryPoster || assets.poster || ""}
+                    alt={`${displayTitle} Poster`}
+                    fill
+                    className="object-cover"
+                    sizes="(min-width: 1024px) 33vw, 100vw"
+                  />
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Visual Vision</h3>
-                <p className="text-foreground/80 leading-relaxed">{visualAesthetics.goal}</p>
-              </div>
+            )}
+
+            {/* Visual Vision */}
+            <div className={`space-y-6 ${(assets.libraryPoster || assets.poster) ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+              {visualAesthetics?.goal && (
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-primary/10 to-transparent p-8">
+                  <div className="flex items-start gap-4">
+                    <div className="rounded-full bg-primary/20 p-3">
+                      <Eye className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold mb-2">Visual Vision</h3>
+                      <p className="text-foreground/80 leading-relaxed">{visualAesthetics.goal}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Poster Description */}
+              {posterDesc && (
+                <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-8">
+                  <div className="flex items-start gap-4">
+                    <div className="rounded-full bg-white/10 p-3">
+                      <Camera className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold mb-2">Key Art Description</h3>
+                      <p className="text-foreground/80 leading-relaxed italic">{posterDesc}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -953,8 +993,711 @@ export default function ShowPage() {
           </section>
         )}
 
-        {/* Rest of sections remain the same... Production Design, etc. */}
-        {/* I'll keep the rest abbreviated for space, but they're all still there */}
+        {/* Species/Character Types Design */}
+        {visualAesthetics?.species_design?.types && visualAesthetics.species_design.types.length > 0 && (
+          <section className="space-y-8">
+            <div className="flex items-center gap-3">
+              <Zap className="h-8 w-8 text-primary" />
+              <h2 className="font-serif text-4xl font-bold">Character Design System</h2>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              {visualAesthetics.species_design.types.map((type, idx) => (
+                <div
+                  key={idx}
+                  className="space-y-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6"
+                >
+                  <h3 className="text-2xl font-semibold text-primary">{type.name}</h3>
+                  
+                  <div className="space-y-3 text-sm">
+                    {type.silhouette && (
+                      <div>
+                        <span className="text-foreground/60">Silhouette:</span>
+                        <p className="mt-1 text-foreground/90">{type.silhouette}</p>
+                      </div>
+                    )}
+                    {type.surface_finish && (
+                      <div>
+                        <span className="text-foreground/60">Surface:</span>
+                        <p className="mt-1 text-foreground/90">{type.surface_finish}</p>
+                      </div>
+                    )}
+                    {type.materials && (
+                      <div>
+                        <span className="text-foreground/60">Materials:</span>
+                        <p className="mt-1 text-foreground/90">{type.materials}</p>
+                      </div>
+                    )}
+                    {type.eyes && (
+                      <div>
+                        <span className="text-foreground/60">Eyes:</span>
+                        <p className="mt-1 text-foreground/90">
+                          {type.eyes.type} with {type.eyes.catchlight_shape} catchlight
+                        </p>
+                        {type.eyes.behaviors && type.eyes.behaviors.length > 0 && (
+                          <ul className="mt-2 space-y-1 ml-4">
+                            {type.eyes.behaviors.map((behavior, i) => (
+                              <li key={i} className="text-xs text-foreground/70">• {behavior}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                    {type.stress_cues && (
+                      <div>
+                        <span className="text-foreground/60">Stress Cues:</span>
+                        <p className="mt-1 text-foreground/90">{type.stress_cues}</p>
+                      </div>
+                    )}
+                    {type.palette?.anchors && type.palette.anchors.length > 0 && (
+                      <div>
+                        <span className="text-foreground/60">Color Palette:</span>
+                        <div className="mt-2 flex gap-2">
+                          {type.palette.anchors.map((color, i) => (
+                            <div
+                              key={i}
+                              className="h-10 w-10 rounded-lg border border-white/20 shadow-lg"
+                              style={{ backgroundColor: color }}
+                              title={color}
+                            />
+                          ))}
+                        </div>
+                        {type.palette.notes && (
+                          <p className="mt-2 text-xs text-foreground/70">{type.palette.notes}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Production Design Grid */}
+        <section className="space-y-8">
+          <div className="flex items-center gap-3">
+            <Film className="h-8 w-8 text-primary" />
+            <h2 className="font-serif text-4xl font-bold">Production Design</h2>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Production Style */}
+            {productionStyle && (
+              <div className="space-y-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6">
+                <h3 className="flex items-center gap-2 text-2xl font-semibold">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                  Visual Style
+                </h3>
+                <div className="space-y-4 text-sm">
+                  <div>
+                    <span className="text-foreground/60">Medium:</span>
+                    <p className="mt-1 font-medium text-lg">{productionStyle.medium}</p>
+                  </div>
+                  <div>
+                    <span className="text-foreground/60">Stylization:</span>
+                    <p className="mt-1 font-medium capitalize">
+                      {productionStyle.stylization_level?.replace(/_/g, " ")}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-foreground/60">Treatment:</span>
+                    <p className="mt-2 text-foreground/80 leading-relaxed">
+                      {productionStyle.visual_treatment}
+                    </p>
+                  </div>
+                  {productionStyle.cinematic_references?.length > 0 && (
+                    <div>
+                      <span className="text-foreground/60">Cinematic References:</span>
+                      <ul className="mt-2 space-y-2">
+                        {productionStyle.cinematic_references.map((ref, i) => (
+                          <li key={i} className="flex items-start gap-2 text-foreground/80">
+                            <Sparkles className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
+                            {ref}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Color Palette */}
+            {visualAesthetics?.color && (
+              <div className="space-y-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6">
+                <h3 className="flex items-center gap-2 text-2xl font-semibold">
+                  <Palette className="h-6 w-6 text-primary" />
+                  Color Design
+                </h3>
+                <div className="space-y-4 text-sm">
+                  <div>
+                    <span className="text-foreground/60">Palette Approach:</span>
+                    <p className="mt-1 font-medium capitalize">{visualAesthetics.color.palette_bias}</p>
+                  </div>
+                  {visualAesthetics.color.anchor_hex && visualAesthetics.color.anchor_hex.length > 0 && (
+                    <div>
+                      <span className="text-foreground/60">Primary Colors:</span>
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {visualAesthetics.color.anchor_hex.map((color, i) => (
+                          <div key={i} className="flex flex-col items-center gap-2">
+                            <div
+                              className="h-16 w-16 rounded-xl border-2 border-white/20 shadow-xl"
+                              style={{ backgroundColor: color }}
+                            />
+                            <span className="text-xs font-mono text-foreground/60">{color}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {visualAesthetics.color.skin_protection && (
+                    <div>
+                      <span className="text-foreground/60">Skin Tones:</span>
+                      <p className="mt-1 text-foreground/80">{visualAesthetics.color.skin_protection}</p>
+                    </div>
+                  )}
+                  {visualAesthetics.color.white_balance_baseline_K && (
+                    <div>
+                      <span className="text-foreground/60">White Balance:</span>
+                      <p className="mt-1 text-foreground/80">{visualAesthetics.color.white_balance_baseline_K}K</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Lighting */}
+            {visualAesthetics?.lighting && (
+              <div className="space-y-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6">
+                <h3 className="flex items-center gap-2 text-2xl font-semibold">
+                  <Lightbulb className="h-6 w-6 text-primary" />
+                  Lighting Design
+                </h3>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <span className="text-foreground/60">Temperature Model:</span>
+                    <p className="mt-1 text-foreground/90">{visualAesthetics.lighting.temperature_model}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-foreground/60">Key:</span>
+                      <p className="mt-1 text-foreground/90">{visualAesthetics.lighting.key}</p>
+                    </div>
+                    {visualAesthetics.lighting.fill && (
+                      <div>
+                        <span className="text-foreground/60">Fill:</span>
+                        <p className="mt-1 text-foreground/90">{visualAesthetics.lighting.fill}</p>
+                      </div>
+                    )}
+                  </div>
+                  {visualAesthetics.lighting.edge && (
+                    <div>
+                      <span className="text-foreground/60">Edge:</span>
+                      <p className="mt-1 text-foreground/90">{visualAesthetics.lighting.edge}</p>
+                    </div>
+                  )}
+                  {visualAesthetics.lighting.halation_policy && (
+                    <div>
+                      <span className="text-foreground/60">Halation:</span>
+                      <p className="mt-1 text-foreground/90">{visualAesthetics.lighting.halation_policy}</p>
+                    </div>
+                  )}
+                  {visualAesthetics.lighting.practicals_in_frame !== undefined && (
+                    <div>
+                      <span className="text-foreground/60">Practicals in Frame:</span>
+                      <p className="mt-1 text-foreground/90">{visualAesthetics.lighting.practicals_in_frame ? "Yes" : "No"}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Camera */}
+            {visualAesthetics?.camera && (
+              <div className="space-y-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6">
+                <h3 className="flex items-center gap-2 text-2xl font-semibold">
+                  <Camera className="h-6 w-6 text-primary" />
+                  Camera & Lenses
+                </h3>
+                <div className="space-y-3 text-sm">
+                  {visualAesthetics.camera.sensor && (
+                    <div>
+                      <span className="text-foreground/60">Sensor:</span>
+                      <p className="mt-1 text-foreground/90">{visualAesthetics.camera.sensor}</p>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-foreground/60">Lenses:</span>
+                    <p className="mt-1 text-foreground/90">{visualAesthetics.camera.lens_family.join(", ")}</p>
+                  </div>
+                  {visualAesthetics.camera.dof_guides && (
+                    <div>
+                      <span className="text-foreground/60">Depth of Field:</span>
+                      <p className="mt-1 text-foreground/90">{visualAesthetics.camera.dof_guides}</p>
+                    </div>
+                  )}
+                  {visualAesthetics.camera.movement && visualAesthetics.camera.movement.length > 0 && (
+                    <div>
+                      <span className="text-foreground/60">Camera Movement:</span>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {visualAesthetics.camera.movement.map((move, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">
+                            {move}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {visualAesthetics.camera.coverage_rules && visualAesthetics.camera.coverage_rules.length > 0 && (
+                    <div>
+                      <span className="text-foreground/60">Coverage Rules:</span>
+                      <ul className="mt-2 space-y-1">
+                        {visualAesthetics.camera.coverage_rules.map((rule, i) => (
+                          <li key={i} className="text-xs text-foreground/70">• {rule}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Sets & Locations */}
+        {visualAesthetics?.sets_and_prop_visuals?.primary_sets && visualAesthetics.sets_and_prop_visuals.primary_sets.length > 0 && (
+          <section className="space-y-8">
+            <div className="flex items-center gap-3">
+              <MapPin className="h-8 w-8 text-primary" />
+              <h2 className="font-serif text-4xl font-bold">Locations & Sets</h2>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {visualAesthetics.sets_and_prop_visuals.primary_sets.map((set, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-4"
+                >
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/20">
+                    <MapPin className="h-5 w-5 text-primary" />
+                  </div>
+                  <p className="font-medium">{set}</p>
+                </div>
+              ))}
+            </div>
+
+            {visualAesthetics.sets_and_prop_visuals.prop_style && (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+                <span className="text-sm text-foreground/60">Prop Style:</span>
+                <p className="mt-2 text-foreground/90">{visualAesthetics.sets_and_prop_visuals.prop_style}</p>
+              </div>
+            )}
+
+            {visualAesthetics.sets_and_prop_visuals.runner_gags_visual && visualAesthetics.sets_and_prop_visuals.runner_gags_visual.length > 0 && (
+              <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+                <span className="text-sm text-foreground/60">Running Gags:</span>
+                <ul className="mt-3 space-y-2">
+                  {visualAesthetics.sets_and_prop_visuals.runner_gags_visual.map((gag, i) => (
+                    <li key={i} className="flex items-start gap-2 text-foreground/80">
+                      <span className="text-primary">•</span>
+                      {gag}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Post-Production */}
+        {visualAesthetics?.post_grade && (
+          <section className="space-y-8">
+            <div className="flex items-center gap-3">
+              <Settings2 className="h-8 w-8 text-primary" />
+              <h2 className="font-serif text-4xl font-bold">Post-Production</h2>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              {visualAesthetics.post_grade.curve && (
+                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5">
+                  <span className="text-sm text-foreground/60">Color Curve:</span>
+                  <p className="mt-2 text-lg font-medium text-foreground/90">{visualAesthetics.post_grade.curve}</p>
+                </div>
+              )}
+              {visualAesthetics.post_grade.lut && (
+                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5">
+                  <span className="text-sm text-foreground/60">LUT:</span>
+                  <p className="mt-2 text-lg font-medium text-foreground/90">{visualAesthetics.post_grade.lut}</p>
+                </div>
+              )}
+              {visualAesthetics.post_grade.grain && (
+                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5">
+                  <span className="text-sm text-foreground/60">Film Grain:</span>
+                  <p className="mt-2 text-foreground/90">
+                    {visualAesthetics.post_grade.grain.intensity} • {visualAesthetics.post_grade.grain.placement}
+                  </p>
+                </div>
+              )}
+              {visualAesthetics.post_grade.halation && (
+                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5">
+                  <span className="text-sm text-foreground/60">Halation:</span>
+                  <p className="mt-2 text-foreground/90">
+                    {visualAesthetics.post_grade.halation.strength} • {visualAesthetics.post_grade.halation.scope}
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Technical Pipeline */}
+        {visualAesthetics?.pipeline && (
+          <section className="space-y-8">
+            <div className="flex items-center gap-3">
+              <Layers className="h-8 w-8 text-primary" />
+              <h2 className="font-serif text-4xl font-bold">Technical Specifications</h2>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {visualAesthetics.pipeline.color_management && (
+                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5">
+                  <Monitor className="h-5 w-5 text-primary mb-2" />
+                  <span className="text-sm text-foreground/60">Color Management:</span>
+                  <p className="mt-2 font-medium text-foreground/90">{visualAesthetics.pipeline.color_management}</p>
+                </div>
+              )}
+              {visualAesthetics.pipeline.aspect_ratio && (
+                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5">
+                  <Monitor className="h-5 w-5 text-primary mb-2" />
+                  <span className="text-sm text-foreground/60">Aspect Ratio:</span>
+                  <p className="mt-2 font-medium text-foreground/90">{visualAesthetics.pipeline.aspect_ratio}</p>
+                </div>
+              )}
+              {visualAesthetics.pipeline.frame_rates && (
+                <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5">
+                  <Film className="h-5 w-5 text-primary mb-2" />
+                  <span className="text-sm text-foreground/60">Frame Rate:</span>
+                  <p className="mt-2 font-medium text-foreground/90">{visualAesthetics.pipeline.frame_rates.playback} fps</p>
+                </div>
+              )}
+            </div>
+
+            {visualAesthetics.pipeline.render_order && visualAesthetics.pipeline.render_order.length > 0 && (
+              <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6">
+                <h3 className="text-lg font-semibold mb-4">Render Pipeline</h3>
+                <div className="flex flex-wrap gap-2">
+                  {visualAesthetics.pipeline.render_order.map((step, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {i + 1}. {step}
+                      </Badge>
+                      {i < visualAesthetics.pipeline.render_order!.length - 1 && (
+                        <span className="text-foreground/30">→</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Unique Features */}
+        {generatedContent?.unique_features && generatedContent.unique_features.length > 0 && (
+          <section className="space-y-8">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-8 w-8 text-primary" />
+              <h2 className="font-serif text-4xl font-bold">What Makes It Special</h2>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {generatedContent.unique_features.map((feature, i) => (
+                <div
+                  key={i}
+                  className="flex gap-3 rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5"
+                >
+                  <div className="flex-shrink-0 mt-1">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20">
+                      <Sparkles className="h-3 w-3 text-primary" />
+                    </div>
+                  </div>
+                  <p className="text-sm leading-relaxed text-foreground/80">{feature}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Behind the Scenes */}
+        {generatedContent?.behind_the_scenes && (
+          <section className="space-y-8">
+            <div className="flex items-center gap-3">
+              <Film className="h-8 w-8 text-primary" />
+              <h2 className="font-serif text-4xl font-bold">Behind the Scenes</h2>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-8">
+              <p className="text-lg leading-relaxed text-foreground/80">
+                {generatedContent.behind_the_scenes}
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* Episode Concepts */}
+        {generatedContent?.episode_concepts && generatedContent.episode_concepts.length > 0 && (
+          <section className="space-y-8">
+            <div className="flex items-center gap-3">
+              <Film className="h-8 w-8 text-primary" />
+              <h2 className="font-serif text-4xl font-bold">Story Concepts</h2>
+            </div>
+
+            <div className="space-y-4">
+              {generatedContent.episode_concepts.map((episode, i) => (
+                <div
+                  key={i}
+                  className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary/20 font-bold text-primary text-lg">
+                      {i + 1}
+                    </div>
+                    <div className="space-y-2 flex-1">
+                      <h3 className="text-xl font-semibold">{episode.title}</h3>
+                      <p className="text-foreground/80 leading-relaxed">
+                        {episode.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Raw Show Data */}
+        <section className="space-y-8">
+          <div className="flex items-center gap-3">
+            <Settings2 className="h-8 w-8 text-primary" />
+            <h2 className="font-serif text-4xl font-bold">Show Metadata</h2>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Show ID */}
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <span className="text-xs text-foreground/60 uppercase tracking-wide">Show ID</span>
+              <p className="mt-2 font-mono text-sm text-foreground/90 break-all">{showData.id}</p>
+            </div>
+
+            {/* Model */}
+            {showData.blueprint && (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <span className="text-xs text-foreground/60 uppercase tracking-wide">AI Model</span>
+                <p className="mt-2 text-foreground/90">GPT-4o</p>
+              </div>
+            )}
+
+            {/* Created Date */}
+            {showData.blueprint && (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <span className="text-xs text-foreground/60 uppercase tracking-wide">Created</span>
+                <p className="mt-2 text-foreground/90">
+                  {new Date().toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </p>
+              </div>
+            )}
+
+            {/* Character Count */}
+            {characters.length > 0 && (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <span className="text-xs text-foreground/60 uppercase tracking-wide">Characters</span>
+                <p className="mt-2 text-2xl font-bold text-primary">{characters.length}</p>
+              </div>
+            )}
+
+            {/* Assets Count */}
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <span className="text-xs text-foreground/60 uppercase tracking-wide">Total Assets</span>
+              <p className="mt-2 text-2xl font-bold text-primary">
+                {(assets.portraits?.length || 0) + 
+                 (assets.poster ? 1 : 0) + 
+                 (assets.libraryPoster ? 1 : 0) + 
+                 (assets.trailer ? 1 : 0) + 
+                 (assets.portraitGrid ? 1 : 0)}
+              </p>
+            </div>
+
+            {/* Composition */}
+            {visualAesthetics?.composition?.symmetry_bias && (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <span className="text-xs text-foreground/60 uppercase tracking-wide">Composition Style</span>
+                <p className="mt-2 text-foreground/90 capitalize">{visualAesthetics.composition.symmetry_bias}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Composition Details */}
+          {visualAesthetics?.composition && (
+            <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6">
+              <h3 className="text-lg font-semibold mb-4">Composition Guidelines</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {visualAesthetics.composition.symmetry_bias && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Symmetry</span>
+                    <p className="mt-1 text-sm text-foreground/90">{visualAesthetics.composition.symmetry_bias}</p>
+                  </div>
+                )}
+                {visualAesthetics.composition.leading_lines && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Leading Lines</span>
+                    <p className="mt-1 text-sm text-foreground/90">{visualAesthetics.composition.leading_lines}</p>
+                  </div>
+                )}
+                {visualAesthetics.composition.foreground_depth && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Depth</span>
+                    <p className="mt-1 text-sm text-foreground/90">{visualAesthetics.composition.foreground_depth}</p>
+                  </div>
+                )}
+                {visualAesthetics.composition.color_blocking && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Color Blocking</span>
+                    <p className="mt-1 text-sm text-foreground/90">{visualAesthetics.composition.color_blocking}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Materials & Textures */}
+          {visualAesthetics?.materials_and_textures && (
+            <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6">
+              <h3 className="text-lg font-semibold mb-4">Materials & Textures</h3>
+              <div className="space-y-4">
+                {visualAesthetics.materials_and_textures.human_textures && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Character Textures</span>
+                    <p className="mt-2 text-foreground/90">{visualAesthetics.materials_and_textures.human_textures}</p>
+                  </div>
+                )}
+                {visualAesthetics.materials_and_textures.set_surfaces && visualAesthetics.materials_and_textures.set_surfaces.length > 0 && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Set Surfaces</span>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {visualAesthetics.materials_and_textures.set_surfaces.map((surface, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {surface}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {visualAesthetics.materials_and_textures.patina && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Patina</span>
+                    <p className="mt-2 text-foreground/90">{visualAesthetics.materials_and_textures.patina}</p>
+                  </div>
+                )}
+                {visualAesthetics.materials_and_textures.notes && (
+                  <div className="border-t border-white/10 pt-4">
+                    <p className="text-sm text-foreground/70 italic">{visualAesthetics.materials_and_textures.notes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Color Prohibitions */}
+          {(visualAesthetics?.color?.prohibitions && visualAesthetics.color.prohibitions.length > 0) && (
+            <div className="rounded-xl border border-red-900/20 bg-gradient-to-br from-red-900/10 to-transparent p-6">
+              <h3 className="text-lg font-semibold mb-3 text-red-400">Visual Prohibitions</h3>
+              <div className="space-y-2">
+                <div>
+                  <span className="text-xs text-foreground/60 uppercase tracking-wide">Avoid These Colors</span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {visualAesthetics.color.prohibitions.map((prohibition, i) => (
+                      <Badge key={i} variant="destructive" className="text-xs">
+                        {prohibition}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                {visualAesthetics.lighting?.no_go && visualAesthetics.lighting.no_go.length > 0 && (
+                  <div className="pt-3">
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Avoid These Lighting Styles</span>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {visualAesthetics.lighting.no_go.map((prohibition, i) => (
+                        <Badge key={i} variant="destructive" className="text-xs">
+                          {prohibition}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {visualAesthetics?.prohibitions_global && visualAesthetics.prohibitions_global.length > 0 && (
+                  <div className="pt-3">
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Global Prohibitions</span>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {visualAesthetics.prohibitions_global.map((prohibition, i) => (
+                        <Badge key={i} variant="destructive" className="text-xs">
+                          {prohibition}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Export Specs */}
+          {visualAesthetics?.export_specs && (
+            <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6">
+              <h3 className="text-lg font-semibold mb-4">Export Specifications</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {visualAesthetics.export_specs.stills && visualAesthetics.export_specs.stills.length > 0 && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Still Formats</span>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {visualAesthetics.export_specs.stills.map((format, i) => (
+                        <Badge key={i} variant="outline" className="text-xs font-mono">
+                          {format}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {visualAesthetics.export_specs.video_intermediate && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Video Codec</span>
+                    <p className="mt-2 font-mono text-sm text-foreground/90">{visualAesthetics.export_specs.video_intermediate}</p>
+                  </div>
+                )}
+                {visualAesthetics.export_specs.delivery_color && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Delivery Color Space</span>
+                    <p className="mt-2 font-mono text-sm text-foreground/90">{visualAesthetics.export_specs.delivery_color}</p>
+                  </div>
+                )}
+                {visualAesthetics.export_specs.plates && visualAesthetics.export_specs.plates.length > 0 && (
+                  <div>
+                    <span className="text-xs text-foreground/60 uppercase tracking-wide">Plate Types</span>
+                    <div className="mt-2 space-y-1">
+                      {visualAesthetics.export_specs.plates.map((plate, i) => (
+                        <p key={i} className="text-xs text-foreground/70">• {plate}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
         
       </div>
 

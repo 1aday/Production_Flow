@@ -251,12 +251,15 @@ Generated with Production Flow
       compressionOptions: { level: 6 }
     });
 
+    // Convert to Buffer for NextResponse compatibility
+    const buffer = Buffer.from(zipBuffer);
+
     // Return as download
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${folderName}.zip"`,
-        'Content-Length': zipBuffer.length.toString(),
+        'Content-Length': buffer.length.toString(),
       },
     });
 
