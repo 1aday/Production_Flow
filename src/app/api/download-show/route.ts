@@ -246,7 +246,7 @@ Generated with Production Flow
 
     // Generate zip
     const zipBuffer = await zip.generateAsync({ 
-      type: "nodebuffer",
+      type: "uint8array",
       compression: "DEFLATE",
       compressionOptions: { level: 6 }
     });
