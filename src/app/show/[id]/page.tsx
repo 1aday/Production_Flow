@@ -299,6 +299,9 @@ export default function ShowPage() {
       if (trailerPlaying) {
         video.pause();
       } else {
+        // Unmute when playing via button
+        video.muted = false;
+        setTrailerMuted(false);
         video.play();
       }
     }
@@ -461,15 +464,15 @@ export default function ShowPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
           
-          {/* Play Button - Shows when not playing */}
-          {!trailerPlaying && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24 items-center justify-center rounded-full bg-primary shadow-2xl transition-all hover:scale-110 hover:bg-primary/90 z-10 animate-pulse">
-              <Play className="ml-1.5 sm:ml-2 h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-white" />
+          {/* Subtle Play Button - Shows when not playing or when muted */}
+          {(!trailerPlaying || trailerMuted) && (
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm shadow-xl transition-all hover:scale-110 hover:bg-black/80 z-10 border border-white/20">
+              <Play className="ml-0.5 h-5 w-5 sm:h-6 sm:w-6 text-white" />
             </div>
           )}
 
-          {/* Pause Button - Shows on hover when playing (desktop) or tap (mobile) */}
-          {trailerPlaying && (
+          {/* Pause Button - Shows on hover when playing with audio (desktop) or tap (mobile) */}
+          {trailerPlaying && !trailerMuted && (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 hover:bg-black/90 z-10">
               <Pause className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-white" />
             </div>
