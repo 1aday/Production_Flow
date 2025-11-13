@@ -3856,7 +3856,7 @@ function ResultView({
                 ) : (
                   <div className="space-y-4">
                     <div className="relative overflow-hidden rounded-2xl border border-white/12 bg-black/60 shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
-                      <div className="relative h-0 w-full pb-[56.25%]">
+                      <div className="relative h-0 w-full pb-[177.78%]">
                         {currentVideoUrl ? (
                           <video
                             key={currentVideoUrl}
@@ -4326,7 +4326,7 @@ export default function Home() {
   const videoPollsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const [videoModelId, setVideoModelId] = useState<VideoModelId>(VIDEO_MODEL_OPTIONS[0].id);
   const [videoSeconds, setVideoSeconds] = useState<VideoDuration>(8);
-  const [videoAspectRatio, setVideoAspectRatio] = useState<VideoAspectRatio>("landscape");
+  const [videoAspectRatio, setVideoAspectRatio] = useState<VideoAspectRatio>("portrait");
   const [videoResolution, setVideoResolution] = useState<VideoResolution>("standard");
   const selectedVideoModel = useMemo(
     () => VIDEO_MODEL_OPTION_MAP[videoModelId] ?? VIDEO_MODEL_OPTIONS[0],

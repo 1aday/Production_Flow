@@ -175,6 +175,34 @@ export default function ShowPage() {
     void loadShowData();
   }, [showId]);
 
+  // Auto-play trailer when assets load
+  useEffect(() => {
+    if (assets?.trailer) {
+      const video = document.getElementById('trailer-video') as HTMLVideoElement;
+      if (video) {
+        // Auto-play muted
+        video.muted = true;
+        video.play().then(() => {
+          setTrailerPlaying(true);
+        }).catch((error) => {
+          console.log("Auto-play prevented:", error);
+        });
+
+        // Listen to play/pause events
+        const handlePlay = () => setTrailerPlaying(true);
+        const handlePause = () => setTrailerPlaying(false);
+        
+        video.addEventListener('play', handlePlay);
+        video.addEventListener('pause', handlePause);
+
+        return () => {
+          video.removeEventListener('play', handlePlay);
+          video.removeEventListener('pause', handlePause);
+        };
+      }
+    }
+  }, [assets?.trailer]);
+
   const loadShowData = async () => {
     setLoading(true);
     try {
@@ -533,7 +561,7 @@ export default function ShowPage() {
                     {/* Character Header */}
                     <div className="grid gap-6 p-6 lg:grid-cols-3">
                       {/* Portrait or Video */}
-                      <div className="relative aspect-[3/4] overflow-hidden rounded-xl lg:col-span-1">
+                      <div className={`relative overflow-hidden rounded-xl lg:col-span-1 ${hasVideo ? 'aspect-[9/16]' : 'aspect-square'}`}>
                         {hasVideo && videoUrl ? (
                           <video
                             src={videoUrl}
@@ -877,7 +905,7 @@ export default function ShowPage() {
                                   {charDoc.look.wardrobe.items && charDoc.look.wardrobe.items.length > 0 && (
                                     <div className="mt-2">
                                       <p className="text-xs text-foreground/60 mb-1">Items</p>
-                                      {charDoc.look.wardrobe.items.map((item, i) => (
+                                      {charDoc.look.wardrobe.items.map((item: string, i: number) => (
                                         <p key={i} className="text-sm">• {item}</p>
                                       ))}
                                     </div>
@@ -885,7 +913,7 @@ export default function ShowPage() {
                                   {charDoc.look.wardrobe.accessories && charDoc.look.wardrobe.accessories.length > 0 && (
                                     <div className="mt-2">
                                       <p className="text-xs text-foreground/60 mb-1">Accessories</p>
-                                      {charDoc.look.wardrobe.accessories.map((item, i) => (
+                                      {charDoc.look.wardrobe.accessories.map((item: string, i: number) => (
                                         <p key={i} className="text-sm">• {item}</p>
                                       ))}
                                     </div>
@@ -916,7 +944,7 @@ export default function ShowPage() {
                                 <div className="rounded-lg border border-white/10 bg-white/5 p-4">
                                   <span className="text-xs text-foreground/60 uppercase tracking-wide">Expressions</span>
                                   <div className="mt-2 flex flex-wrap gap-1.5">
-                                    {charDoc.performance.expression_set.map((expr, i) => (
+                                    {charDoc.performance.expression_set.map((expr: string, i: number) => (
                                       <Badge key={i} variant="secondary" className="text-xs">
                                         {expr}
                                       </Badge>
@@ -929,7 +957,7 @@ export default function ShowPage() {
                                 <div className="rounded-lg border border-white/10 bg-white/5 p-4 sm:col-span-2">
                                   <span className="text-xs text-foreground/60 uppercase tracking-wide">Signature Gestures</span>
                                   <div className="mt-2 flex flex-wrap gap-1.5">
-                                    {charDoc.performance.gestural_loops.map((gesture, i) => (
+                                    {charDoc.performance.gestural_loops.map((gesture: string, i: number) => (
                                       <Badge key={i} variant="outline" className="text-xs">
                                         {gesture}
                                       </Badge>
@@ -1118,7 +1146,7 @@ export default function ShowPage() {
                     <div>
                       <span className="text-foreground/60">Cinematic References:</span>
                       <ul className="mt-2 space-y-2">
-                        {productionStyle.cinematic_references.map((ref, i) => (
+                        {productionStyle.cinematic_references.map((ref: string, i: number) => (
                           <li key={i} className="flex items-start gap-2 text-foreground/80">
                             <Sparkles className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
                             {ref}
@@ -1147,7 +1175,7 @@ export default function ShowPage() {
                     <div>
                       <span className="text-foreground/60">Primary Colors:</span>
                       <div className="mt-3 flex flex-wrap gap-3">
-                        {visualAesthetics.color.anchor_hex.map((color, i) => (
+                        {visualAesthetics.color.anchor_hex.map((color: string, i: number) => (
                           <div key={i} className="flex flex-col items-center gap-2">
                             <div
                               className="h-16 w-16 rounded-xl border-2 border-white/20 shadow-xl"
@@ -1249,7 +1277,7 @@ export default function ShowPage() {
                     <div>
                       <span className="text-foreground/60">Camera Movement:</span>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {visualAesthetics.camera.movement.map((move, i) => (
+                        {visualAesthetics.camera.movement.map((move: string, i: number) => (
                           <Badge key={i} variant="secondary" className="text-xs">
                             {move}
                           </Badge>
@@ -1261,7 +1289,7 @@ export default function ShowPage() {
                     <div>
                       <span className="text-foreground/60">Coverage Rules:</span>
                       <ul className="mt-2 space-y-1">
-                        {visualAesthetics.camera.coverage_rules.map((rule, i) => (
+                        {visualAesthetics.camera.coverage_rules.map((rule: string, i: number) => (
                           <li key={i} className="text-xs text-foreground/70">• {rule}</li>
                         ))}
                       </ul>
@@ -1282,7 +1310,7 @@ export default function ShowPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {visualAesthetics.sets_and_prop_visuals.primary_sets.map((set, i) => (
+              {visualAesthetics.sets_and_prop_visuals.primary_sets.map((set: any, i: number) => (
                 <div
                   key={i}
                   className="flex items-center gap-3 rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-4"
@@ -1306,7 +1334,7 @@ export default function ShowPage() {
               <div className="rounded-xl border border-white/10 bg-white/5 p-5">
                 <span className="text-sm text-foreground/60">Running Gags:</span>
                 <ul className="mt-3 space-y-2">
-                  {visualAesthetics.sets_and_prop_visuals.runner_gags_visual.map((gag, i) => (
+                  {visualAesthetics.sets_and_prop_visuals.runner_gags_visual.map((gag: string, i: number) => (
                     <li key={i} className="flex items-start gap-2 text-foreground/80">
                       <span className="text-primary">•</span>
                       {gag}
@@ -1395,7 +1423,7 @@ export default function ShowPage() {
               <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6">
                 <h3 className="text-lg font-semibold mb-4">Render Pipeline</h3>
                 <div className="flex flex-wrap gap-2">
-                  {visualAesthetics.pipeline.render_order.map((step, i) => (
+                  {visualAesthetics.pipeline.render_order.map((step: string, i: number) => (
                     <div key={i} className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs">
                         {i + 1}. {step}
@@ -1420,7 +1448,7 @@ export default function ShowPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {generatedContent.unique_features.map((feature, i) => (
+              {generatedContent.unique_features.map((feature: string, i: number) => (
                 <div
                   key={i}
                   className="flex gap-3 rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-5"
@@ -1462,7 +1490,7 @@ export default function ShowPage() {
             </div>
 
             <div className="space-y-4">
-              {generatedContent.episode_concepts.map((episode, i) => (
+              {generatedContent.episode_concepts.map((episode: any, i: number) => (
                 <div
                   key={i}
                   className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6"
@@ -1597,7 +1625,7 @@ export default function ShowPage() {
                   <div>
                     <span className="text-xs text-foreground/60 uppercase tracking-wide">Set Surfaces</span>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {visualAesthetics.materials_and_textures.set_surfaces.map((surface, i) => (
+                      {visualAesthetics.materials_and_textures.set_surfaces.map((surface: string, i: number) => (
                         <Badge key={i} variant="secondary" className="text-xs">
                           {surface}
                         </Badge>
@@ -1628,7 +1656,7 @@ export default function ShowPage() {
                 <div>
                   <span className="text-xs text-foreground/60 uppercase tracking-wide">Avoid These Colors</span>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {visualAesthetics.color.prohibitions.map((prohibition, i) => (
+                    {visualAesthetics.color.prohibitions.map((prohibition: string, i: number) => (
                       <Badge key={i} variant="destructive" className="text-xs">
                         {prohibition}
                       </Badge>
@@ -1639,7 +1667,7 @@ export default function ShowPage() {
                   <div className="pt-3">
                     <span className="text-xs text-foreground/60 uppercase tracking-wide">Avoid These Lighting Styles</span>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {visualAesthetics.lighting.no_go.map((prohibition, i) => (
+                      {visualAesthetics.lighting.no_go.map((prohibition: string, i: number) => (
                         <Badge key={i} variant="destructive" className="text-xs">
                           {prohibition}
                         </Badge>
@@ -1651,7 +1679,7 @@ export default function ShowPage() {
                   <div className="pt-3">
                     <span className="text-xs text-foreground/60 uppercase tracking-wide">Global Prohibitions</span>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {visualAesthetics.prohibitions_global.map((prohibition, i) => (
+                      {visualAesthetics.prohibitions_global.map((prohibition: string, i: number) => (
                         <Badge key={i} variant="destructive" className="text-xs">
                           {prohibition}
                         </Badge>
@@ -1672,7 +1700,7 @@ export default function ShowPage() {
                   <div>
                     <span className="text-xs text-foreground/60 uppercase tracking-wide">Still Formats</span>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {visualAesthetics.export_specs.stills.map((format, i) => (
+                      {visualAesthetics.export_specs.stills.map((format: string, i: number) => (
                         <Badge key={i} variant="outline" className="text-xs font-mono">
                           {format}
                         </Badge>
@@ -1696,7 +1724,7 @@ export default function ShowPage() {
                   <div>
                     <span className="text-xs text-foreground/60 uppercase tracking-wide">Plate Types</span>
                     <div className="mt-2 space-y-1">
-                      {visualAesthetics.export_specs.plates.map((plate, i) => (
+                      {visualAesthetics.export_specs.plates.map((plate: string, i: number) => (
                         <p key={i} className="text-xs text-foreground/70">• {plate}</p>
                       ))}
                     </div>
