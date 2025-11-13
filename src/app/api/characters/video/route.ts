@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { setVideoStatusRecord, pruneVideoStatusRecords } from "@/lib/video-status";
 
-export const maxDuration = 300; // 5 minutes for video generation
+export const maxDuration = 60; // Reduced to 60s since we return immediately
 
 type VideoModelId = "openai/sora-2" | "openai/sora-2-pro";
 type VideoAspectRatio = "portrait" | "landscape";
@@ -321,98 +320,57 @@ export async function POST(request: Request) {
     console.log("Job ID:", jobId || "not provided");
     console.log("Model:", modelId, "| seconds:", seconds, "| aspect:", aspectRatio, "| resolution:", resolution ?? "n/a");
     
-    setVideoStatusRecord(jobId, "starting");
+    const inputPayload = modelConfig.buildInput({
+      prompt,
+      seconds,
+      aspectRatio,
+      resolution,
+      portraitUrl,
+    });
     
-    // Start async generation
-    const generateAsync = async () => {
-      try {
-        setVideoStatusRecord(jobId, "processing");
-        
-        const inputPayload = modelConfig.buildInput({
-          prompt,
-          seconds,
-          aspectRatio,
-          resolution,
-          portraitUrl,
-        });
-        
-        console.log("Input payload (before JSON.stringify):", inputPayload);
-        
-        const requestBody = JSON.stringify({
-          input: inputPayload,
-        });
-        
-        console.log("Request body being sent:", requestBody);
-        
-        const createResponse = await fetch(`https://api.replicate.com/v1/models/${modelConfig.modelPath}/predictions`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: requestBody,
-        });
-        
-        if (!createResponse.ok) {
-          const errorBody = await createResponse.text();
-          console.error("Replicate API error response:", errorBody);
-          throw new Error(`Failed to create prediction: ${createResponse.status} - ${errorBody}`);
-        }
-        
-        const prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-        console.log("Prediction created:", prediction.id, "Status:", prediction.status);
-        
-        // Wait for completion
-        let result = prediction;
-        while (result.status === "starting" || result.status === "processing") {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-            headers: {
-              "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-            },
-          });
-          
-          result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-          console.log("Status:", result.status);
-        }
-        
-        if (result.status === "failed") {
-          throw new Error(result.error || "Video generation failed");
-        }
-        
-        if (result.status === "canceled") {
-          throw new Error("Video generation was canceled");
-        }
-
-        const url = await resolveUrl(result.output);
-
-        if (!url) {
-          setVideoStatusRecord(jobId, "failed", "Unexpected video response format.");
-          return;
-        }
-
-        console.log("✅ Video generated successfully:", url);
-        setVideoStatusRecord(jobId, "succeeded", undefined, url);
-      } catch (error) {
-        console.error("[characters/video] Generation error", error);
-        const message =
-          error instanceof Error ? error.message : "Failed to generate video.";
-        setVideoStatusRecord(jobId, "failed", message);
-      }
-    };
+    console.log("Input payload (before JSON.stringify):", inputPayload);
     
-    // Start async generation (fire and forget)
-    void generateAsync();
+    const requestBody = JSON.stringify({
+      input: inputPayload,
+    });
     
-    // Return job ID immediately
-    return NextResponse.json({ jobId, status: "starting" });
+    console.log("Request body being sent:", requestBody);
+    
+    const createResponse = await fetch(`https://api.replicate.com/v1/models/${modelConfig.modelPath}/predictions`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: requestBody,
+    });
+    
+    if (!createResponse.ok) {
+      const errorBody = await createResponse.text();
+      console.error("Replicate API error response:", errorBody);
+      throw new Error(`Failed to create prediction: ${createResponse.status} - ${errorBody}`);
+    }
+    
+    const prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+    console.log("✅ Video prediction created:", prediction.id, "Status:", prediction.status);
+    
+    // Return the Replicate prediction ID immediately
+    return NextResponse.json({ 
+      jobId: prediction.id, 
+      status: prediction.status || "starting"
+    });
     
   } catch (error) {
-    console.error("[characters/video] Setup error", error);
+    console.error("❌❌❌ [characters/video] Prediction creation error ❌❌❌");
+    console.error("Error type:", typeof error);
+    console.error("Error object:", error);
+    if (error instanceof Error) {
+      console.error("Error name:", error.name);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
     const message =
-      error instanceof Error ? error.message : "Failed to start video generation.";
-    setVideoStatusRecord(jobId, "failed", message);
+      error instanceof Error ? error.message : "Failed to create video prediction.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
