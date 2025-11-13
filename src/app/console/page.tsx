@@ -3934,10 +3934,38 @@ function ResultView({
                             Your browser does not support the video tag.
                           </video>
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(229,9,20,0.2),_transparent)]">
-                            <span className="text-xs uppercase tracking-[0.3em] text-foreground/45">
-                              Video pending
-                            </span>
+                          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-black/80 via-black/60 to-black/80">
+                            {portraitUrl && (
+                              <div 
+                                className="absolute inset-0 opacity-20 blur-2xl"
+                                style={{
+                                  backgroundImage: `url(${portraitUrl})`,
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
+                                }}
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const customPrompt = editedVideoPrompts[seed.id];
+                                onGenerateVideo(seed.id, customPrompt);
+                              }}
+                              disabled={videoLoading || !canRender}
+                              className="group relative z-10 flex flex-col items-center gap-3 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent px-8 py-6 backdrop-blur-sm transition-all duration-300 hover:border-primary/60 hover:from-primary/30 hover:via-primary/20 hover:shadow-[0_0_40px_rgba(229,9,20,0.3)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-primary/30"
+                            >
+                              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/60 shadow-[0_0_30px_rgba(229,9,20,0.4)] transition-transform duration-300 group-hover:scale-110 group-hover:shadow-[0_0_50px_rgba(229,9,20,0.6)]">
+                                <SendHorizontal className="h-6 w-6 text-white" />
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                                  Render Video
+                                </p>
+                                <p className="text-xs text-foreground/50">
+                                  {videoModelOption.label}
+                                </p>
+                              </div>
+                            </button>
                           </div>
                         )}
                         {videoLoading ? (
