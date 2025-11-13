@@ -1407,8 +1407,8 @@ function ResultView({
     }
     if (trailerStatusIsStarting) {
       return trailerStatusIsVeo
-        ? "Initializing VEO 3.1 fallback"
-        : "Initializing Sora 2";
+        ? "Running VEO 3.1 fallback"
+        : "Running Sora 2";
     }
     if (trailerStatusIsProcessing) {
       return trailerStatusIsVeo

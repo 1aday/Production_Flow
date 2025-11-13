@@ -100,84 +100,6 @@ async function generateWithSora(
   return null;
 }
 
-// Helper function to generate with Sora 2 Pro
-async function generateWithSoraPro(
-  prompt: string,
-  characterGridUrl: string,
-  jobId?: string
-): Promise<{ url: string; model: string } | null> {
-  if (!process.env.REPLICATE_API_TOKEN) {
-    throw new Error("Missing REPLICATE_API_TOKEN");
-  }
-
-  console.log("🎬 Generating with Sora 2 Pro (12s, landscape, high res)...");
-  setTrailerStatusRecord(jobId, "sora-pro-starting");
-
-  const input = {
-    prompt,
-    input_reference: characterGridUrl,
-    seconds: 12,
-    aspect_ratio: "landscape",
-    resolution: "high",
-  };
-
-  const response = await fetch("https://api.replicate.com/v1/models/openai/sora-2-pro/predictions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ input }),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error("Sora 2 Pro request failed body:", errorBody);
-    throw new Error(`Sora 2 Pro request failed: ${response.status} - ${errorBody}`);
-  }
-
-  const prediction = await response.json() as { id: string; status: string; error?: string; output?: unknown };
-  console.log("Sora Pro prediction created:", prediction.id);
-
-  // Poll for completion
-  let result = prediction;
-  setTrailerStatusRecord(jobId, `sora-pro-${result.status}`);
-  while (result.status === "starting" || result.status === "processing") {
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-      headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
-    });
-    result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-    console.log("Sora Pro status:", result.status);
-    setTrailerStatusRecord(jobId, `sora-pro-${result.status}`);
-  }
-
-  if (result.status === "failed") {
-    throw new Error(result.error || "Sora Pro failed");
-  }
-
-  // Extract URL
-  let url: string | undefined;
-  if (typeof result.output === "string") {
-    url = result.output;
-  } else if (Array.isArray(result.output) && result.output.length > 0) {
-    url = result.output[0] as string;
-  } else if (result.output && typeof result.output === "object") {
-    const outputObj = result.output as Record<string, unknown>;
-    if ("url" in outputObj && typeof outputObj.url === "string") {
-      url = outputObj.url;
-    }
-  }
-
-  if (url) {
-    console.log("✅ Trailer generated with Sora 2 Pro:", url);
-    setTrailerStatusRecord(jobId, "succeeded", undefined, url, "sora-2-pro");
-    return { url, model: "sora-2-pro" };
-  }
-
-  return null;
-}
-
 // Helper function to generate with VEO 3.1
 async function generateWithVeo(
   prompt: string,
@@ -385,9 +307,9 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
   async function generateWithModel(modelName: string): Promise<{ url: string; model: string } | null> {
     switch (modelName) {
       case 'sora-2':
-        return generateWithSora(trailerPrompt, characterGridUrl, jobId);
+        return generateWithSora(trailerPrompt, characterGridUrl, jobId, false);
       case 'sora-2-pro':
-        return generateWithSoraPro(trailerPrompt, characterGridUrl, jobId);
+        return generateWithSora(trailerPrompt, characterGridUrl, jobId, true);
       case 'veo-3.1':
         return generateWithVeo(trailerPrompt, characterGridUrl, jobId);
       default:
@@ -412,81 +334,26 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
       throw new Error(`Failed to generate trailer with ${requestedModel}`);
     }
     
-    // Auto mode: Try Sora 2 Pro first (best quality), fallback to regular Sora 2, then VEO 3.1 on E005
-    console.log("🎬 Auto mode: Attempting trailer with Sora 2 Pro...");
-    const soraInput = {
-      prompt: trailerPrompt,
-      input_reference: characterGridUrl,
-      seconds: 12,
-      aspect_ratio: "landscape",
-      resolution: "high",
-    };
-
-    console.log("Sora 2 Pro input:", JSON.stringify(soraInput, null, 2));
-
-    const soraResponse = await fetch("https://api.replicate.com/v1/models/openai/sora-2-pro/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ input: soraInput }),
-    });
-
-    if (!soraResponse.ok) {
-      const errorBody = await soraResponse.text();
-      console.error("Sora 2 Pro request failed body:", errorBody);
-      throw new Error(`Sora 2 Pro request failed: ${soraResponse.status}`);
-    }
-
-    const soraPrediction = await soraResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-    console.log("Sora Pro prediction created:", soraPrediction.id);
-
-    // Poll for completion
-    let result = soraPrediction;
-    setTrailerStatusRecord(jobId, result.status);
-    while (result.status === "starting" || result.status === "processing") {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-        headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
-      });
-      result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-      console.log("Sora status:", result.status);
-      setTrailerStatusRecord(jobId, result.status);
-    }
-
-    if (result.status === "failed") {
-      const error = result.error || "Sora failed";
+    // Auto mode: Try Sora 2 first, fallback to VEO 3.1 on E005
+    console.log("🎬 Auto mode: Attempting trailer with Sora 2...");
+    
+    try {
+      const soraResult = await generateWithSora(trailerPrompt, characterGridUrl, jobId, false);
+      if (soraResult) {
+        console.log(`✅ Trailer generated with ${soraResult.model}:`, soraResult.url);
+        return NextResponse.json({ url: soraResult.url, model: soraResult.model });
+      }
+    } catch (soraError) {
+      const soraErrorMsg = soraError instanceof Error ? soraError.message : "";
       
       // Check if E005 - try VEO fallback
-      if (error.includes("E005") || error.includes("flagged as sensitive")) {
+      if (soraErrorMsg.includes("E005") || soraErrorMsg.includes("flagged as sensitive")) {
         console.warn("⚠️ Sora flagged content, falling back to VEO 3.1...");
         throw new Error("E005_FALLBACK");
       }
       
-      throw new Error(error);
-    }
-
-    if (result.status === "canceled") {
-      throw new Error("Trailer generation was canceled");
-    }
-
-    // Extract URL from Sora output
-    if (typeof result.output === "string") {
-      finalUrl = result.output;
-    } else if (Array.isArray(result.output) && result.output.length > 0) {
-      finalUrl = result.output[0] as string;
-    } else if (result.output && typeof result.output === "object") {
-      const outputObj = result.output as Record<string, unknown>;
-      if ("url" in outputObj && typeof outputObj.url === "string") {
-        finalUrl = outputObj.url;
-      }
-    }
-
-    if (finalUrl) {
-      console.log("✅ Trailer generated with Sora 2 Pro:", finalUrl);
-      setTrailerStatusRecord(jobId, "succeeded", undefined, finalUrl, "sora-2-pro");
-      return NextResponse.json({ url: finalUrl, model: "sora-2-pro" });
+      // Re-throw other errors
+      throw soraError;
     }
 
   } catch (error) {

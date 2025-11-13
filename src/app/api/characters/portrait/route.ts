@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 import Replicate from "replicate";
 import { setPortraitStatusRecord, prunePortraitStatusRecords } from "@/lib/portrait-status";
@@ -172,29 +171,41 @@ export async function POST(request: Request) {
         if (selectedModel === "flux") {
           // Use FLUX for portrait
           console.log("🎨 Using FLUX 1.1 Pro for portrait");
-          result = (await replicate.run("black-forest-labs/flux-1.1-pro", {
-            input: {
-              prompt,
-              aspect_ratio: "1:1",
-              output_format: "webp",
-              output_quality: 95,
-              safety_tolerance: 2,
-            },
-          })) as unknown;
+          try {
+            result = (await replicate.run("black-forest-labs/flux-1.1-pro", {
+              input: {
+                prompt,
+                aspect_ratio: "1:1",
+                output_format: "webp",
+                output_quality: 95,
+                safety_tolerance: 2,
+              },
+            })) as unknown;
+            console.log("✅ FLUX API call successful");
+          } catch (fluxError) {
+            console.error("❌ FLUX API call failed:", fluxError);
+            throw fluxError;
+          }
         } else {
           // Use GPT Image for portrait
           console.log("🎨 Using GPT Image 1 for portrait");
-          result = (await replicate.run("openai/gpt-image-1", {
-            input: {
-              prompt,
-              quality: "high",
-              aspect_ratio: "1:1",
-              background: "auto",
-              number_of_images: 1,
-              moderation: "low",
-              openai_api_key: process.env.OPENAI_API_KEY,
-            },
-          })) as unknown;
+          try {
+            result = (await replicate.run("openai/gpt-image-1", {
+              input: {
+                prompt,
+                quality: "high",
+                aspect_ratio: "1:1",
+                background: "auto",
+                number_of_images: 1,
+                moderation: "low",
+                openai_api_key: process.env.OPENAI_API_KEY,
+              },
+            })) as unknown;
+            console.log("✅ GPT Image API call successful");
+          } catch (gptError) {
+            console.error("❌ GPT Image API call failed:", gptError);
+            throw gptError;
+          }
         }
 
         let url: string | undefined;

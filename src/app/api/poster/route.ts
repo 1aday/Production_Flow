@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 import Replicate from "replicate";
 
