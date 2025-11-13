@@ -3763,6 +3763,21 @@ function ResultView({
 
     const supportsResolution = Boolean(videoModelOption.resolutions?.length);
 
+    const charactersReadyForVideo = characterSeeds.filter((seed) => {
+      const doc = characterDocs[seed.id];
+      const portraitUrl = characterPortraits[seed.id];
+      const hasShowcasePrompt = Boolean(doc?.showcase_scene_prompt);
+      const videoLoading = Boolean(characterVideoLoading[seed.id]);
+      return doc && portraitUrl && hasShowcasePrompt && !videoLoading;
+    });
+
+    const handleGenerateAllVideos = () => {
+      charactersReadyForVideo.forEach((seed) => {
+        const customPrompt = editedVideoPrompts[seed.id];
+        onGenerateVideo(seed.id, customPrompt);
+      });
+    };
+
     return (
       <div className="space-y-4">
         <div className="rounded-3xl border border-white/12 bg-black/35 p-4 sm:p-5 shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
@@ -3847,6 +3862,19 @@ function ResultView({
             </div>
           </div>
         </div>
+        {charactersReadyForVideo.length > 0 && (
+          <div className="flex justify-center">
+            <Button
+              type="button"
+              onClick={handleGenerateAllVideos}
+              disabled={charactersReadyForVideo.length === 0}
+              className="rounded-full"
+            >
+              <SendHorizontal className="mr-2 h-4 w-4" />
+              Generate All Videos ({charactersReadyForVideo.length} ready)
+            </Button>
+          </div>
+        )}
         <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {characterSeeds.map((seed) => {
           const doc = characterDocs[seed.id];
