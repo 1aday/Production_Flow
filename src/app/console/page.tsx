@@ -7499,6 +7499,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
             onVideoResolutionChange={(value) => setVideoResolution(value)}
             libraryPosterUrl={libraryPosterUrl}
             libraryPosterLoading={libraryPosterLoading}
+            libraryPosterError={libraryPosterError}
             portraitGridUrl={portraitGridUrl}
             portraitGridLoading={portraitGridLoading}
             portraitGridError={portraitGridError}
