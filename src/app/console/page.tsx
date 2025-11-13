@@ -1112,53 +1112,6 @@ function CollapsibleSection({
 }
 
 function RawJsonPeek({ rawJson, currentShowId }: { rawJson?: string | null; currentShowId?: string | null }) {
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
-    "idle"
-  );
-  const [isJsonOpen, setIsJsonOpen] = useState(false);
-  const timeoutRef = useRef<number | undefined>(undefined);
-
-  const formattedJson = useMemo(() => {
-    if (!rawJson) return "";
-    try {
-      return JSON.stringify(JSON.parse(rawJson), null, 2);
-    } catch {
-      return rawJson;
-    }
-  }, [rawJson]);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleCopy = useCallback(async () => {
-    if (!rawJson) return;
-    try {
-      await navigator.clipboard.writeText(formattedJson || rawJson);
-      setCopyState("copied");
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = window.setTimeout(
-        () => setCopyState("idle"),
-        2000
-      );
-    } catch (error) {
-      console.error("Failed to copy JSON", error);
-      setCopyState("error");
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = window.setTimeout(
-        () => setCopyState("idle"),
-        2000
-      );
-    }
-  }, [formattedJson, rawJson]);
 
   if (!rawJson) {
     return null;
@@ -1168,58 +1121,27 @@ function RawJsonPeek({ rawJson, currentShowId }: { rawJson?: string | null; curr
     <div className="flex flex-col gap-3">
       {/* Show Page Button - Prominent */}
       {currentShowId && (
-        <Link href={`/show/${currentShowId}`} className="block">
-          <div className="group relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent p-6 transition-all hover:border-primary/50 hover:shadow-[0_8px_30px_rgba(229,9,20,0.4)]">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Eye className="h-5 w-5 text-primary" />
-                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+        <Link href={`/show/${currentShowId}`} className="block touch-manipulation">
+          <div className="group relative overflow-hidden rounded-xl sm:rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent p-4 sm:p-6 transition-all hover:border-primary/50 hover:shadow-[0_8px_30px_rgba(229,9,20,0.4)] active:scale-[0.98]">
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+                  <span className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] sm:tracking-[0.2em] text-primary">
                     View Show Page
                   </span>
                 </div>
-                <p className="text-xs text-foreground/60">
+                <p className="text-[11px] sm:text-xs text-foreground/60">
                   See this show as a beautiful, shareable presentation
                 </p>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 transition-transform group-hover:scale-110">
-                <ArrowLeft className="h-6 w-6 rotate-180 text-primary" />
+              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-primary/20 transition-transform group-hover:scale-110 shrink-0">
+                <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6 rotate-180 text-primary" />
               </div>
             </div>
           </div>
         </Link>
       )}
-
-      {/* JSON Controls */}
-      <div className="flex items-center gap-2 rounded-full border border-white/15 bg-black/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/60">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={handleCopy}
-          className="h-8 gap-1 rounded-full px-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground/75 hover:bg-white/10"
-        >
-          <Copy className="h-3.5 w-3.5 text-foreground/55" />
-          {copyState === "copied"
-            ? "Copied!"
-            : copyState === "error"
-              ? "Copy failed"
-              : "Copy JSON"}
-        </Button>
-        <span className="inline-block h-3 w-px bg-white/15" />
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => setIsJsonOpen((value) => !value)}
-          className="h-8 rounded-full px-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-foreground/75 hover:bg-white/10"
-        >
-          {isJsonOpen ? "Hide JSON" : "View JSON"}
-        </Button>
-      </div>
-      {isJsonOpen ? (
-        <div className="max-h-72 overflow-auto rounded-3xl border border-white/15 bg-black/55 p-5 text-xs leading-relaxed text-foreground/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-          <pre className="whitespace-pre-wrap break-words">{formattedJson}</pre>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -1513,38 +1435,37 @@ function ResultView({
     }
 
     return (
-      <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-white/20 bg-gradient-to-br from-primary/5 via-black/50 to-black/45 p-8 sm:p-12 text-center shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
-        <div className="max-w-2xl space-y-6">
-          <div className="space-y-3">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+      <div className="flex min-h-[360px] sm:min-h-[420px] items-center justify-center rounded-2xl sm:rounded-3xl border border-dashed border-white/20 bg-gradient-to-br from-primary/5 via-black/50 to-black/45 p-6 sm:p-12 text-center shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
+        <div className="max-w-2xl space-y-5 sm:space-y-6">
+          <div className="space-y-2 sm:space-y-3">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground leading-tight">
               Create Your Show Bible
             </h2>
-            <p className="text-sm sm:text-base text-foreground/70">
+            <p className="text-sm sm:text-base text-foreground/70 leading-relaxed px-2">
               Describe your show's premise, tone, or visual style below.
               We'll generate a complete look bible with characters, color palettes, lighting plans, and more.
             </p>
           </div>
-          <div className="flex items-center justify-center gap-4 text-xs text-foreground/50">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-xs sm:text-xs text-foreground/50">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary font-semibold">
+              <span className="flex h-7 w-7 sm:h-6 sm:w-6 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary font-semibold text-sm sm:text-xs">
                 1
               </span>
-              <span>Enter your brief</span>
+              <span className="text-sm sm:text-xs">Enter your brief</span>
             </div>
-            <span className="text-foreground/30">→</span>
+            <span className="hidden sm:inline text-foreground/30">→</span>
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/5 text-foreground/50 font-semibold">
+              <span className="flex h-7 w-7 sm:h-6 sm:w-6 items-center justify-center rounded-full border border-white/20 bg-white/5 text-foreground/50 font-semibold text-sm sm:text-xs">
                 2
               </span>
-              <span>Generate show bible</span>
+              <span className="text-sm sm:text-xs">Generate show bible</span>
             </div>
-            <span className="text-foreground/30">→</span>
+            <span className="hidden sm:inline text-foreground/30">→</span>
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/5 text-foreground/50 font-semibold">
+              <span className="flex h-7 w-7 sm:h-6 sm:w-6 items-center justify-center rounded-full border border-white/20 bg-white/5 text-foreground/50 font-semibold text-sm sm:text-xs">
                 3
               </span>
-              <span className="hidden sm:inline">Build characters</span>
-              <span className="sm:hidden">Characters</span>
+              <span className="text-sm sm:text-xs">Build characters</span>
             </div>
           </div>
         </div>
@@ -4299,25 +4220,25 @@ function ResultView({
             
             {/* Tab Content - All inside the show overview container */}
             <div className="px-3 sm:px-6 pb-4 sm:pb-6">
-              <TabsContent value="master" className="mt-6">
+              <TabsContent value="master" className="mt-4 sm:mt-6">
                 {masterContent}
               </TabsContent>
-              <TabsContent value="assets" className="space-y-6 mt-6">
-                <div className="space-y-8">
+              <TabsContent value="assets" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+                <div className="space-y-6 sm:space-y-8">
                   {assetsSummary}
-                  <div className="grid gap-8 lg:grid-cols-2">
-                    <section className="space-y-4">
+                  <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
+                    <section className="space-y-3 sm:space-y-4">
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+                        <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.28em] sm:tracking-[0.32em] text-foreground/55">
                           Key art delivery
                         </p>
-                        <p className="text-sm text-foreground/65">
+                        <p className="text-xs sm:text-sm text-foreground/65">
                           Poster-ready stills staged for decks, look books, and library carousels.
                         </p>
                       </div>
                       {libraryPosterSection}
                     </section>
-                    <section className="space-y-4">
+                    <section className="space-y-3 sm:space-y-4">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
                           Companion media
@@ -4421,6 +4342,7 @@ export default function Home() {
   const portraitPollsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const videoJobsRef = useRef<Map<string, string>>(new Map()); // characterId -> jobId
   const videoPollsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+  const videoStartTimesRef = useRef<Map<string, number>>(new Map()); // characterId -> start timestamp
   const [videoModelId, setVideoModelId] = useState<VideoModelId>(VIDEO_MODEL_OPTIONS[0].id);
   const [videoSeconds, setVideoSeconds] = useState<VideoDuration>(8);
   const [videoAspectRatio, setVideoAspectRatio] = useState<VideoAspectRatio>("portrait");
@@ -4431,6 +4353,7 @@ export default function Home() {
   );
   const trailerStatusJobIdRef = useRef<string | null>(null);
   const trailerStatusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const trailerStartTimeRef = useRef<number | null>(null);
   const autoGenCheckedShowIdRef = useRef<string | null>(null);
   const autoPortraitCheckedRef = useRef<Set<string>>(new Set());
 
@@ -4439,6 +4362,7 @@ export default function Home() {
       clearInterval(trailerStatusPollRef.current);
       trailerStatusPollRef.current = null;
     }
+    trailerStartTimeRef.current = null;
     // Clear from localStorage when manually stopped
     try {
       localStorage.removeItem('production-flow.trailer-job');
@@ -4453,6 +4377,7 @@ export default function Home() {
       trailerStatusPollRef.current = null;
     }
     trailerStatusJobIdRef.current = jobId;
+    trailerStartTimeRef.current = Date.now();
     
     // Persist to localStorage so it survives navigation
     try {
@@ -4467,6 +4392,33 @@ export default function Home() {
 
     const poll = async () => {
       try {
+        // Check for timeout (15 minutes)
+        const startTime = trailerStartTimeRef.current;
+        if (startTime) {
+          const elapsed = Date.now() - startTime;
+          const timeoutMs = 15 * 60 * 1000; // 15 minutes
+          
+          if (elapsed > timeoutMs) {
+            console.error(`⏱️ Trailer generation timed out after ${Math.round(elapsed / 1000)}s`);
+            
+            setTrailerError("Trailer generation timed out. Please try again.");
+            setTrailerLoading(false);
+            
+            // Update background task
+            if (showId) {
+              updateBackgroundTask(jobId, {
+                status: 'failed',
+                error: 'Generation timed out after 15 minutes'
+              });
+              setTimeout(() => removeBackgroundTask(jobId), 10000);
+            }
+            
+            // Stop polling
+            stopTrailerStatusPolling();
+            return;
+          }
+        }
+        
         const response = await fetch(
           `/api/trailer/status?jobId=${encodeURIComponent(jobId)}`,
           { cache: "no-store" }
@@ -4551,7 +4503,7 @@ export default function Home() {
 
     void poll();
     trailerStatusPollRef.current = setInterval(poll, 3000);
-  }, [currentShowId]);
+  }, [currentShowId, stopTrailerStatusPolling]);
 
 
   // Resume trailer polling on mount if there's an active job
@@ -5278,6 +5230,9 @@ export default function Home() {
       
       console.log(`🎥 Generating video for ${characterId} in show: ${targetShowId}`);
       
+      // Track start time for timeout
+      videoStartTimesRef.current.set(characterId, Date.now());
+      
       // Create background task
       if (targetShowId) {
         const characterName = characterSeeds?.find(s => s.id === characterId)?.name;
@@ -5307,6 +5262,42 @@ export default function Home() {
       const startPolling = (replicateJobId: string) => {
         const pollInterval = setInterval(async () => {
           try {
+            // Check for timeout (15 minutes)
+            const startTime = videoStartTimesRef.current.get(characterId);
+            if (startTime) {
+              const elapsed = Date.now() - startTime;
+              const timeoutMs = 15 * 60 * 1000; // 15 minutes
+              
+              if (elapsed > timeoutMs) {
+                console.error(`⏱️ Video generation timed out for ${characterId} after ${Math.round(elapsed / 1000)}s`);
+                
+                setCharacterVideoErrors((prev) => ({
+                  ...prev,
+                  [characterId]: "Video generation timed out. Please try again.",
+                }));
+                setCharacterVideoLoading((prev) => ({ ...prev, [characterId]: false }));
+                
+                // Update background task
+                if (currentShowId) {
+                  updateBackgroundTask(replicateJobId, { 
+                    status: 'failed', 
+                    error: 'Generation timed out after 15 minutes' 
+                  });
+                  setTimeout(() => removeBackgroundTask(replicateJobId), 10000);
+                }
+                
+                // Stop polling and cleanup
+                const interval = videoPollsRef.current.get(characterId);
+                if (interval) {
+                  clearInterval(interval);
+                  videoPollsRef.current.delete(characterId);
+                }
+                videoJobsRef.current.delete(characterId);
+                videoStartTimesRef.current.delete(characterId);
+                return;
+              }
+            }
+            
             const response = await fetch(
               `/api/characters/video/status?jobId=${encodeURIComponent(replicateJobId)}`,
               { cache: "no-store" }
@@ -5340,6 +5331,7 @@ export default function Home() {
                 videoPollsRef.current.delete(characterId);
               }
               videoJobsRef.current.delete(characterId);
+              videoStartTimesRef.current.delete(characterId);
               return;
             }
             
@@ -5387,6 +5379,7 @@ export default function Home() {
                 videoPollsRef.current.delete(characterId);
               }
               videoJobsRef.current.delete(characterId);
+              videoStartTimesRef.current.delete(characterId);
               
               // Play success sound
               playSuccessChime();
@@ -5417,6 +5410,7 @@ export default function Home() {
                 videoPollsRef.current.delete(characterId);
               }
               videoJobsRef.current.delete(characterId);
+              videoStartTimesRef.current.delete(characterId);
             }
           } catch (pollError) {
             console.error(`Failed to poll video status for ${characterId}:`, pollError);
@@ -5514,6 +5508,7 @@ export default function Home() {
         
         // Clean up
         videoJobsRef.current.delete(characterId);
+        videoStartTimesRef.current.delete(characterId);
       }
     },
     [blueprint, characterDocs, characterPortraits, posterAvailable, videoAspectRatio, videoModelId, videoResolution, videoSeconds, currentShowId, characterSeeds]
@@ -5547,6 +5542,8 @@ export default function Home() {
       
       console.log(`🔄 Resuming video polling for ${task.characterId}`);
       videoJobsRef.current.set(task.characterId, task.id);
+      // Set start time to now for timeout tracking (we don't know original start time)
+      videoStartTimesRef.current.set(task.characterId, Date.now());
       
       // Re-trigger generation which will detect existing job and just start polling
       void generateCharacterVideo(task.characterId);
@@ -6601,6 +6598,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
                   [task.characterId!]: true,
                 }));
                 videoJobsRef.current.set(task.characterId, task.id);
+                videoStartTimesRef.current.set(task.characterId, Date.now());
                 // TODO: Start video polling (will be added in useEffect below)
               }
             }
@@ -7189,30 +7187,30 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       {/* Lightbox */}
       {lightboxImage ? (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/98 backdrop-blur-md cursor-zoom-out animate-in fade-in duration-200"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/98 backdrop-blur-md cursor-zoom-out animate-in fade-in duration-200 p-4 sm:p-6"
           onClick={() => setLightboxImage(null)}
         >
           <button
             type="button"
             onClick={() => setLightboxImage(null)}
-            className="absolute right-6 top-6 z-10 rounded-full border border-white/20 bg-black/80 p-3 text-white shadow-lg backdrop-blur-md transition-all hover:bg-primary hover:border-primary/40 hover:scale-110"
+            className="absolute right-3 top-3 sm:right-6 sm:top-6 z-10 rounded-full border border-white/20 bg-black/80 p-2.5 sm:p-3 text-white shadow-lg backdrop-blur-md transition-all hover:bg-primary hover:border-primary/40 active:scale-95 touch-manipulation"
             aria-label="Close"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
-          <div className="relative max-h-[92vh] max-w-[92vw] animate-in zoom-in-95 duration-300">
-            <div className="rounded-2xl overflow-hidden border border-white/10 shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
+          <div className="relative max-h-[88vh] max-w-[92vw] sm:max-h-[92vh] animate-in zoom-in-95 duration-300">
+            <div className="rounded-xl sm:rounded-2xl overflow-hidden border border-white/10 shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
               <Image
                 src={lightboxImage}
                 alt="Full size view"
                 width={2048}
                 height={2048}
-                className="h-auto max-h-[92vh] w-auto max-w-[92vw] object-contain"
+                className="h-auto max-h-[88vh] sm:max-h-[92vh] w-auto max-w-[92vw] object-contain"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
-            <p className="mt-4 text-center text-sm text-white/60">
-              Click anywhere to close
+            <p className="mt-3 sm:mt-4 text-center text-xs sm:text-sm text-white/60">
+              Tap anywhere to close
             </p>
           </div>
         </div>

@@ -55,35 +55,38 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
         grouped[task.showId].tasks.push(task);
       });
 
-      // Fetch actual show data for each show to check completion
-      await Promise.all(
-        Object.keys(grouped).map(async (showId) => {
-          try {
-            const response = await fetch(`/api/library/${showId}`);
-            if (response.ok) {
-              const data = await response.json() as { show: any };
-              grouped[showId].showData = {
-                blueprint: data.show.blueprint,
-                characterSeeds: data.show.characterSeeds,
-                characterDocs: data.show.characterDocs,
-                characterPortraits: data.show.characterPortraits,
-                characterVideos: data.show.characterVideos,
-                portraitGridUrl: data.show.portraitGridUrl,
-                libraryPosterUrl: data.show.libraryPosterUrl,
-                posterUrl: data.show.posterUrl,
-                trailerUrl: data.show.trailerUrl,
-              };
-              // Update title from actual show data if available
-              if (data.show.blueprint?.show_title) {
-                grouped[showId].showTitle = data.show.blueprint.show_title;
+      // Only fetch show data when panel is open and there are tasks
+      if (isOpen && Object.keys(grouped).length > 0) {
+        // Fetch actual show data for each show to check completion
+        await Promise.all(
+          Object.keys(grouped).map(async (showId) => {
+            try {
+              const response = await fetch(`/api/library/${showId}`);
+              if (response.ok) {
+                const data = await response.json() as { show: any };
+                grouped[showId].showData = {
+                  blueprint: data.show.blueprint,
+                  characterSeeds: data.show.characterSeeds,
+                  characterDocs: data.show.characterDocs,
+                  characterPortraits: data.show.characterPortraits,
+                  characterVideos: data.show.characterVideos,
+                  portraitGridUrl: data.show.portraitGridUrl,
+                  libraryPosterUrl: data.show.libraryPosterUrl,
+                  posterUrl: data.show.posterUrl,
+                  trailerUrl: data.show.trailerUrl,
+                };
+                // Update title from actual show data if available
+                if (data.show.blueprint?.show_title) {
+                  grouped[showId].showTitle = data.show.blueprint.show_title;
+                }
               }
+            } catch (error) {
+              console.warn(`Failed to fetch show data for ${showId}:`, error);
+              // Continue without show data - will just use task data
             }
-          } catch (error) {
-            console.warn(`Failed to fetch show data for ${showId}:`, error);
-            // Continue without show data - will just use task data
-          }
-        })
-      );
+          })
+        );
+      }
 
       // Sort tasks within each show by startedAt (newest first)
       Object.values(grouped).forEach(show => {
@@ -93,10 +96,19 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
       setTasksByShow(grouped);
     };
 
-    updateTasks();
-    const interval = setInterval(updateTasks, 2000); // Check every 2 seconds
-    return () => clearInterval(interval);
-  }, []);
+    void updateTasks();
+    
+    // Only poll when panel is open
+    if (isOpen) {
+      const interval = setInterval(() => {
+        void updateTasks();
+      }, 2000); // Check every 2 seconds
+      return () => clearInterval(interval);
+    }
+    
+    // Always return a cleanup function (even if it does nothing)
+    return () => {};
+  }, [isOpen]);
 
   // Update current time for elapsed time calculations
   useEffect(() => {

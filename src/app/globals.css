@@ -179,6 +179,35 @@
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Smooth Scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Mobile-optimized Focus States */
+  @media (hover: none) and (pointer: coarse) {
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+      outline: 2px solid rgba(229, 9, 20, 0.5);
+      outline-offset: 2px;
+    }
+  }
+
+  /* Prevent Text Selection on Mobile Tap */
+  button,
+  [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Better Text Rendering */
+  body {
+    text-rendering: optimizeLegibility;
+  }
 }
 
 @layer components {
