@@ -86,7 +86,7 @@ export default function LibraryPage() {
         console.error("Failed to stash pending show ID", error);
       }
     }
-    router.push("/");
+    router.push("/console");
   };
 
   const copyShowUrl = async (showId: string, event: React.MouseEvent) => {
@@ -175,7 +175,8 @@ export default function LibraryPage() {
               return (
               <div
                 key={show.id}
-                className="group relative overflow-hidden rounded-2xl border border-white/5 bg-black/30 shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-primary/40 hover:shadow-[0_18px_60px_rgba(229,9,20,0.35)]"
+                className="group relative overflow-hidden rounded-2xl border border-white/5 bg-black/30 shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-primary/40 hover:shadow-[0_18px_60px_rgba(229,9,20,0.35)] cursor-pointer"
+                onDoubleClick={() => loadShow(show.id)}
               >
                 <button
                   type="button"

@@ -23,7 +23,18 @@ const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
 });
 
-const BASE_PROMPT = `Design a theatrical 2:3 portrait movie poster for a prestige streaming series. Capture the tone, palette, lighting, and iconography from the show's visual bible. Focus on cinematic composition, premium typography, and evocative mood.`;
+const BASE_PROMPT = `Design a theatrical 2:3 portrait movie poster for a prestige streaming series.
+
+CRITICAL REQUIREMENTS:
+1. The poster MUST prominently display the show title in large, beautiful, bold typography
+   - Typography should be elegant, theatrical, and eye-catching
+   - Title should be one of the most prominent visual elements
+   - Font choice should match the show's aesthetic and tone
+   - Consider cinematic title treatment (gradients, shadows, artistic styling)
+
+2. Capture the tone, palette, lighting, and iconography from the show's visual bible
+3. Focus on cinematic composition, premium typography, and evocative mood
+4. Award-winning theatrical poster design`;
 
 const trimWithEllipsis = (value: string, limit: number) => {
   if (limit <= 0) return "";
@@ -95,7 +106,10 @@ export async function POST(request: Request) {
     `Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}`,
     "",
     "CRITICAL REQUIREMENTS:",
-    "1. The poster MUST prominently display the show title in bold theatrical typography",
+    `1. The poster MUST prominently display "${showTitle}" in LARGE, BEAUTIFUL, BOLD typography`,
+    "   - Make the title one of the most eye-catching elements",
+    "   - Use elegant, theatrical font styling that matches the show's tone",
+    "   - Consider artistic title treatment (gradients, shadows, cinematic effects)",
     "2. DO NOT use photorealistic rendering",
     "3. DO NOT create a photo-like realistic image",
     "4. MUST match the specified visual style exactly",
@@ -106,12 +120,15 @@ export async function POST(request: Request) {
   ].join("\n") : [
     "!! CRITICAL - DO NOT CREATE PHOTOREALISTIC IMAGE !!",
     "",
-    `Show Title: "${showTitle}" (MUST be displayed prominently on poster)`,
+    `Show Title: "${showTitle}"`,
     "",
     "CRITICAL REQUIREMENTS:",
-    "- Use theatrical/stylized treatment, NOT photorealistic rendering",
-    "- Display the show title prominently with bold typography",
-    "- Use artistic interpretation, NOT realistic photography",
+    `1. The poster MUST prominently display "${showTitle}" in LARGE, BEAUTIFUL, BOLD typography`,
+    "   - Make the title one of the most eye-catching elements",
+    "   - Use elegant, theatrical font styling",
+    "   - Consider artistic title treatment (gradients, shadows, cinematic effects)",
+    "2. Use theatrical/stylized treatment, NOT photorealistic rendering",
+    "3. Use artistic interpretation, NOT realistic photography",
     "",
     "---",
     "",

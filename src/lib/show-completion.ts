@@ -26,7 +26,12 @@ export function calculateShowCompletion(show: {
   trailerUrl?: string | null;
 }): ShowCompletionStatus {
   const totalCharacters = show.characterSeeds?.length || 0;
-  const charactersBuilt = Object.keys(show.characterDocs || {}).length;
+  const characterDocs = show.characterDocs || {};
+  // Only count valid character docs (non-null, non-undefined objects)
+  const charactersBuilt = Object.keys(characterDocs).filter(key => {
+    const doc = characterDocs[key];
+    return doc != null && typeof doc === 'object';
+  }).length;
   const portraitsGenerated = Object.values(show.characterPortraits || {}).filter(url => url).length;
   const videosGenerated = Object.values(show.characterVideos || {}).reduce((sum, arr) => sum + arr.length, 0);
   

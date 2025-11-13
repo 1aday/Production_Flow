@@ -23,7 +23,8 @@ export async function GET() {
     const { data: shows, error } = await supabase
       .from('shows')
       .select('id, title, created_at, updated_at, model, poster_url, library_poster_url, portrait_grid_url, trailer_url, blueprint, character_seeds, character_docs, character_portraits, character_videos')
-      .order('updated_at', { ascending: false });
+      .order('updated_at', { ascending: false })
+      .limit(50); // Limit for performance
     
     if (error) {
       console.error("Supabase query error:", error);
@@ -32,7 +33,7 @@ export async function GET() {
     
     console.log(`Found ${shows?.length || 0} shows in Supabase`);
     
-    // Transform to expected format
+    // Transform to expected format with trailerUrl included
     const showMetadata: ShowMetadata[] = (shows || []).map(show => ({
       id: show.id,
       title: show.title,
@@ -43,7 +44,7 @@ export async function GET() {
       posterUrl: show.poster_url,
       libraryPosterUrl: show.library_poster_url,
       portraitGridUrl: show.portrait_grid_url,
-      trailerUrl: show.trailer_url,
+      trailerUrl: show.trailer_url, // Include trailer URL for landing page
       // For completion calculation
       characterSeeds: show.character_seeds as Array<{ id: string }> | undefined,
       characterDocs: show.character_docs as Record<string, unknown> | undefined,
@@ -94,15 +95,57 @@ export async function POST(request: NextRequest) {
       trailerModel,
     } = body;
     
-    if (!id || !blueprint) {
+    if (!id) {
       return NextResponse.json(
-        { error: "Missing required fields: id and blueprint" },
+        { error: "Missing required field: id" },
         { status: 400 }
       );
     }
     
     const supabase = createServerSupabaseClient();
     const now = new Date().toISOString();
+    
+    // Handle partial updates (e.g., just trailer URL)
+    // If blueprint is missing, this is a partial update - fetch existing data and merge
+    if (!blueprint) {
+      console.log("📝 Partial update detected for show:", id);
+      
+      const { data: existingShow, error: fetchError } = await supabase
+        .from('shows')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (fetchError || !existingShow) {
+        return NextResponse.json(
+          { error: "Show not found for partial update" },
+          { status: 404 }
+        );
+      }
+      
+      // Merge the partial update with existing data
+      const partialUpdate: Record<string, unknown> = {
+        id,
+        updated_at: now,
+      };
+      
+      if (trailerUrl !== undefined) partialUpdate.trailer_url = trailerUrl;
+      if (trailerModel !== undefined) partialUpdate.trailer_model = trailerModel;
+      
+      const { error: updateError } = await supabase
+        .from('shows')
+        .update(partialUpdate)
+        .eq('id', id);
+      
+      if (updateError) {
+        console.error("Supabase partial update error:", updateError);
+        throw updateError;
+      }
+      
+      console.log("✅ Partial update saved:", partialUpdate);
+      return NextResponse.json({ success: true, id });
+    }
+    
     const title = blueprint.show_title || blueprint.show_logline?.slice(0, 100) || "Untitled Show";
     
     // Upload assets to Supabase Storage if they're data URLs

@@ -4,8 +4,9 @@ import Replicate from "replicate";
 export const maxDuration = 60;
 
 type RequestBody = {
-  logline: string;
+  prompt: string; // Full prompt with style guide
   characterImageUrl: string;
+  imageModel?: "gpt-image" | "flux"; // Selected image model
   showData?: {
     show_title?: string;
     visual_aesthetics?: {
@@ -24,6 +25,8 @@ type RequestBody = {
       };
     };
   };
+  // Legacy support
+  logline?: string;
 };
 
 const resolveUrl = async (value: unknown): Promise<string | undefined> => {
@@ -70,108 +73,198 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json()) as RequestBody;
-    const { logline, characterImageUrl, showData } = body;
+    const { prompt, logline, characterImageUrl, imageModel, showData } = body;
 
-    if (!logline || !characterImageUrl) {
+    // Use prompt if provided, otherwise fall back to logline (legacy)
+    const userPrompt = prompt || logline;
+    
+    // Default to GPT Image (better quality and follows prompts more accurately)
+    const selectedModel = imageModel || "gpt-image";
+
+    if (!userPrompt || !characterImageUrl) {
       return NextResponse.json(
-        { error: "Missing required fields: logline and characterImageUrl" },
+        { error: "Missing required fields: prompt and characterImageUrl" },
         { status: 400 }
       );
     }
 
     const replicate = new Replicate({ auth: token });
 
-    // Build visual direction from show data
-    const visualAesthetics = showData?.visual_aesthetics;
-    let visualDirection = "";
-    
-    if (visualAesthetics) {
-      const parts: string[] = [];
-      
-      if (visualAesthetics.goal) {
-        parts.push(`Visual goal: ${visualAesthetics.goal}`);
-      }
-      
-      if (visualAesthetics.color) {
-        if (visualAesthetics.color.palette_bias) {
-          parts.push(`Color palette: ${visualAesthetics.color.palette_bias}`);
-        }
-        if (visualAesthetics.color.anchor_hex?.length) {
-          parts.push(`Key colors: ${visualAesthetics.color.anchor_hex.join(", ")}`);
-        }
-      }
-      
-      if (visualAesthetics.lighting) {
-        if (visualAesthetics.lighting.temperature_model) {
-          parts.push(`Lighting: ${visualAesthetics.lighting.temperature_model}`);
-        }
-        if (visualAesthetics.lighting.key) {
-          parts.push(`Key light: ${visualAesthetics.lighting.key}`);
-        }
-      }
-      
-      if (visualAesthetics.composition) {
-        if (visualAesthetics.composition.symmetry_bias) {
-          parts.push(`Composition: ${visualAesthetics.composition.symmetry_bias}`);
-        }
-        if (visualAesthetics.composition.color_blocking) {
-          parts.push(`Color blocking: ${visualAesthetics.composition.color_blocking}`);
-        }
-      }
-      
-      if (parts.length > 0) {
-        visualDirection = `\n\nShow Visual Style:\n${parts.join("\n")}`;
-      }
-    }
-
     console.log("=== LIBRARY POSTER DEBUG ===");
+    console.log("Has prompt field:", !!prompt);
+    console.log("Has logline field (legacy):", !!logline);
+    console.log("Has characterImageUrl:", !!characterImageUrl);
+    console.log("characterImageUrl value:", characterImageUrl?.slice(0, 100));
     console.log("showData exists:", !!showData);
     console.log("showData type:", typeof showData);
+    console.log("showData keys:", showData ? Object.keys(showData).slice(0, 20) : []);
+    
+    // Extract show title - handle different possible field names
+    let showTitle = "Untitled Show";
     if (showData) {
+      // Log what we're checking
       console.log("showData.show_title:", showData.show_title);
-      console.log("showData keys:", Object.keys(showData).slice(0, 10));
+      console.log("showData[show_title] type:", typeof showData.show_title);
+      
+      // Try different field names
+      showTitle = (showData.show_title || 
+                   (showData as any).title || 
+                   (showData as any).showTitle || 
+                   "Untitled Show");
+    }
+    console.log("✅ Final extracted showTitle:", showTitle);
+    
+    if (!characterImageUrl) {
+      return NextResponse.json(
+        { error: "Missing characterImageUrl - portrait grid is required for library poster" },
+        { status: 400 }
+      );
     }
     
-    const showTitle = showData?.show_title || "Untitled";
-    console.log("Extracted showTitle:", showTitle);
+    // Build the final poster prompt
+    // If user sent full prompt with style guide, use it directly with additional poster guidance
+    const posterPrompt = `${userPrompt}
+
+CRITICAL POSTER REQUIREMENTS:
+
+1. SHOW TITLE: The poster MUST prominently display "${showTitle}" in large, beautiful, bold typography
+   - Typography should be elegant, theatrical, and eye-catching
+   - Title should be one of the most prominent elements of the design
+   - Font choice should match the show's aesthetic and tone
+   - Consider cinematic title treatment (gradients, shadows, artistic styling)
+
+2. NETFLIX-STYLE DESIGN:
+   - Modern streaming service aesthetic with premium typography
+   - Character-focused composition using the provided character reference images
+   - Moody atmospheric background that sets the tone
+   - Premium quality, theatrical release aesthetic
+   - Portrait orientation 2:3 aspect ratio
+   - High contrast, rich colors, professional color grading
+   - Award-winning poster design
+
+3. COMPOSITION:
+   - Characters from the reference image should be featured prominently
+   - Create visual hierarchy with title and characters
+   - Leave strategic space for the title typography
+   - Balance between character focus and atmospheric mood
+
+Remember: The show title "${showTitle}" MUST be clearly visible with beautiful typography!`;
+
+    console.log("\n=== LIBRARY POSTER GENERATION ===");
+    console.log("✅ Show Title Being Used:", showTitle);
+    console.log("✅ Character Grid URL:", characterImageUrl.slice(0, 100) + "...");
+    console.log("✅ Selected Image Model:", selectedModel);
+    console.log("✅ User Prompt Length:", userPrompt.length);
+    console.log("✅ Final Poster Prompt Length:", posterPrompt.length);
+    console.log("\n--- POSTER PROMPT PREVIEW (first 600 chars) ---");
+    console.log(posterPrompt.slice(0, 600) + "...");
+    console.log("--- END PROMPT PREVIEW ---");
+    console.log("\n🎨 Sending request to GPT Image...");
+    console.log("   aspect_ratio: 2:3");
+    console.log("   input_images: [character grid URL]");
+    console.log("   input_fidelity: high");
+    console.log("   quality: high\n");
+
+    let result;
     
-    // Create a Netflix-style movie poster prompt with 9:16 aspect ratio
-    const posterPrompt = `Netflix-style movie poster, cinematic composition, dramatic lighting, professional design. 
-Title: "${showTitle}"
-${logline}${visualDirection}
+    if (selectedModel === "gpt-image") {
+      // Use GPT Image with reference image
+      console.log("🎨 Using GPT Image 1 for library poster");
+      
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error("Missing OPENAI_API_KEY environment variable");
+      }
+      
+      // Use direct API to ensure proper array handling
+      const createResponse = await fetch("https://api.replicate.com/v1/models/openai/gpt-image-1/predictions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          input: {
+            prompt: posterPrompt,
+            quality: "high",
+            aspect_ratio: "2:3", // Portrait - valid GPT Image aspect ratio
+            input_images: [characterImageUrl], // Reference image array
+            input_fidelity: "high", // Match character features closely
+            number_of_images: 1,
+            moderation: "low",
+            openai_api_key: process.env.OPENAI_API_KEY,
+          },
+        }),
+      });
 
-Style: Modern streaming service poster with bold typography. The title "${showTitle}" should be prominently displayed in the upper third.
-Character-focused composition, moody atmospheric background, premium quality, theatrical release aesthetic, portrait orientation 9:16 aspect ratio.
-High contrast, rich colors, professional color grading, award-winning poster design.`;
+      if (!createResponse.ok) {
+        const errorBody = await createResponse.text();
+        console.error("GPT Image API error:", errorBody);
+        throw new Error(`Failed to create GPT Image prediction: ${createResponse.status} - ${errorBody}`);
+      }
 
-    console.log("=== LIBRARY POSTER GENERATION ===");
-    console.log("Show Title Being Used:", showTitle);
-    console.log("Logline:", logline.slice(0, 150));
-    console.log("Character image:", characterImageUrl.slice(0, 80) + "...");
-    console.log("\n--- FULL PROMPT ---");
-    console.log(posterPrompt);
-    console.log("--- END PROMPT ---\n");
+      const prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+      console.log("✅ GPT Image prediction created:", prediction.id);
+      console.log("   Initial status:", prediction.status);
 
-    // Use FLUX with image-to-image for consistent character appearance
-    const result = await replicate.run("black-forest-labs/flux-1.1-pro", {
-      input: {
-        prompt: posterPrompt,
-        image: characterImageUrl,
-        prompt_strength: 0.85, // Strong adherence to prompt while keeping character
-        aspect_ratio: "9:16",
-        output_format: "webp",
-        output_quality: 95,
-        safety_tolerance: 2,
-      },
-    });
+      // Poll for completion
+      let gptResult = prediction;
+      let pollCount = 0;
+      while (gptResult.status === "starting" || gptResult.status === "processing") {
+        pollCount++;
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${gptResult.id}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+        
+        gptResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+        console.log(`   Poll ${pollCount}: ${gptResult.status}`);
+      }
+
+      console.log(`✅ GPT Image completed after ${pollCount} polls`);
+      console.log("   Final status:", gptResult.status);
+
+      if (gptResult.status === "failed") {
+        console.error("❌ GPT Image generation failed:", gptResult.error);
+        throw new Error(gptResult.error || "GPT Image generation failed");
+      }
+
+      result = gptResult.output;
+      console.log("   Output type:", typeof result);
+      console.log("   Output preview:", JSON.stringify(result).slice(0, 200));
+    } else {
+      // Use FLUX with image-to-image for consistent character appearance
+      console.log("🎨 Using FLUX 1.1 Pro for library poster");
+      result = await replicate.run("black-forest-labs/flux-1.1-pro", {
+        input: {
+          prompt: posterPrompt,
+          image: characterImageUrl,
+          prompt_strength: 0.85, // Strong adherence to prompt while keeping character
+          aspect_ratio: "9:16",
+          output_format: "webp",
+          output_quality: 95,
+          safety_tolerance: 2,
+        },
+      });
+    }
 
     const output = await resolveUrl(result);
 
     if (!output) {
+      console.error("❌ No output URL from image generation");
+      console.error("   Result type:", typeof result);
+      console.error("   Result:", JSON.stringify(result).slice(0, 300));
       throw new Error("No output from image generation");
     }
 
-    console.log("Library poster generated successfully");
+    console.log("=== LIBRARY POSTER SUCCESS ===");
+    console.log("✅ Library poster generated successfully!");
+    console.log("   Show Title:", showTitle);
+    console.log("   Output URL:", output.slice(0, 100) + "...");
+    console.log("   Used Character Grid: YES");
+    console.log("   Image Model:", selectedModel);
 
     return NextResponse.json({ url: output });
   } catch (error) {

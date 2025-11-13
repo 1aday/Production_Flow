@@ -73,25 +73,59 @@ ${logline}${styleGuidance}
 
 TRAILER REQUIREMENTS:
 
-1. DO NOT show character names or text labels - this is a visual-only teaser
-2. Study the character grid reference image to understand the cast, but let the visuals speak for themselves
-3. Create a well-paced, exciting montage that captures the show's core vibe and genre
-4. Showcase the MOST INTERESTING and ICONIC moments that would make viewers want to watch
-5. Build anticipation and intrigue through dynamic editing and compelling visuals
+1. OPENING TITLE CARD: Begin with a striking title card displaying "${title}" in beautiful, bold typography that matches the show's aesthetic. The title should be elegant, memorable, and set the tone for what follows. Hold for 2-3 seconds.
+
+2. VOICEOVER NARRATION: Include a professional, CINEMATIC trailer voiceover that sounds like an ACTUAL movie trailer - NOT someone reading a script or explaining the show:
+   
+   CRITICAL: The voiceover must be ENGAGING, DRAMATIC, and ICONIC - like the voice actors in real Hollywood trailers.
+   
+   Genre-Specific Voice Direction:
+   - For COMEDY: The "In a World" guy doing comedy - dry wit, impeccable timing, knowing irony. Think: casual cool meets sharp humor
+   - For ACTION: Deep, gravelly, INTENSE voice (think: Hans Zimmer trailer narrator). Every word drips with stakes and danger
+   - For HORROR: Whispered menace, bone-chilling calm before the storm. Not explaining - HAUNTING
+   - For DRAMA: Emotional power, thoughtful gravitas, pulls at heartstrings. Raw and real
+   - For ADVENTURE: Epic, wonder-struck, makes you FEEL the journey. Grand and inspiring
+   
+   VOICEOVER STYLE RULES:
+   ✓ Short, punchy phrases that PUNCTUATE visuals
+   ✓ Build tension and intrigue with each line
+   ✓ Use trailer-speak: fragments, dramatic pauses, building rhythm
+   ✓ Match the energy of what's on screen
+   ✓ End lines on power words that hit hard
+   ✓ Create mystery - DON'T explain everything
+   
+   ✗ NEVER sound like: "This is a show about..." or "Meet the characters who..."
+   ✗ NEVER be explanatory or expository
+   ✗ NEVER use boring, flat narration
+   ✗ NEVER sound like a documentary narrator
+   
+   EXAMPLE GOOD TRAILER VOICEOVER STYLE:
+   "Some secrets... [pause] ...refuse to stay buried."
+   "In a world on the edge... one choice... will change everything."
+   "They thought they knew the truth. They were wrong."
+   
+   The narrator should sound like a PROFESSIONAL TRAILER VOICE ACTOR - commanding, magnetic, impossible to ignore.
+
+3. Study the character grid reference image to understand the cast, weaving them into the narrative
+4. Create a well-paced, exciting montage that captures the show's core vibe and genre
+5. Showcase the MOST INTERESTING and ICONIC moments that would make viewers want to watch
+6. Build anticipation and intrigue through dynamic editing, compelling visuals, and punchy narration
 
 PACING & STRUCTURE:
-- Open with an attention-grabbing establishing shot that sets the tone
-- Quick cuts showcasing key characters in signature moments
-- Build energy and tension throughout
-- Include 2-3 memorable "money shots" that define the show's unique appeal
-- End on an intriguing moment or cliffhanger that leaves viewers wanting more
+- Open with the title card (2-3 seconds) with impactful music
+- Voiceover opens with a HOOK - short, powerful, mysterious (NOT "In a world where..." unless it's perfect for the tone)
+- Quick cuts showcasing key characters and moments, each PUNCTUATED by sharp voiceover phrases
+- Build energy and TENSION throughout - narration should ESCALATE, not plateau
+- Include 2-3 memorable "money shots" with power-word voiceover hits
+- Voiceover rhythm: SHORT bursts that let visuals breathe, then hit HARD on the next beat
+- FINAL LINE must be a KILLER moment that leaves you wanting more - one perfect sentence that defines everything
 
 TONE & GENRE GUIDANCE:
-- If COMEDY: Focus on visual humor, comedic timing, absurd situations, character reactions
-- If ACTION: Emphasize dynamic movement, tension, stakes, explosive moments
-- If HORROR: Build dread, use atmosphere, shadows, unsettling imagery
-- If DRAMA: Focus on emotion, character conflict, relationships, dramatic moments
-- If ADVENTURE: Show scope, wonder, discovery, exciting set pieces
+- If COMEDY: Visual humor, perfect timing, absurd situations. Voiceover: DRY, WITTY, self-aware - the voice is IN on the joke.
+- If ACTION: Dynamic movement, EXPLOSIVE tension, life-or-death stakes. Voiceover: INTENSE, gravelly, every word is WAR.
+- If HORROR: Creeping dread, shadows, the unseen. Voiceover: WHISPERED menace, bone-chilling calm, what's NOT said is scarier.
+- If DRAMA: Raw emotion, character conflict, human stakes. Voiceover: POWERFUL vulnerability, real and heartfelt, tears or triumph.
+- If ADVENTURE: Epic scope, wonder, impossible journeys. Voiceover: GRAND, awe-filled, makes you believe in magic.
 
 VISUAL APPROACH:
 - Use dynamic camera movements and impactful compositions
@@ -99,8 +133,9 @@ VISUAL APPROACH:
 - Match the show's visual style and production medium exactly (see above)
 - Create a sense of scale and production value
 - Every frame should feel intentional and exciting
+- Sync visuals with voiceover for maximum impact
 
-The character grid shows your cast - use them throughout but focus on MOMENTS and ATMOSPHERE, not introductions.
+The character grid shows your cast - use them throughout but focus on MOMENTS and ATMOSPHERE matched with compelling narration.
 
 Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
