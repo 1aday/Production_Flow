@@ -155,14 +155,8 @@ export async function POST(request: Request) {
     if (selectedModel === "flux") {
       // Use FLUX for portrait
       console.log("🎨 Using FLUX 1.1 Pro for portrait");
-      const modelVersion = await replicate.models.versions.get(
-        "black-forest-labs",
-        "flux-1.1-pro",
-        "latest"
-      );
-      
       prediction = await replicate.predictions.create({
-        version: modelVersion.id,
+        model: "black-forest-labs/flux-1.1-pro",
         input: {
           prompt,
           aspect_ratio: "1:1",
@@ -174,24 +168,34 @@ export async function POST(request: Request) {
     } else {
       // Use GPT Image for portrait
       console.log("🎨 Using GPT Image 1 for portrait");
-      const modelVersion = await replicate.models.versions.get(
-        "openai",
-        "gpt-image-1",
-        "latest"
-      );
       
-      prediction = await replicate.predictions.create({
-        version: modelVersion.id,
-        input: {
-          prompt,
-          quality: "high",
-          aspect_ratio: "1:1",
-          background: "auto",
-          number_of_images: 1,
-          moderation: "low",
-          openai_api_key: process.env.OPENAI_API_KEY,
+      // Use direct API to avoid version lookup issues
+      const createResponse = await fetch("https://api.replicate.com/v1/models/openai/gpt-image-1/predictions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          input: {
+            prompt,
+            quality: "high",
+            aspect_ratio: "1:1",
+            background: "auto",
+            number_of_images: 1,
+            moderation: "low",
+            openai_api_key: process.env.OPENAI_API_KEY,
+          },
+        }),
       });
+
+      if (!createResponse.ok) {
+        const errorBody = await createResponse.text();
+        console.error("GPT Image API error:", errorBody);
+        throw new Error(`Failed to create GPT Image prediction: ${createResponse.status} - ${errorBody}`);
+      }
+
+      prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
     }
 
     console.log("✅ Portrait prediction created:", prediction.id);
