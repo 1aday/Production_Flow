@@ -9,7 +9,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (!process.env.REPLICATE_API_TOKEN) {
+  const replicateToken = process.env.REPLICATE_API_TOKEN;
+  
+  if (!replicateToken) {
     return NextResponse.json(
       { error: "Missing REPLICATE_API_TOKEN environment variable." },
       { status: 500 }
@@ -17,16 +19,26 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    console.log(`📊 Polling portrait status for job: ${jobId}`);
+    console.log(`   URL: https://api.replicate.com/v1/predictions/${jobId}`);
+    console.log(`   Using token: ${replicateToken.slice(0, 8)}...`);
+    
     // Query Replicate's API for the prediction status using direct fetch
     const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${jobId}`, {
       headers: {
-        "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+        "Authorization": `Bearer ${replicateToken}`,
       },
     });
 
+    console.log(`   Response status: ${statusResponse.status}`);
+
     if (!statusResponse.ok) {
       const errorBody = await statusResponse.text();
-      console.error(`Failed to fetch status for ${jobId}:`, errorBody);
+      console.error(`❌ Failed to fetch status for ${jobId}:`, errorBody);
+      console.error(`   This could mean:`);
+      console.error(`   1. Prediction ID doesn't exist`);
+      console.error(`   2. Prediction was created under wrong account`);
+      console.error(`   3. Prediction completed and was cleaned up`);
       throw new Error(`Replicate API error: ${statusResponse.status}`);
     }
 

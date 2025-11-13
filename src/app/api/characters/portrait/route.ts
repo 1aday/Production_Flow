@@ -28,14 +28,21 @@ const trimJson = (value: unknown, limit = MAX_JSON_LENGTH) => {
 export const maxDuration = 60; // Reduced to 60s since we return immediately
 
 export async function POST(request: Request) {
-  if (!process.env.REPLICATE_API_TOKEN) {
+  const replicateToken = process.env.REPLICATE_API_TOKEN;
+  const openaiKey = process.env.OPENAI_API_KEY;
+  
+  console.log("🔑 Environment check:");
+  console.log("   REPLICATE_API_TOKEN:", replicateToken ? `${replicateToken.slice(0, 8)}...` : "❌ MISSING");
+  console.log("   OPENAI_API_KEY:", openaiKey ? `${openaiKey.slice(0, 8)}...` : "❌ MISSING");
+  
+  if (!replicateToken) {
     return NextResponse.json(
       { error: "Missing REPLICATE_API_TOKEN environment variable." },
       { status: 500 }
     );
   }
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!openaiKey) {
     return NextResponse.json(
       { error: "Missing OPENAI_API_KEY environment variable." },
       { status: 500 }
@@ -170,10 +177,11 @@ export async function POST(request: Request) {
       console.log("🎨 Using GPT Image 1 for portrait");
       
       // Use direct API to avoid version lookup issues
+      console.log("🌐 Creating GPT Image prediction with token:", `${replicateToken.slice(0, 8)}...`);
       const createResponse = await fetch("https://api.replicate.com/v1/models/openai/gpt-image-1/predictions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+          "Authorization": `Bearer ${replicateToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -184,7 +192,7 @@ export async function POST(request: Request) {
             background: "auto",
             number_of_images: 1,
             moderation: "low",
-            openai_api_key: process.env.OPENAI_API_KEY,
+            openai_api_key: openaiKey,
           },
         }),
       });
@@ -195,7 +203,30 @@ export async function POST(request: Request) {
         throw new Error(`Failed to create GPT Image prediction: ${createResponse.status} - ${errorBody}`);
       }
 
-      prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+      prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown; urls?: Record<string, string> };
+      
+      console.log("📦 Full GPT Image prediction response:");
+      console.log("   ID:", prediction.id);
+      console.log("   Status:", prediction.status);
+      console.log("   URLs:", prediction.urls);
+      console.log("   Full response:", JSON.stringify(prediction).slice(0, 500));
+      
+      // IMMEDIATE TEST: Try to query this prediction right after creation
+      console.log("🔍 Testing immediate queryability with SAME token:", `${replicateToken.slice(0, 8)}...`);
+      const testResponse = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+        headers: {
+          "Authorization": `Bearer ${replicateToken}`,
+        },
+      });
+      console.log("   Immediate query status:", testResponse.status);
+      if (testResponse.ok) {
+        const testData = await testResponse.json();
+        console.log("   ✅ Prediction IS queryable! Status:", testData.status);
+      } else {
+        const errorText = await testResponse.text();
+        console.log("   ❌ Prediction NOT queryable! Error:", errorText);
+        console.log("   Token used for query:", `${replicateToken.slice(0, 8)}...`);
+      }
     }
 
     console.log("✅ Portrait prediction created:", prediction.id);
