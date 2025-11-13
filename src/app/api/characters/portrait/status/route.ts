@@ -1,9 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import Replicate from "replicate";
-
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-});
 
 export async function GET(request: NextRequest) {
   const jobId = request.nextUrl.searchParams.get("jobId");
@@ -22,8 +17,24 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Query Replicate's API for the prediction status
-    const prediction = await replicate.predictions.get(jobId);
+    // Query Replicate's API for the prediction status using direct fetch
+    const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${jobId}`, {
+      headers: {
+        "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+      },
+    });
+
+    if (!statusResponse.ok) {
+      const errorBody = await statusResponse.text();
+      console.error(`Failed to fetch status for ${jobId}:`, errorBody);
+      throw new Error(`Replicate API error: ${statusResponse.status}`);
+    }
+
+    const prediction = await statusResponse.json() as { 
+      status: string; 
+      error?: string; 
+      output?: unknown;
+    };
     
     let outputUrl: string | undefined;
     
