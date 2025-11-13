@@ -4218,85 +4218,87 @@ function ResultView({
   return (
     <>
       {/* Show Overview with Integrated Tabs */}
-      <div className="max-w-[1600px] mx-auto mb-6">
-        <div className="rounded-3xl border border-white/12 bg-black/45 shadow-[0_18px_60px_rgba(0,0,0,0.55)] overflow-hidden">
+      <div className="max-w-[1600px] mx-auto mb-4 sm:mb-6">
+        <div className="rounded-2xl sm:rounded-3xl border border-white/12 bg-black/45 shadow-[0_18px_60px_rgba(0,0,0,0.55)] overflow-hidden">
           {/* Show Header */}
-          <div className="p-6 pb-4 space-y-4 border-b border-white/12">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+          <div className="p-4 sm:p-6 pb-3 sm:pb-4 space-y-3 sm:space-y-4 border-b border-white/12">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.28em] sm:tracking-[0.32em] text-foreground/55">
                 Show overview
               </p>
               {usageBadge}
             </div>
             {blueprint.show_title ? (
-              <h2 className="text-2xl font-bold text-foreground/90">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground/90 leading-tight">
                 {blueprint.show_title}
               </h2>
             ) : null}
-            <p className="text-base leading-relaxed text-foreground/80 whitespace-pre-wrap">
+            <p className="text-sm sm:text-base leading-relaxed text-foreground/80 whitespace-pre-wrap">
               {blueprint.show_logline}
             </p>
           </div>
 
           {/* Tabs Section */}
           <Tabs defaultValue="master" className="space-y-0" id="main-tabs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 pt-4 pb-2">
-              <TabsList className="w-full sm:w-auto justify-start bg-black/40">
-          <TabsTrigger value="master" className="flex-1 sm:flex-none">
-            <span className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-3 sm:px-6 pt-3 sm:pt-4 pb-2">
+              <TabsList className="w-full sm:w-auto justify-start bg-black/40 overflow-x-auto scrollbar-hide">
+          <TabsTrigger value="master" className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation whitespace-nowrap">
+            <span className="flex items-center gap-1.5 sm:gap-2">
               Master
             </span>
           </TabsTrigger>
-          <TabsTrigger value="characters" className="flex-1 sm:flex-none">
-            <span className="flex items-center gap-2">
+          <TabsTrigger value="characters" className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation whitespace-nowrap">
+            <span className="flex items-center gap-1.5 sm:gap-2">
               Characters
               {charactersTabBusy ? (
                 <span
-                  className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
+                  className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
                   aria-label="Character tasks running"
                 />
               ) : null}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="videos" className="flex-1 sm:flex-none">
-            <span className="flex items-center gap-2">
+          <TabsTrigger value="videos" className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation whitespace-nowrap">
+            <span className="flex items-center gap-1.5 sm:gap-2">
               Videos
               {videosTabBusy ? (
                 <span
-                  className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
+                  className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
                   aria-label="Video renders running"
                 />
               ) : null}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="trailer" className="flex-1 sm:flex-none">
-            <span className="flex items-center gap-2">
+          <TabsTrigger value="trailer" className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation whitespace-nowrap">
+            <span className="flex items-center gap-1.5 sm:gap-2">
               Trailer
               {trailerTabBusy ? (
                 <span
-                  className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
+                  className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
                   aria-label="Trailer rendering"
                 />
               ) : null}
             </span>
           </TabsTrigger>
-          <TabsTrigger value="assets" className="flex-1 sm:flex-none">
-            <span className="flex items-center gap-2">
+          <TabsTrigger value="assets" className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation whitespace-nowrap">
+            <span className="flex items-center gap-1.5 sm:gap-2">
               Assets
               {assetsTabBusy ? (
                 <span
-                  className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
+                  className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
                   aria-label="Asset renders running"
                 />
               ) : null}
             </span>
           </TabsTrigger>
               </TabsList>
-              <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} currentShowId={currentShowId} />
+              <div className="hidden sm:block">
+                <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} currentShowId={currentShowId} />
+              </div>
             </div>
             
             {/* Tab Content - All inside the show overview container */}
-            <div className="px-6 pb-6">
+            <div className="px-3 sm:px-6 pb-4 sm:pb-6">
               <TabsContent value="master" className="mt-6">
                 {masterContent}
               </TabsContent>
