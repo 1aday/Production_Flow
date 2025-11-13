@@ -51,6 +51,7 @@ export async function GET(
     const assets: {
       portraits: string[];
       characterPortraits?: Record<string, string>;
+      characterVideos?: Record<string, string[]>;
       poster?: string;
       trailer?: string;
       libraryPoster?: string;
@@ -67,6 +68,11 @@ export async function GET(
           assets.portraits.push(url);
         }
       });
+    }
+    
+    // Character videos
+    if (show.character_videos) {
+      assets.characterVideos = show.character_videos;
     }
     
     // Posters and trailer

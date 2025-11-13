@@ -39,6 +39,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 type ShowAssets = {
   portraits: string[];
   characterPortraits?: Record<string, string>;
+  characterVideos?: Record<string, string[]>;
   poster?: string;
   trailer?: string;
   libraryPoster?: string;
@@ -415,7 +416,7 @@ export default function ShowPage() {
         
         {/* Quick Info Bar */}
         <div className="flex flex-wrap gap-3">
-          {generatedContent?.tone_keywords?.map((keyword, i) => (
+          {generatedContent?.tone_keywords?.map((keyword: string, i: number) => (
             <Badge
               key={i}
               variant="outline"
@@ -441,7 +442,7 @@ export default function ShowPage() {
             </div>
           ) : generatedContent?.expanded_description && (
             <div className="space-y-4">
-              {generatedContent.expanded_description.map((paragraph, i) => (
+              {generatedContent.expanded_description.map((paragraph: string, i: number) => (
                 <p key={i} className="text-lg leading-relaxed text-foreground/80">
                   {paragraph}
                 </p>
@@ -517,6 +518,10 @@ export default function ShowPage() {
                     p.toLowerCase().includes(character.id.toLowerCase())
                   );
                 
+                const characterVideoUrls = assets.characterVideos?.[character.id] || [];
+                const hasVideo = characterVideoUrls.length > 0;
+                const videoUrl = hasVideo ? characterVideoUrls[0] : null;
+                
                 const charDoc = characterDocs[character.id];
                 const isExpanded = expandedCharacter === character.id;
 
@@ -527,9 +532,18 @@ export default function ShowPage() {
                   >
                     {/* Character Header */}
                     <div className="grid gap-6 p-6 lg:grid-cols-3">
-                      {/* Portrait */}
+                      {/* Portrait or Video */}
                       <div className="relative aspect-[3/4] overflow-hidden rounded-xl lg:col-span-1">
-                        {portraitUrl ? (
+                        {hasVideo && videoUrl ? (
+                          <video
+                            src={videoUrl}
+                            loop
+                            autoPlay
+                            muted
+                            playsInline
+                            className="absolute inset-0 h-full w-full object-cover"
+                          />
+                        ) : portraitUrl ? (
                           <Image
                             src={portraitUrl}
                             alt={character.name}
@@ -738,7 +752,7 @@ export default function ShowPage() {
                                 </div>
                                 {charDoc.biometrics.voice.descriptors && charDoc.biometrics.voice.descriptors.length > 0 && (
                                   <div className="mt-3 flex flex-wrap gap-1.5">
-                                    {charDoc.biometrics.voice.descriptors.map((desc, i) => (
+                                    {charDoc.biometrics.voice.descriptors.map((desc: string, i: number) => (
                                       <Badge key={i} variant="secondary" className="text-xs">
                                         {desc}
                                       </Badge>
@@ -759,7 +773,7 @@ export default function ShowPage() {
                                     <div>
                                       <p className="text-xs text-foreground/60 mb-1">Motor</p>
                                       <div className="space-y-1">
-                                        {charDoc.biometrics.tics.motor.map((tic, i) => (
+                                        {charDoc.biometrics.tics.motor.map((tic: string, i: number) => (
                                           <p key={i} className="text-sm">• {tic}</p>
                                         ))}
                                       </div>
@@ -769,7 +783,7 @@ export default function ShowPage() {
                                     <div>
                                       <p className="text-xs text-foreground/60 mb-1">Verbal</p>
                                       <div className="space-y-1">
-                                        {charDoc.biometrics.tics.verbal.map((tic, i) => (
+                                        {charDoc.biometrics.tics.verbal.map((tic: string, i: number) => (
                                           <p key={i} className="text-sm">• {tic}</p>
                                         ))}
                                       </div>
@@ -816,7 +830,7 @@ export default function ShowPage() {
                                 <div className="rounded-lg border border-white/10 bg-white/5 p-4 lg:col-span-2">
                                   <span className="text-xs text-foreground/60 uppercase tracking-wide mb-3 block">Character Palette</span>
                                   <div className="flex flex-wrap gap-3">
-                                    {charDoc.look.palette.anchors.map((color, i) => (
+                                    {charDoc.look.palette.anchors.map((color: string, i: number) => (
                                       <div key={i} className="flex flex-col items-center gap-2">
                                         <div
                                           className="h-12 w-12 rounded-lg border-2 border-white/20 shadow-lg"
@@ -844,7 +858,7 @@ export default function ShowPage() {
                                   )}
                                   {charDoc.look.eyes.behaviors && charDoc.look.eyes.behaviors.length > 0 && (
                                     <div className="mt-2 flex flex-wrap gap-1">
-                                      {charDoc.look.eyes.behaviors.map((behavior, i) => (
+                                      {charDoc.look.eyes.behaviors.map((behavior: string, i: number) => (
                                         <Badge key={i} variant="outline" className="text-[10px]">
                                           {behavior}
                                         </Badge>
@@ -1047,7 +1061,7 @@ export default function ShowPage() {
                       <div>
                         <span className="text-foreground/60">Color Palette:</span>
                         <div className="mt-2 flex gap-2">
-                          {type.palette.anchors.map((color, i) => (
+                          {type.palette.anchors.map((color: string, i: number) => (
                             <div
                               key={i}
                               className="h-10 w-10 rounded-lg border border-white/20 shadow-lg"
