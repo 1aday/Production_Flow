@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { BackgroundTasksIndicator } from "@/components/BackgroundTasksIndicator";
+import { TrailerModelSelector } from "@/components/TrailerModelSelector";
 import {
   Card,
   CardContent,
@@ -1289,6 +1290,7 @@ function ResultView({
   setEditedLibraryPosterPrompt,
   onClearTrailer,
   onOpenLightbox,
+  trailerModel,
 }: {
   blueprint: ShowBlueprint | null;
   usage?: ApiResponse["usage"];
@@ -1355,6 +1357,7 @@ function ResultView({
   setEditedLibraryPosterPrompt: (value: string) => void;
   onClearTrailer: () => void;
   onOpenLightbox: (url: string) => void;
+  trailerModel: string | null;
 }) {
   const loaderActive = !blueprint && isLoading;
   const loaderMessage = useRotatingMessage(loaderActive, LOADING_MESSAGES, 1700);
@@ -3298,6 +3301,21 @@ function ResultView({
             </div>
           )}
             </div>
+            
+            {/* Trailer Model Selector - Only show when trailer exists */}
+            {trailerUrl && (
+              <div className="mt-6 px-4">
+                <TrailerModelSelector
+                  currentModel={trailerModel || undefined}
+                  onRegenerate={(model) => {
+                    console.log("🔄 Regenerating trailer with model:", model);
+                    void generateTrailer(model);
+                  }}
+                  isLoading={trailerLoading}
+                  disabled={trailerLoading || !portraitGridUrl}
+                />
+              </div>
+            )}
           </div>
           
           {/* Show Poster - 1 column (1/4 width) - RIGHT SIDE */}
@@ -5510,8 +5528,9 @@ export default function Home() {
     [blueprint, posterLoading, currentShowId]
   );
 
-  const generateTrailer = useCallback(async () => {
+  const generateTrailer = useCallback(async (requestedModel?: 'sora-2' | 'veo-3.1' | 'minimax' | 'kling' | 'runway' | 'auto') => {
     console.log("🎬 generateTrailer called");
+    console.log("   Requested model:", requestedModel || 'auto');
     console.log("   Has blueprint:", !!blueprint);
     console.log("   Has portraitGridUrl:", !!portraitGridUrl);
     console.log("   characterSeeds length:", characterSeeds?.length || 0);
@@ -5646,6 +5665,7 @@ export default function Home() {
           characterGridUrl: gridUrl,
           show: blueprint,
           jobId,
+          model: requestedModel || 'auto',
         }),
       }).catch((fetchError) => {
         throw new Error(`Network error: ${fetchError.message || "Check your connection and try again"}`);
@@ -7359,6 +7379,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
               trailerDigestRef.current = ""; // Allow regeneration
             }}
             onOpenLightbox={(url) => setLightboxImage(url)}
+            trailerModel={trailerModel}
           />
         </div>
       </main>

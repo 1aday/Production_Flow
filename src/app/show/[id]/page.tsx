@@ -178,6 +178,7 @@ export default function ShowPage() {
   const [trailerMuted, setTrailerMuted] = useState(true);
   const [expandedCharacter, setExpandedCharacter] = useState<string | null>(null);
   const [completionStatus, setCompletionStatus] = useState<ReturnType<typeof calculateShowCompletion> | null>(null);
+  const [playingVideos, setPlayingVideos] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     void loadShowData();
@@ -349,42 +350,44 @@ export default function ShowPage() {
     <div className="min-h-screen bg-black text-foreground">
       {/* Fixed Header */}
       <div className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-black/95 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-6 sm:py-4">
           <Button
             variant="outline"
-            size="default"
+            size="sm"
             onClick={() => router.push("/library")}
-            className="rounded-full font-semibold"
+            className="rounded-full font-semibold text-xs sm:text-sm"
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Library
+            <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Back to Library</span>
+            <span className="sm:hidden ml-1">Back</span>
           </Button>
 
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={downloadShow}
-              className="rounded-full"
+              className="rounded-full text-xs sm:text-sm"
             >
-              <Download className="mr-2 h-4 w-4" />
-              Download
+              <Download className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Download</span>
             </Button>
             <Button
               variant="default"
               size="sm"
               onClick={copyShareUrl}
-              className="rounded-full"
+              className="rounded-full text-xs sm:text-sm"
             >
               {copied ? (
                 <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Copied!
+                  <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Copied!</span>
+                  <span className="sm:hidden">✓</span>
                 </>
               ) : (
                 <>
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share
+                  <Share2 className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Share</span>
                 </>
               )}
             </Button>
@@ -393,27 +396,27 @@ export default function ShowPage() {
       </div>
 
       {/* Spacer for fixed header */}
-      <div className="h-[72px]" />
+      <div className="h-[56px] sm:h-[68px]" />
 
       {/* Incomplete Show Banner */}
       {completionStatus && !completionStatus.isFullyComplete && (
         <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-500/20">
-          <div className="mx-auto max-w-7xl px-6 py-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-4">
+          <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
+            <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3 sm:gap-4">
                 <div className="flex-shrink-0">
-                  <AlertCircle className="h-6 w-6 text-amber-500" />
+                  <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-amber-500" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-amber-100 mb-1">
+                  <h3 className="text-base sm:text-lg font-semibold text-amber-100 mb-1">
                     Production Incomplete ({completionStatus.completionPercentage}%)
                   </h3>
-                  <p className="text-sm text-amber-200/80 mb-2">
+                  <p className="text-xs sm:text-sm text-amber-200/80 mb-2">
                     This show is missing some assets. Continue production to complete it.
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {completionStatus.missingItems.map((item, i) => (
-                      <Badge key={i} variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200 text-xs">
+                      <Badge key={i} variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200 text-[10px] sm:text-xs">
                         Missing: {item}
                       </Badge>
                     ))}
@@ -422,10 +425,10 @@ export default function ShowPage() {
               </div>
               <Button
                 onClick={continueProduction}
-                size="lg"
-                className="bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-full shadow-lg hover:shadow-xl transition-all flex-shrink-0"
+                size="default"
+                className="bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-full shadow-lg hover:shadow-xl transition-all flex-shrink-0 w-full sm:w-auto text-sm"
               >
-                <PlayCircle className="mr-2 h-5 w-5" />
+                <PlayCircle className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                 Continue Production
               </Button>
             </div>
@@ -435,7 +438,7 @@ export default function ShowPage() {
 
       {/* Hero Section with Trailer */}
       {assets.trailer ? (
-        <div className="relative h-[70vh] w-full overflow-hidden group cursor-pointer" onClick={toggleTrailer}>
+        <div className="relative h-[50vh] sm:h-[60vh] lg:h-[70vh] w-full overflow-hidden group cursor-pointer touch-manipulation" onClick={toggleTrailer}>
           <video
             id="trailer-video"
             src={assets.trailer}
@@ -460,40 +463,40 @@ export default function ShowPage() {
           
           {/* Play Button - Shows when not playing */}
           {!trailerPlaying && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-24 w-24 items-center justify-center rounded-full bg-primary shadow-2xl transition-all hover:scale-110 hover:bg-primary/90 z-10">
-              <Play className="ml-2 h-12 w-12 text-white" />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24 items-center justify-center rounded-full bg-primary shadow-2xl transition-all hover:scale-110 hover:bg-primary/90 z-10 animate-pulse">
+              <Play className="ml-1.5 sm:ml-2 h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 text-white" />
             </div>
           )}
 
-          {/* Pause Button - Shows on hover when playing */}
+          {/* Pause Button - Shows on hover when playing (desktop) or tap (mobile) */}
           {trailerPlaying && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-20 w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 hover:bg-black/90 z-10">
-              <Pause className="h-10 w-10 text-white" />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 hover:bg-black/90 z-10">
+              <Pause className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-white" />
             </div>
           )}
 
-          {/* Audio Toggle Button - Shows on hover for desktop, always visible on mobile */}
+          {/* Audio Toggle Button - Always visible on mobile, hover on desktop */}
           {trailerPlaying && (
             <button
               onClick={toggleTrailerAudio}
-              className="absolute top-6 right-6 flex h-12 w-12 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-xl transition-all hover:scale-110 hover:bg-black/90 z-10 md:opacity-0 md:group-hover:opacity-100"
+              className="absolute top-4 right-4 sm:top-6 sm:right-6 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-xl transition-all hover:scale-110 hover:bg-black/90 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 touch-manipulation"
               aria-label={trailerMuted ? "Unmute trailer" : "Mute trailer"}
             >
               {trailerMuted ? (
-                <VolumeX className="h-6 w-6 text-white" />
+                <VolumeX className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               ) : (
-                <Volume2 className="h-6 w-6 text-white" />
+                <Volume2 className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
               )}
             </button>
           )}
           
-          <div className={`absolute bottom-0 left-0 right-0 px-6 pb-16 transition-opacity duration-500 ${trailerPlaying ? 'opacity-20' : 'opacity-100'}`}>
+          <div className={`absolute bottom-0 left-0 right-0 px-4 pb-8 sm:px-6 sm:pb-12 lg:pb-16 transition-opacity duration-500 ${trailerPlaying ? 'opacity-20' : 'opacity-100'}`}>
             <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-5xl font-bold tracking-tight lg:text-6xl mb-4">
+              <h1 className="font-serif text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl mb-3 sm:mb-4">
                 {displayTitle}
               </h1>
               {generatedContent?.hero_tagline && (
-                <p className="text-xl text-foreground/90 lg:text-2xl max-w-3xl">
+                <p className="text-base text-foreground/90 sm:text-lg lg:text-xl xl:text-2xl max-w-3xl">
                   {generatedContent.hero_tagline}
                 </p>
               )}
@@ -501,7 +504,7 @@ export default function ShowPage() {
           </div>
         </div>
       ) : assets.libraryPoster || assets.poster ? (
-        <div className="relative h-[70vh] w-full overflow-hidden">
+        <div className="relative h-[50vh] sm:h-[60vh] lg:h-[70vh] w-full overflow-hidden">
           <Image
             src={assets.libraryPoster || assets.poster || ""}
             alt={displayTitle}
@@ -512,13 +515,13 @@ export default function ShowPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
           
-          <div className="absolute bottom-0 left-0 right-0 px-6 pb-16">
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-8 sm:px-6 sm:pb-12 lg:pb-16">
             <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-5xl font-bold tracking-tight lg:text-6xl mb-4">
+              <h1 className="font-serif text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl mb-3 sm:mb-4">
                 {displayTitle}
               </h1>
               {generatedContent?.hero_tagline && (
-                <p className="text-xl text-foreground/90 lg:text-2xl max-w-3xl">
+                <p className="text-base text-foreground/90 sm:text-lg lg:text-xl xl:text-2xl max-w-3xl">
                   {generatedContent.hero_tagline}
                 </p>
               )}
@@ -526,14 +529,14 @@ export default function ShowPage() {
           </div>
         </div>
       ) : (
-        <div className="relative h-[50vh] w-full overflow-hidden bg-gradient-to-br from-primary/20 to-transparent">
-          <div className="absolute bottom-0 left-0 right-0 px-6 pb-16 pt-24">
+        <div className="relative h-[40vh] sm:h-[50vh] w-full overflow-hidden bg-gradient-to-br from-primary/20 to-transparent">
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-8 pt-16 sm:px-6 sm:pb-12 sm:pt-20 lg:pb-16 lg:pt-24">
             <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-5xl font-bold tracking-tight lg:text-6xl mb-4">
+              <h1 className="font-serif text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl xl:text-6xl mb-3 sm:mb-4">
                 {displayTitle}
               </h1>
               {generatedContent?.hero_tagline && (
-                <p className="text-xl text-foreground/90 lg:text-2xl max-w-3xl">
+                <p className="text-base text-foreground/90 sm:text-lg lg:text-xl xl:text-2xl max-w-3xl">
                   {generatedContent.hero_tagline}
                 </p>
               )}
@@ -543,7 +546,7 @@ export default function ShowPage() {
       )}
 
       {/* Main Content */}
-      <div className="mx-auto max-w-7xl space-y-16 px-6 py-16">
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:space-y-12 sm:px-6 sm:py-12 lg:space-y-16 lg:py-16">
         
         {/* Quick Info Bar */}
         <div className="flex flex-wrap gap-3">
@@ -559,9 +562,9 @@ export default function ShowPage() {
         </div>
 
         {/* Logline & Description */}
-        <section className="space-y-6">
+        <section className="space-y-4 sm:space-y-6">
           {logline && (
-            <p className="text-2xl font-light leading-relaxed text-foreground/90 italic border-l-4 border-primary pl-6">
+            <p className="text-lg sm:text-xl lg:text-2xl font-light leading-relaxed text-foreground/90 italic border-l-4 border-primary pl-4 sm:pl-6">
               {logline}
             </p>
           )}
@@ -636,10 +639,10 @@ export default function ShowPage() {
 
         {/* Characters - COMPREHENSIVE */}
         {characters.length > 0 && (
-          <section className="space-y-8">
-            <div className="flex items-center gap-3">
-              <Users className="h-8 w-8 text-primary" />
-              <h2 className="font-serif text-4xl font-bold">Full Character Dossiers</h2>
+          <section className="space-y-6 sm:space-y-8">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+              <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold">Full Character Dossiers</h2>
             </div>
 
             <div className="space-y-8">
@@ -662,17 +665,72 @@ export default function ShowPage() {
                     className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent"
                   >
                     {/* Character Header */}
-                    <div className="grid gap-6 p-6 lg:grid-cols-3">
+                    <div className="grid gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-3">
                       {/* Portrait or Video */}
-                      <div className={`relative overflow-hidden rounded-xl lg:col-span-1 ${hasVideo ? 'aspect-[9/16]' : 'aspect-square'}`}>
+                      <div className={`relative overflow-hidden rounded-xl lg:col-span-1 ${hasVideo ? 'aspect-[9/16]' : 'aspect-square'} group cursor-pointer touch-manipulation`}>
                         {hasVideo && videoUrl ? (
-                          <video
-                            src={videoUrl}
-                            controls
-                            loop
-                            playsInline
-                            className="absolute inset-0 h-full w-full object-cover"
-                          />
+                          <div 
+                            className="relative h-full w-full"
+                            onClick={(e) => {
+                              const video = e.currentTarget.querySelector('video');
+                              if (video) {
+                                const isPlaying = !video.paused;
+                                if (isPlaying) {
+                                  video.pause();
+                                  video.currentTime = 0;
+                                  setPlayingVideos(prev => ({ ...prev, [character.id]: false }));
+                                } else {
+                                  video.currentTime = 0;
+                                  video.play().catch(() => {});
+                                  setPlayingVideos(prev => ({ ...prev, [character.id]: true }));
+                                }
+                              }
+                            }}
+                          >
+                            <video
+                              src={videoUrl}
+                              loop
+                              playsInline
+                              muted={false}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              onMouseEnter={(e) => {
+                                // Only auto-play on hover for desktop (non-touch devices)
+                                if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+                                  e.currentTarget.currentTime = 0;
+                                  e.currentTarget.play().catch(() => {});
+                                  setPlayingVideos(prev => ({ ...prev, [character.id]: true }));
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                // Only auto-pause on hover out for desktop
+                                if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+                                  e.currentTarget.pause();
+                                  e.currentTarget.currentTime = 0;
+                                  setPlayingVideos(prev => ({ ...prev, [character.id]: false }));
+                                }
+                              }}
+                              onPlay={() => setPlayingVideos(prev => ({ ...prev, [character.id]: true }))}
+                              onPause={() => setPlayingVideos(prev => ({ ...prev, [character.id]: false }))}
+                            />
+                            {/* Play/Pause indicator */}
+                            <div 
+                              className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity duration-300 pointer-events-none ${
+                                playingVideos[character.id] 
+                                  ? 'opacity-0 group-hover:opacity-0' 
+                                  : 'opacity-100'
+                              }`}
+                            >
+                              <div className="rounded-full bg-white/90 p-3 sm:p-4 shadow-xl backdrop-blur-sm animate-pulse">
+                                <Play className="h-6 w-6 sm:h-8 sm:w-8 text-black ml-1" />
+                              </div>
+                            </div>
+                            {/* Tap hint for mobile - shows briefly */}
+                            {!playingVideos[character.id] && (
+                              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-black/70 backdrop-blur-sm text-white text-xs sm:text-sm font-medium pointer-events-none lg:hidden animate-pulse">
+                                Tap to play with sound
+                              </div>
+                            )}
+                          </div>
                         ) : portraitUrl ? (
                           <Image
                             src={portraitUrl}
@@ -691,9 +749,9 @@ export default function ShowPage() {
                       </div>
 
                       {/* Basic Info */}
-                      <div className="space-y-6 lg:col-span-2">
+                      <div className="space-y-4 sm:space-y-6 lg:col-span-2">
                         <div>
-                          <h3 className="text-3xl font-bold mb-2">{character.name}</h3>
+                          <h3 className="text-2xl sm:text-3xl font-bold mb-2">{character.name}</h3>
                           <div className="flex flex-wrap gap-2 mb-4">
                             <Badge variant="default" className="text-sm">
                               {character.role}
@@ -1840,39 +1898,39 @@ export default function ShowPage() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 bg-black/50 px-6 py-16 mt-16">
+      <footer className="border-t border-white/10 bg-black/50 px-4 py-10 mt-10 sm:px-6 sm:py-12 lg:py-16 lg:mt-16">
         <div className="mx-auto max-w-7xl">
           {/* Call to Action */}
-          <div className="mb-12 flex flex-col items-center justify-center gap-6 text-center">
-            <h3 className="font-serif text-3xl font-bold">Explore More Shows</h3>
-            <p className="max-w-2xl text-foreground/70">
+          <div className="mb-8 sm:mb-12 flex flex-col items-center justify-center gap-4 sm:gap-6 text-center">
+            <h3 className="font-serif text-2xl sm:text-3xl font-bold">Explore More Shows</h3>
+            <p className="max-w-2xl text-sm sm:text-base text-foreground/70">
               Discover other incredible productions in our library
             </p>
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
               <Button
                 variant="default"
                 size="lg"
                 onClick={() => router.push("/library")}
-                className="rounded-full px-8 text-base font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                className="rounded-full px-6 sm:px-8 text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all w-full sm:w-auto"
               >
-                <Library className="mr-2 h-5 w-5" />
+                <Library className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                 Browse All Shows
               </Button>
               <Button
                 variant="outline"
                 size="lg"
                 onClick={() => router.push("/")}
-                className="rounded-full px-8 text-base font-semibold"
+                className="rounded-full px-6 sm:px-8 text-sm sm:text-base font-semibold w-full sm:w-auto"
               >
-                <Sparkles className="mr-2 h-5 w-5" />
+                <Sparkles className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                 Create Your Own
               </Button>
             </div>
           </div>
 
           {/* Footer Info */}
-          <div className="border-t border-white/10 pt-8 text-center">
-            <p className="text-sm text-foreground/60">
+          <div className="border-t border-white/10 pt-6 sm:pt-8 text-center">
+            <p className="text-xs sm:text-sm text-foreground/60">
               Created with Production Flow • {new Date().getFullYear()}
             </p>
           </div>
