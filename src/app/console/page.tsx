@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download } from "lucide-react";
+import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -1110,7 +1110,7 @@ function CollapsibleSection({
   );
 }
 
-function RawJsonPeek({ rawJson }: { rawJson?: string | null }) {
+function RawJsonPeek({ rawJson, currentShowId }: { rawJson?: string | null; currentShowId?: string | null }) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
     "idle"
   );
@@ -1165,6 +1165,31 @@ function RawJsonPeek({ rawJson }: { rawJson?: string | null }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Show Page Button - Prominent */}
+      {currentShowId && (
+        <Link href={`/show/${currentShowId}`} className="block">
+          <div className="group relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent p-6 transition-all hover:border-primary/50 hover:shadow-[0_8px_30px_rgba(229,9,20,0.4)]">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+                    View Show Page
+                  </span>
+                </div>
+                <p className="text-xs text-foreground/60">
+                  See this show as a beautiful, shareable presentation
+                </p>
+              </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 transition-transform group-hover:scale-110">
+                <ArrowLeft className="h-6 w-6 rotate-180 text-primary" />
+              </div>
+            </div>
+          </div>
+        </Link>
+      )}
+
+      {/* JSON Controls */}
       <div className="flex items-center gap-2 rounded-full border border-white/15 bg-black/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.26em] text-foreground/60">
         <Button
           type="button"
@@ -4173,7 +4198,7 @@ function ResultView({
             </span>
           </TabsTrigger>
               </TabsList>
-              <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} />
+              <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} currentShowId={currentShowId} />
             </div>
             
             {/* Tab Content - All inside the show overview container */}

@@ -23,7 +23,6 @@ import {
   Layers,
   Play,
   Pause,
-  Volume2,
   Info,
   Ruler,
   Weight,
@@ -31,6 +30,7 @@ import {
   Shirt,
   Smile,
   Mic,
+  Library,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -352,14 +352,6 @@ export default function ShowPage() {
           {trailerPlaying && (
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-20 w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 hover:bg-black/90">
               <Pause className="h-10 w-10 text-white" />
-            </div>
-          )}
-
-          {/* Audio Indicator - Only shows when playing */}
-          {trailerPlaying && (
-            <div className="absolute right-6 top-24 flex items-center gap-2 rounded-full bg-black/60 px-4 py-2 backdrop-blur-md transition-opacity opacity-100 group-hover:opacity-0">
-              <Volume2 className="h-4 w-4 text-white" />
-              <span className="text-sm text-white">Audio On</span>
             </div>
           )}
           
@@ -1704,19 +1696,42 @@ export default function ShowPage() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 bg-black/50 px-6 py-12 mt-16">
-        <div className="mx-auto max-w-7xl text-center space-y-4">
-          <p className="text-sm text-foreground/60">
-            Created with Production Flow • {new Date().getFullYear()}
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/")}
-            className="text-foreground/60 hover:text-foreground"
-          >
-            Create Your Own Show
-          </Button>
+      <footer className="border-t border-white/10 bg-black/50 px-6 py-16 mt-16">
+        <div className="mx-auto max-w-7xl">
+          {/* Call to Action */}
+          <div className="mb-12 flex flex-col items-center justify-center gap-6 text-center">
+            <h3 className="font-serif text-3xl font-bold">Explore More Shows</h3>
+            <p className="max-w-2xl text-foreground/70">
+              Discover other incredible productions in our library
+            </p>
+            <div className="flex gap-4">
+              <Button
+                variant="default"
+                size="lg"
+                onClick={() => router.push("/library")}
+                className="rounded-full px-8 text-base font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+              >
+                <Library className="mr-2 h-5 w-5" />
+                Browse All Shows
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => router.push("/")}
+                className="rounded-full px-8 text-base font-semibold"
+              >
+                <Sparkles className="mr-2 h-5 w-5" />
+                Create Your Own
+              </Button>
+            </div>
+          </div>
+
+          {/* Footer Info */}
+          <div className="border-t border-white/10 pt-8 text-center">
+            <p className="text-sm text-foreground/60">
+              Created with Production Flow • {new Date().getFullYear()}
+            </p>
+          </div>
         </div>
       </footer>
     </div>
