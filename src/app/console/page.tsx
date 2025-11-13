@@ -1800,7 +1800,7 @@ function ResultView({
         <Button
           type="button"
           variant="outline"
-          onClick={onGenerateTrailer}
+          onClick={() => onGenerateTrailer()}
           disabled={!portraitGridUrl || trailerLoading}
           className="w-full justify-center rounded-full text-sm"
         >
@@ -2970,7 +2970,7 @@ function ResultView({
         <Button
           type="button"
           variant={trailerUrl ? "outline" : "default"}
-          onClick={onGenerateTrailer}
+          onClick={() => onGenerateTrailer()}
           disabled={trailerLoading || completedPortraits.length < 4}
           className="flex-1 justify-center rounded-full"
         >
@@ -3211,7 +3211,7 @@ function ResultView({
                 <Button
                   type="button"
                   size="lg"
-                  onClick={onGenerateTrailer}
+                  onClick={() => onGenerateTrailer()}
                   className="rounded-full"
                 >
                   Generate 12s Trailer with Sora 2
@@ -5654,45 +5654,43 @@ export default function Home() {
       console.log(`📝 Created background task for trailer`);
     }
 
-    try {
-      console.log("🚀 Starting trailer generation with jobId:", jobId);
-      
-      // Create a clean, serializable copy of blueprint data
-      // Only include simple, serializable data to avoid circular references
-      let cleanBlueprint: any;
       try {
-        cleanBlueprint = {
-          show_title: blueprint.show_title,
-          show_logline: blueprint.show_logline,
-          production_style: blueprint.production_style ? {
-            medium: blueprint.production_style.medium,
-            cinematic_references: blueprint.production_style.cinematic_references,
-            visual_treatment: blueprint.production_style.visual_treatment,
-            stylization_level: blueprint.production_style.stylization_level,
-          } : undefined,
+        console.log("🚀 Starting trailer generation with jobId:", jobId);
+        
+        // Create a clean, serializable copy of blueprint data
+        // Only include simple, serializable data to avoid circular references
+        const cleanBlueprint: Record<string, unknown> = {
+          show_title: String(blueprint.show_title || ""),
+          show_logline: String(blueprint.show_logline || ""),
         };
-      } catch (err) {
-        console.warn("Failed to serialize full blueprint, using minimal data:", err);
-        cleanBlueprint = {
-          show_title: blueprint.show_title,
-          show_logline: blueprint.show_logline,
-        };
-      }
-      
-      const response = await fetch("/api/trailer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: blueprint.show_title ?? "Untitled Series",
-          logline: blueprint.show_logline ?? "",
-          characterGridUrl: gridUrl,
-          show: cleanBlueprint,
-          jobId,
-          model: requestedModel || 'auto',
-        }),
-      }).catch((fetchError) => {
-        throw new Error(`Network error: ${fetchError.message || "Check your connection and try again"}`);
-      });
+        
+        // Safely extract production_style if it exists
+        if (blueprint.production_style) {
+          const ps = blueprint.production_style;
+          cleanBlueprint.production_style = {
+            medium: ps.medium ? String(ps.medium) : undefined,
+            cinematic_references: Array.isArray(ps.cinematic_references) 
+              ? ps.cinematic_references.map(String).filter(Boolean)
+              : [],
+            visual_treatment: ps.visual_treatment ? String(ps.visual_treatment) : undefined,
+            stylization_level: ps.stylization_level ? String(ps.stylization_level) : undefined,
+          };
+        }
+        
+        const response = await fetch("/api/trailer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: blueprint.show_title ?? "Untitled Series",
+            logline: blueprint.show_logline ?? "",
+            characterGridUrl: gridUrl,
+            show: cleanBlueprint,
+            jobId,
+            model: requestedModel || 'auto',
+          }),
+        }).catch((fetchError) => {
+          throw new Error(`Network error: ${fetchError.message || "Check your connection and try again"}`);
+        });
 
       // Start polling AFTER we've confirmed the request was sent
       console.log("✅ Trailer request sent, starting status polling");

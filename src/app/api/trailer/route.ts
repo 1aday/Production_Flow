@@ -20,21 +20,30 @@ type TrailerBody = {
 async function generateWithSora(
   prompt: string,
   characterGridUrl: string,
-  jobId?: string
+  jobId?: string,
+  isPro: boolean = false
 ): Promise<{ url: string; model: string } | null> {
   if (!process.env.REPLICATE_API_TOKEN) {
     throw new Error("Missing REPLICATE_API_TOKEN");
   }
 
-  console.log("🎬 Generating with Sora 2 (12s, landscape)...");
-  setTrailerStatusRecord(jobId, "sora-starting");
+  const modelName = isPro ? "Sora 2 Pro" : "Sora 2";
+  const modelId = isPro ? "sora-2-pro" : "sora-2";
+  console.log(`🎬 Generating with ${modelName} (12s, landscape)...`);
+  setTrailerStatusRecord(jobId, `${modelId}-starting`);
 
-  const input = {
+  const input: Record<string, unknown> = {
     prompt,
     input_reference: characterGridUrl,
     seconds: 12,
     aspect_ratio: "landscape",
   };
+  
+  // Add pro-tier options if using Sora 2 Pro
+  if (isPro) {
+    input.resolution = "1080p";
+    input.quality = "high";
+  }
 
   const response = await fetch("https://api.replicate.com/v1/models/openai/sora-2/predictions", {
     method: "POST",
@@ -54,19 +63,19 @@ async function generateWithSora(
 
   // Poll for completion
   let result = prediction;
-  setTrailerStatusRecord(jobId, `sora-${result.status}`);
+  setTrailerStatusRecord(jobId, `${modelId}-${result.status}`);
   while (result.status === "starting" || result.status === "processing") {
     await new Promise(resolve => setTimeout(resolve, 3000));
     const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
       headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
     });
     result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-    console.log("Sora status:", result.status);
-    setTrailerStatusRecord(jobId, `sora-${result.status}`);
+    console.log(`${modelName} status:`, result.status);
+    setTrailerStatusRecord(jobId, `${modelId}-${result.status}`);
   }
 
   if (result.status === "failed") {
-    throw new Error(result.error || "Sora failed");
+    throw new Error(result.error || `${modelName} failed`);
   }
 
   // Extract URL
@@ -83,9 +92,9 @@ async function generateWithSora(
   }
 
   if (url) {
-    console.log("✅ Trailer generated with Sora 2:", url);
-    setTrailerStatusRecord(jobId, "succeeded", undefined, url, "sora-2");
-    return { url, model: "sora-2" };
+    console.log(`✅ Trailer generated with ${modelName}:`, url);
+    setTrailerStatusRecord(jobId, "succeeded", undefined, url, modelId);
+    return { url, model: modelId };
   }
 
   return null;
