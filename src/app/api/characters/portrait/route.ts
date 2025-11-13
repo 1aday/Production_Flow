@@ -164,6 +164,11 @@ export async function POST(request: Request) {
     // Start generation asynchronously - don't wait for completion
     const generateAsync = async () => {
       try {
+        console.log("🔄 Starting async portrait generation...");
+        console.log("   Job ID:", jobId);
+        console.log("   REPLICATE_API_TOKEN exists:", !!process.env.REPLICATE_API_TOKEN);
+        console.log("   OPENAI_API_KEY exists:", !!process.env.OPENAI_API_KEY);
+        
         setPortraitStatusRecord(jobId, "processing");
         
         let result;
@@ -242,15 +247,25 @@ export async function POST(request: Request) {
         console.log("✅ Portrait generated successfully:", url.slice(0, 80) + "...");
         setPortraitStatusRecord(jobId, "succeeded", undefined, url);
       } catch (error) {
-        console.error("[characters/portrait] Generation error", error);
+        console.error("❌❌❌ [characters/portrait] Generation error ❌❌❌");
+        console.error("Error type:", typeof error);
+        console.error("Error object:", error);
+        if (error instanceof Error) {
+          console.error("Error name:", error.name);
+          console.error("Error message:", error.message);
+          console.error("Error stack:", error.stack);
+        }
         const message =
           error instanceof Error ? error.message : "Failed to generate portrait.";
+        console.error("Setting job status to failed with message:", message);
         setPortraitStatusRecord(jobId, "failed", message);
       }
     };
     
     // Start async generation (fire and forget)
-    void generateAsync();
+    generateAsync().catch((err) => {
+      console.error("❌ Uncaught error in generateAsync:", err);
+    });
     
     // Return job ID immediately
     return NextResponse.json({ jobId, status: "starting" });
