@@ -187,7 +187,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           input: {
             prompt,
-            quality: "high",
+            quality: "medium",
             aspect_ratio: "1:1",
             background: "auto",
             number_of_images: 1,
