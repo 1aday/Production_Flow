@@ -1340,6 +1340,7 @@ function ResultView({
   onVideoResolutionChange: (value: VideoResolution) => void;
   libraryPosterUrl: string | null;
   libraryPosterLoading: boolean;
+  libraryPosterError: string | null;
   portraitGridUrl: string | null;
   portraitGridLoading: boolean;
   portraitGridError: string | null;
@@ -1697,6 +1698,24 @@ function ResultView({
             <div className="flex items-center gap-3 rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/70">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
               Generating poster…
+            </div>
+          ) : libraryPosterError ? (
+            <div className="space-y-3 rounded-3xl border border-red-900/20 bg-red-900/10 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-200 mb-2">Failed to generate poster</p>
+                  <p className="text-sm text-red-300/80">{libraryPosterError}</p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void onRegeneratePoster()}
+                className="w-full justify-center rounded-full text-sm border-red-500/30 text-red-200 hover:bg-red-500/10"
+              >
+                Try Again
+              </Button>
             </div>
           ) : (
             <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
@@ -4324,6 +4343,7 @@ export default function Home() {
   const [editedPosterPrompt, setEditedPosterPrompt] = useState<string>("");
   const [libraryPosterUrl, setLibraryPosterUrl] = useState<string | null>(null);
   const [libraryPosterLoading, setLibraryPosterLoading] = useState(false);
+  const [libraryPosterError, setLibraryPosterError] = useState<string | null>(null);
   const [editedLibraryPosterPrompt, setEditedLibraryPosterPrompt] = useState<string>("");
   const [portraitGridUrl, setPortraitGridUrl] = useState<string | null>(null);
   const [portraitGridLoading, setPortraitGridLoading] = useState(false);
@@ -5404,7 +5424,7 @@ export default function Home() {
             type: 'video',
             showId: currentShowId,
             characterId,
-            status: result.status || 'starting',
+            status: (result.status || 'starting') as 'starting' | 'processing' | 'succeeded' | 'failed',
             stepNumber: 5,
             metadata: {
               characterName: characterName || characterId,
@@ -6634,36 +6654,51 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
   }, [blueprint, isLoading, model, submitPrompt]);
 
   const canGenerateLibraryPoster = useCallback(() => {
+    console.log("🔍 Checking if can generate library poster:");
+    
     // Must have blueprint with show data
     if (!blueprint?.visual_aesthetics) {
-      console.log("⏳ No blueprint yet");
+      console.log("   ❌ No blueprint with visual_aesthetics");
       return false;
+    }
+    console.log("   ✅ Blueprint exists");
+    
+    // Must have show title
+    if (!blueprint.show_title) {
+      console.log("   ⚠️  No show_title in blueprint");
+    } else {
+      console.log(`   ✅ Show title: "${blueprint.show_title}"`);
     }
     
     // Must have Replicate token
     if (!posterAvailable) {
-      console.log("⏳ No Replicate token");
+      console.log("   ❌ No Replicate token (posterAvailable=false)");
       return false;
     }
+    console.log("   ✅ Replicate token available");
     
     // CRITICAL: Must have portrait grid - this is REQUIRED for library poster
     if (!portraitGridUrl) {
-      console.log("⏳ Portrait grid not ready yet - REQUIRED for library poster");
+      console.log("   ❌ Portrait grid not ready yet - REQUIRED for library poster");
       return false;
     }
+    console.log("   ✅ Portrait grid URL:", portraitGridUrl.slice(0, 80) + "...");
     
     // Must NOT be currently loading grid
     if (portraitGridLoading) {
-      console.log("⏳ Portrait grid still generating...");
+      console.log("   ⏳ Portrait grid still generating...");
       return false;
     }
+    console.log("   ✅ Portrait grid not loading");
     
     // Must NOT be currently loading any portraits
     const isLoadingAnyPortrait = Object.values(characterPortraitLoading).some(Boolean);
     if (isLoadingAnyPortrait) {
-      console.log("⏳ Portraits still loading, waiting...");
+      console.log("   ⏳ Portraits still loading, waiting...");
       return false;
     }
+    console.log("   ✅ No portraits currently loading");
+    console.log("   ✅ ALL CONDITIONS MET - Can generate library poster!");
     
     // Must have at least one COMPLETED character portrait with actual URL
     const completedPortraits = Object.values(characterPortraits).filter(url => url && typeof url === 'string' && url.length > 0);
@@ -6763,10 +6798,19 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
     }
     
     setLibraryPosterLoading(true);
+    setLibraryPosterError(null); // Clear any previous errors
     try {
       if (currentShowId) {
         updateBackgroundTask(posterTaskId, { status: 'processing' });
       }
+      
+      console.log("📤 Sending library poster request...");
+      console.log("   Full prompt length:", promptToUse.length);
+      console.log("   Prompt preview:", promptToUse.slice(0, 200) + "...");
+      console.log("   Portrait grid URL:", portraitGridUrl.slice(0, 80) + "...");
+      console.log("   Image model:", imageModel);
+      console.log("   Show title from blueprint:", blueprint.show_title);
+      
       const response = await fetch("/api/library-poster", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -6777,6 +6821,8 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
           imageModel, // Send selected image model
         }),
       });
+      
+      console.log("📥 Library poster API response status:", response.status);
 
       if (!response.ok) {
         // Check if response is HTML (error page) or JSON
@@ -6814,13 +6860,17 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       }
       return null;
     } catch (error) {
-      console.error("Failed to generate library poster:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate library poster";
+      console.error("❌ Failed to generate library poster:", errorMessage);
+      console.error("   Full error:", error);
+      
+      setLibraryPosterError(errorMessage);
       
       // Update background task as failed
       if (currentShowId) {
         updateBackgroundTask(posterTaskId, { 
           status: 'failed', 
-          error: error instanceof Error ? error.message : "Failed to generate poster"
+          error: errorMessage
         });
         setTimeout(() => removeBackgroundTask(posterTaskId), 10000);
       }
