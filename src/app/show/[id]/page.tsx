@@ -355,16 +355,18 @@ export default function ShowPage() {
             </div>
           )}
           
-          <div className="absolute bottom-0 left-0 right-0 px-6 pb-16">
+          <div className="absolute bottom-0 left-0 right-0 px-6 pb-12">
             <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-5xl font-bold tracking-tight lg:text-6xl mb-4">
-                {displayTitle}
-              </h1>
-              {generatedContent?.hero_tagline && (
-                <p className="text-xl text-foreground/90 lg:text-2xl max-w-3xl">
-                  {generatedContent.hero_tagline}
-                </p>
-              )}
+              <div className="rounded-3xl border border-white/10 bg-black/60 backdrop-blur-xl p-8 shadow-2xl">
+                <h1 className="font-serif text-5xl font-bold tracking-tight lg:text-7xl mb-4 bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
+                  {displayTitle}
+                </h1>
+                {generatedContent?.hero_tagline && (
+                  <p className="text-xl text-white/90 lg:text-2xl max-w-3xl leading-relaxed">
+                    {generatedContent.hero_tagline}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -380,16 +382,18 @@ export default function ShowPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
           
-          <div className="absolute bottom-0 left-0 right-0 px-6 pb-16">
+          <div className="absolute bottom-0 left-0 right-0 px-6 pb-12">
             <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-5xl font-bold tracking-tight lg:text-6xl mb-4">
-                {displayTitle}
-              </h1>
-              {generatedContent?.hero_tagline && (
-                <p className="text-xl text-foreground/90 lg:text-2xl max-w-3xl">
-                  {generatedContent.hero_tagline}
-                </p>
-              )}
+              <div className="rounded-3xl border border-white/10 bg-black/60 backdrop-blur-xl p-8 shadow-2xl">
+                <h1 className="font-serif text-5xl font-bold tracking-tight lg:text-7xl mb-4 bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
+                  {displayTitle}
+                </h1>
+                {generatedContent?.hero_tagline && (
+                  <p className="text-xl text-white/90 lg:text-2xl max-w-3xl leading-relaxed">
+                    {generatedContent.hero_tagline}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1030,7 +1034,7 @@ export default function ShowPage() {
                         </p>
                         {type.eyes.behaviors && type.eyes.behaviors.length > 0 && (
                           <ul className="mt-2 space-y-1 ml-4">
-                            {type.eyes.behaviors.map((behavior, i) => (
+                            {type.eyes.behaviors.map((behavior: string, i) => (
                               <li key={i} className="text-xs text-foreground/70">• {behavior}</li>
                             ))}
                           </ul>
