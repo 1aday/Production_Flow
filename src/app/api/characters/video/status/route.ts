@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    console.log(`🔍 Checking video status for job: ${jobId}`);
+    
     // Query Replicate's API for the prediction status
     const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${jobId}`, {
       headers: {
@@ -25,7 +27,16 @@ export async function GET(request: NextRequest) {
     });
     
     if (!statusResponse.ok) {
-      throw new Error(`Failed to fetch prediction: ${statusResponse.status}`);
+      const errorText = await statusResponse.text();
+      console.error(`❌ Replicate API error (${statusResponse.status}):`, errorText);
+      return NextResponse.json(
+        { 
+          error: "Failed to fetch prediction status",
+          detail: `Replicate API returned ${statusResponse.status}`,
+          replicateError: errorText
+        },
+        { status: statusResponse.status }
+      );
     }
     
     const prediction = await statusResponse.json() as { 
@@ -34,6 +45,8 @@ export async function GET(request: NextRequest) {
       error?: string; 
       output?: unknown 
     };
+    
+    console.log(`📊 Video status: ${prediction.status}`, prediction.error ? `Error: ${prediction.error}` : '');
     
     let outputUrl: string | undefined;
     
@@ -56,6 +69,12 @@ export async function GET(request: NextRequest) {
           outputUrl = obj.video;
         }
       }
+      
+      if (outputUrl) {
+        console.log(`✅ Video completed, URL: ${outputUrl}`);
+      } else {
+        console.warn(`⚠️ Video succeeded but couldn't extract URL from output:`, prediction.output);
+      }
     }
     
     return NextResponse.json({
@@ -64,9 +83,13 @@ export async function GET(request: NextRequest) {
       outputUrl,
     });
   } catch (error) {
-    console.error("Failed to fetch video prediction status:", error);
+    console.error("❌ Failed to fetch video prediction status:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to fetch prediction status" },
+      { 
+        error: "Failed to fetch prediction status",
+        detail: errorMessage
+      },
       { status: 500 }
     );
   }

@@ -4866,7 +4866,33 @@ export default function Home() {
             );
             
             if (!response.ok) {
-              console.error(`Failed to poll portrait status for ${characterId}`);
+              const errorData = await response.json().catch(() => ({ error: "Unknown error" })) as { error?: string; detail?: string };
+              const errorMessage = errorData.detail || errorData.error || `HTTP ${response.status}`;
+              console.error(`❌ Failed to poll portrait status for ${characterId}:`, errorMessage);
+              
+              // Set error and stop polling
+              setCharacterPortraitErrors((prev) => ({
+                ...prev,
+                [characterId]: `Failed to check portrait status: ${errorMessage}`,
+              }));
+              setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+              
+              // Update background task
+              if (currentShowId) {
+                updateBackgroundTask(replicateJobId, { 
+                  status: 'failed', 
+                  error: `Status check failed: ${errorMessage}` 
+                });
+                setTimeout(() => removeBackgroundTask(replicateJobId), 10000);
+              }
+              
+              // Stop polling
+              const interval = portraitPollsRef.current.get(characterId);
+              if (interval) {
+                clearInterval(interval);
+                portraitPollsRef.current.delete(characterId);
+              }
+              portraitJobsRef.current.delete(characterId);
               return;
             }
             
@@ -5208,7 +5234,33 @@ export default function Home() {
             );
             
             if (!response.ok) {
-              console.error(`Failed to poll video status for ${characterId}`);
+              const errorData = await response.json().catch(() => ({ error: "Unknown error" })) as { error?: string; detail?: string };
+              const errorMessage = errorData.detail || errorData.error || `HTTP ${response.status}`;
+              console.error(`❌ Failed to poll video status for ${characterId}:`, errorMessage);
+              
+              // Set error and stop polling
+              setCharacterVideoErrors((prev) => ({
+                ...prev,
+                [characterId]: `Failed to check video status: ${errorMessage}`,
+              }));
+              setCharacterVideoLoading((prev) => ({ ...prev, [characterId]: false }));
+              
+              // Update background task
+              if (currentShowId) {
+                updateBackgroundTask(jobId, { 
+                  status: 'failed', 
+                  error: `Status check failed: ${errorMessage}` 
+                });
+                setTimeout(() => removeBackgroundTask(jobId), 10000);
+              }
+              
+              // Stop polling
+              const interval = videoPollsRef.current.get(characterId);
+              if (interval) {
+                clearInterval(interval);
+                videoPollsRef.current.delete(characterId);
+              }
+              videoJobsRef.current.delete(characterId);
               return;
             }
             

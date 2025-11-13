@@ -70,9 +70,13 @@ export async function GET(request: NextRequest) {
       outputUrl,
     });
   } catch (error) {
-    console.error("Failed to fetch prediction status:", error);
+    console.error("❌ Failed to fetch prediction status:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to fetch prediction status" },
+      { 
+        error: "Failed to fetch prediction status",
+        detail: errorMessage
+      },
       { status: 500 }
     );
   }
