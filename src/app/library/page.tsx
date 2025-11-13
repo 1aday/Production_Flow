@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Library, Loader2, Trash2, ArrowLeft, Share2, CheckCircle2, Clock, Settings } from "lucide-react";
+import { Library, Loader2, Trash2, ArrowLeft, Copy, CheckCircle2, Clock, Settings, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
@@ -32,6 +32,7 @@ export default function LibraryPage() {
   const [shows, setShows] = useState<LibraryShow[]>([]);
   const [loading, setLoading] = useState(true);
   const [imageLoadCount, setImageLoadCount] = useState(0);
+  const [copiedShowId, setCopiedShowId] = useState<string | null>(null);
 
   const loadLibrary = async () => {
     setLoading(true);
@@ -94,11 +95,17 @@ export default function LibraryPage() {
     const url = `${window.location.origin}/show/${showId}`;
     try {
       await navigator.clipboard.writeText(url);
-      // Could add toast notification here
+      setCopiedShowId(showId);
+      setTimeout(() => setCopiedShowId(null), 2000);
       console.log("✅ Show URL copied:", url);
     } catch (error) {
       console.error("Failed to copy URL:", error);
     }
+  };
+
+  const viewShow = (showId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    router.push(`/show/${showId}`);
   };
 
   useEffect(() => {
@@ -235,11 +242,25 @@ export default function LibraryPage() {
                     type="button"
                     variant="ghost"
                     size="icon"
+                    onClick={(e) => viewShow(show.id, e)}
+                    className="h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-green-500/80 group-hover:opacity-100"
+                    title="View show page"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={(e) => void copyShowUrl(show.id, e)}
                     className="h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-primary/80 group-hover:opacity-100"
-                    title="Copy show URL"
+                    title={copiedShowId === show.id ? "Copied!" : "Copy show URL"}
                   >
-                    <Share2 className="h-4 w-4" />
+                    {copiedShowId === show.id ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
                   </Button>
                   <Button
                     type="button"

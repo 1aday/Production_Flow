@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type ShowAssets = {
   portraits: string[];
@@ -284,12 +285,13 @@ export default function ShowPage() {
       <div className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-black/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Button
-            variant="ghost"
-            size="icon"
+            variant="outline"
+            size="default"
             onClick={() => router.push("/library")}
-            className="rounded-full"
+            className="rounded-full font-semibold"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Library
           </Button>
 
           <div className="flex gap-2">
@@ -1002,7 +1004,7 @@ export default function ShowPage() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              {visualAesthetics.species_design.types.map((type, idx) => (
+              {visualAesthetics.species_design.types.map((type: any, idx: number) => (
                 <div
                   key={idx}
                   className="space-y-4 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-6"
