@@ -21,6 +21,19 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Production Flow — AI Show Bible Generator",
   description: "Transform ideas into complete visual production bibles with AI-powered characters, aesthetics, and trailers.",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+    viewportFit: "cover",
+  },
+  themeColor: "#090909",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Production Flow",
+  },
 };
 
 export default function RootLayout({
@@ -30,6 +43,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+      </head>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} font-display antialiased`}
       >

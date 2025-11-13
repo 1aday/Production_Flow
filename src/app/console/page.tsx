@@ -7348,25 +7348,25 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         onOpenChange={setIsPipelinePanelOpen}
       />
       
-      <header className="border-b border-white/12 bg-black/90">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 sm:px-6 py-4 sm:py-5">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/" className="text-base sm:text-lg font-semibold uppercase tracking-[0.28em] sm:tracking-[0.32em] text-primary hover:text-primary/80 transition-colors cursor-pointer">
+      <header className="sticky top-0 z-50 border-b border-white/12 bg-black/95 backdrop-blur-xl shadow-lg shadow-black/20">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Link href="/" className="text-sm sm:text-base font-bold uppercase tracking-[0.22em] sm:tracking-[0.28em] text-primary hover:text-primary/80 transition-colors cursor-pointer whitespace-nowrap">
               Production Flow
             </Link>
-            <span className="hidden sm:inline text-xs text-foreground/55">Look bible console</span>
+            <span className="hidden lg:inline text-xs text-foreground/55 whitespace-nowrap">Look bible console</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-3 overflow-x-auto scrollbar-hide">
             {blueprint ? (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={startNewShow}
-                className="gap-2 rounded-full"
+                className="gap-1.5 rounded-full shrink-0 h-9 sm:h-10"
               >
-                <Plus className="h-4 w-4" />
-                New Show
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline">New Show</span>
               </Button>
             ) : null}
             
@@ -7375,11 +7375,11 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
               variant="ghost"
               size="sm"
               onClick={() => setIsPipelinePanelOpen(true)}
-              className="gap-2 rounded-full"
+              className="gap-1.5 rounded-full shrink-0 h-9 sm:h-10"
               title="Production Pipeline Tracker"
             >
-              <ListChecks className="h-4 w-4" />
-              <span className="hidden sm:inline">Pipeline</span>
+              <ListChecks className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+              <span className="hidden lg:inline">Pipeline</span>
             </Button>
             
             <Button
@@ -7387,11 +7387,11 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
               variant="ghost"
               size="sm"
               onClick={() => setShowSettingsDialog(true)}
-              className="gap-2 rounded-full"
+              className="gap-1.5 rounded-full shrink-0 h-9 sm:h-10"
               title="Model Settings"
             >
-              <Sliders className="h-4 w-4" />
-              <span className="hidden sm:inline">Settings</span>
+              <Sliders className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+              <span className="hidden lg:inline">Settings</span>
             </Button>
             
             <Link href="/prompts">
@@ -7399,11 +7399,11 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="gap-2 rounded-full"
+                className="gap-1.5 rounded-full shrink-0 h-9 sm:h-10"
                 title="Edit AI prompt templates"
               >
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Prompts</span>
+                <FileText className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                <span className="hidden lg:inline">Prompts</span>
               </Button>
             </Link>
             
@@ -7412,10 +7412,10 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="gap-2 rounded-full"
+                className="gap-1.5 rounded-full shrink-0 h-9 sm:h-10"
               >
-                <Library className="h-4 w-4" />
-                <span className="hidden sm:inline">Library</span>
+                <Library className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                <span className="hidden md:inline">Library</span>
               </Button>
             </Link>
             <label
@@ -7428,7 +7428,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
               id="model-select"
               value={model}
               onChange={(event) => setModel(event.target.value as ModelId)}
-              className="rounded-full border border-white/15 bg-black/60 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-foreground/75 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="hidden sm:block rounded-full border border-white/15 bg-black/60 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-foreground/75 focus:outline-none focus:ring-2 focus:ring-primary/50 shrink-0"
             >
               {MODEL_OPTIONS.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -7440,12 +7440,12 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         </div>
       </header>
 
-      <main className="flex-1">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 sm:gap-6 px-4 sm:px-6 py-6 sm:py-10 pb-32">
+      <main className="flex-1 pb-[120px] sm:pb-32">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 sm:gap-6 px-3 sm:px-6 py-4 sm:py-10">
           {error ? (
-            <div className="space-y-2 rounded-3xl border border-red-500/40 bg-red-500/10 px-4 sm:px-6 py-4 text-sm">
+            <div className="space-y-2 rounded-2xl sm:rounded-3xl border border-red-500/40 bg-red-500/10 px-4 sm:px-6 py-3.5 sm:py-4 text-sm animate-in slide-in-from-top-2 duration-300">
               <p className="font-semibold text-red-200">Request failed</p>
-              <p className="text-red-200/85 break-words">{error}</p>
+              <p className="text-red-200/85 break-words text-sm">{error}</p>
             </div>
           ) : null}
 
@@ -7462,44 +7462,20 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
             });
             
             return (
-              <div className="space-y-3 rounded-3xl border border-amber-500/40 bg-amber-500/10 px-4 sm:px-6 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-amber-300" />
-                      <p className="font-semibold text-amber-200">Show loaded - {completion.completionPercentage}% complete</p>
-                    </div>
-                    <p className="text-sm text-amber-200/80">
-                      This show is partially complete. No assets will be automatically generated.
-                    </p>
-                    {completion.missingItems.length > 0 ? (
-                      <div className="mt-2">
-                        <p className="text-xs font-medium text-amber-300/70 mb-1">Missing:</p>
-                        <ul className="text-xs text-amber-200/70 space-y-1">
-                          {completion.missingItems.map((item, i) => (
-                            <li key={i}>• {item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                    {completion.completedItems.length > 0 ? (
-                      <div className="mt-2">
-                        <p className="text-xs font-medium text-amber-300/70 mb-1">Completed:</p>
-                        <p className="text-xs text-amber-200/60">{completion.completedItems.join(", ")}</p>
-                      </div>
-                    ) : null}
-                    <p className="text-xs text-amber-200/60 mt-3">
-                      Use the buttons in each section to continue building your show.
-                    </p>
+              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Clock className="h-3.5 w-3.5 text-white/40 shrink-0" />
+                    <p className="text-xs text-white/50">Show loaded - {completion.completionPercentage}% complete</p>
                   </div>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowCompletionBanner(false)}
-                    className="text-amber-200/70 hover:text-amber-200"
+                    className="text-white/40 hover:text-white/60 shrink-0 h-6 w-6 p-0 touch-manipulation"
                   >
-                    Dismiss
+                    <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -7614,13 +7590,13 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
 
       {/* Show input only when starting a new show or when no blueprint exists */}
       {(showPromptInput || !blueprint) ? (
-        <div className="sticky bottom-0 z-40 border-t border-white/12 bg-black/90 backdrop-blur">
-          <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-4 pr-80">
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/12 bg-black/95 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.6)] safe-area-inset-bottom">
+          <div className="mx-auto w-full max-w-4xl px-3 sm:px-6 py-3 sm:py-4">
             <form onSubmit={handleSubmit}>
               <div
                 className={cn(
-                  "flex items-center gap-3 rounded-2xl border bg-black/70 px-4 sm:px-5 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-colors duration-200",
-                  "focus-within:border-primary/40 focus-within:bg-black/80",
+                  "flex items-center gap-2 sm:gap-3 rounded-2xl border bg-black/70 px-3 sm:px-5 py-2 sm:py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all duration-200",
+                  "focus-within:border-primary/50 focus-within:bg-black/80 focus-within:shadow-[0_10px_35px_rgba(229,9,20,0.3)]",
                   !blueprint ? "border-primary/40" : "border-white/15"
                 )}
               >
@@ -7629,8 +7605,8 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
                 onChange={(event) => setInput(event.target.value)}
                   placeholder="Describe your show..."
                   className={cn(
-                    "h-11 min-h-0 flex-1 resize-none border-none bg-transparent px-0 py-0 text-base font-medium leading-snug text-foreground caret-primary placeholder:text-foreground/45 placeholder:font-normal rounded-none",
-                    "focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-none focus-visible:outline-none"
+                    "min-h-[44px] sm:h-11 sm:min-h-0 flex-1 resize-none border-none bg-transparent px-0 py-2 sm:py-0 text-base font-medium leading-snug text-foreground caret-primary placeholder:text-foreground/45 placeholder:font-normal rounded-none",
+                    "focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-none focus-visible:outline-none touch-manipulation"
                   )}
                   rows={1}
                 onKeyDown={(event) => {
@@ -7646,17 +7622,17 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
                     type="submit"
                     disabled={!canSubmit}
                   className={cn(
-                    "shrink-0 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(229,9,20,0.35)] transition-all duration-200",
+                    "shrink-0 rounded-full bg-primary px-4 sm:px-5 py-2.5 sm:py-2 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(229,9,20,0.35)] transition-all duration-200 min-h-[44px] sm:min-h-0 touch-manipulation active:scale-95",
                     "hover:bg-primary/90 hover:shadow-[0_14px_36px_rgba(229,9,20,0.55)]",
-                    "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                    "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100"
                   )}
                   >
                     {isLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <span>Send</span>
-                      <SendHorizontal className="h-4 w-4" />
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <span className="hidden sm:inline">Send</span>
+                      <SendHorizontal className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
                     </div>
                     )}
                   </Button>
