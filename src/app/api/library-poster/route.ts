@@ -185,7 +185,7 @@ Remember: The show title "${showTitle}" MUST be clearly visible with beautiful t
         body: JSON.stringify({
           input: {
             prompt: posterPrompt,
-            quality: "high",
+            quality: "medium",
             aspect_ratio: "2:3", // Portrait - valid GPT Image aspect ratio
             input_images: [characterImageUrl], // Reference image array
             input_fidelity: "high", // Match character features closely

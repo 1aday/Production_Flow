@@ -190,7 +190,7 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-
+  
   let body: VideoBody;
   try {
     body = (await request.json()) as VideoBody;

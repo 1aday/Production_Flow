@@ -185,13 +185,13 @@ export async function POST(request: Request) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          input: {
-            prompt,
+        input: {
+          prompt,
             quality: "medium",
-            aspect_ratio: "1:1",
-            background: "auto",
-            number_of_images: 1,
-            moderation: "low",
+          aspect_ratio: "1:1",
+          background: "auto",
+          number_of_images: 1,
+          moderation: "low",
             openai_api_key: openaiKey,
           },
         }),

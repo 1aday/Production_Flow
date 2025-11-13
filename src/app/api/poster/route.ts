@@ -151,7 +151,7 @@ export async function POST(request: Request) {
   // Build input ensuring array stays as array
   const input: Record<string, unknown> = {
     prompt: compositePrompt,
-    quality: "high",
+    quality: "medium",
     aspect_ratio: "2:3",
     background: "auto",
     number_of_images: 1,

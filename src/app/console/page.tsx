@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft } from "lucide-react";
+import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -1273,6 +1273,7 @@ function ResultView({
   onVideoResolutionChange,
   libraryPosterUrl,
   libraryPosterLoading,
+  libraryPosterError,
   portraitGridUrl,
   portraitGridLoading,
   portraitGridError,
