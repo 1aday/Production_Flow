@@ -20,22 +20,44 @@ export async function GET(request: NextRequest) {
     console.log(`🔍 Checking video status for job: ${jobId}`);
     
     // Query Replicate's API for the prediction status
-    const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${jobId}`, {
-      headers: {
-        "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-      },
-    });
-    
-    if (!statusResponse.ok) {
-      const errorText = await statusResponse.text();
-      console.error(`❌ Replicate API error (${statusResponse.status}):`, errorText);
+    let statusResponse;
+    try {
+      statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${jobId}`, {
+        headers: {
+          "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+        },
+      });
+    } catch (fetchError) {
+      console.error(`❌ Network error fetching from Replicate:`, fetchError);
       return NextResponse.json(
         { 
-          error: "Failed to fetch prediction status",
-          detail: `Replicate API returned ${statusResponse.status}`,
-          replicateError: errorText
+          error: "Network error",
+          detail: fetchError instanceof Error ? fetchError.message : "Failed to connect to Replicate API",
+          status: null
         },
-        { status: statusResponse.status }
+        { status: 200 } // Return 200 so frontend can handle gracefully
+      );
+    }
+    
+    if (!statusResponse.ok) {
+      const errorText = await statusResponse.text().catch(() => "Unable to read error");
+      console.error(`❌ Replicate API error (${statusResponse.status}):`, errorText);
+      
+      // If the prediction doesn't exist (404), return null status
+      if (statusResponse.status === 404) {
+        return NextResponse.json({
+          status: null,
+          detail: "Prediction not found. It may have expired or was created with a different API key.",
+        });
+      }
+      
+      // For other errors, return them as null status so frontend can handle
+      return NextResponse.json(
+        { 
+          status: null,
+          detail: `Replicate API error (${statusResponse.status}): ${errorText}`,
+        },
+        { status: 200 } // Return 200 so frontend handles this as a "failed" prediction
       );
     }
     

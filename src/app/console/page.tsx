@@ -5225,11 +5225,11 @@ export default function Home() {
       });
 
       // Start polling
-      const startPolling = () => {
+      const startPolling = (replicateJobId: string) => {
         const pollInterval = setInterval(async () => {
           try {
             const response = await fetch(
-              `/api/characters/video/status?jobId=${encodeURIComponent(jobId)}`,
+              `/api/characters/video/status?jobId=${encodeURIComponent(replicateJobId)}`,
               { cache: "no-store" }
             );
             
@@ -5247,11 +5247,11 @@ export default function Home() {
               
               // Update background task
               if (currentShowId) {
-                updateBackgroundTask(jobId, { 
+                updateBackgroundTask(replicateJobId, { 
                   status: 'failed', 
                   error: `Status check failed: ${errorMessage}` 
                 });
-                setTimeout(() => removeBackgroundTask(jobId), 10000);
+                setTimeout(() => removeBackgroundTask(replicateJobId), 10000);
               }
               
               // Stop polling
@@ -5294,11 +5294,11 @@ export default function Home() {
               
               // Update background task
               if (currentShowId) {
-                updateBackgroundTask(jobId, { 
+                updateBackgroundTask(replicateJobId, { 
                   status: 'succeeded', 
                   outputUrl: data.outputUrl 
                 });
-                setTimeout(() => removeBackgroundTask(jobId), 5000);
+                setTimeout(() => removeBackgroundTask(replicateJobId), 5000);
               }
               
               // Stop polling
@@ -5324,11 +5324,11 @@ export default function Home() {
               
               // Update background task
               if (currentShowId) {
-                updateBackgroundTask(jobId, { 
+                updateBackgroundTask(replicateJobId, { 
                   status: 'failed', 
                   error: errorMessage 
                 });
-                setTimeout(() => removeBackgroundTask(jobId), 10000);
+                setTimeout(() => removeBackgroundTask(replicateJobId), 10000);
               }
               
               // Stop polling
@@ -5384,10 +5384,37 @@ export default function Home() {
           throw new Error("Video API did not return job ID.");
         }
         
-        console.log(`🚀 Video generation started for ${characterId}, job: ${result.jobId}`);
+        const replicateJobId = result.jobId;
+        console.log(`🚀 Video generation started for ${characterId}, Replicate job: ${replicateJobId}`);
         
-        // Start polling
-        startPolling();
+        // Update the stored job ID to the actual Replicate prediction ID
+        videoJobsRef.current.set(characterId, replicateJobId);
+        
+        // Update background task with correct ID
+        if (currentShowId) {
+          // Remove old task if it exists
+          if (jobId !== replicateJobId) {
+            removeBackgroundTask(jobId);
+          }
+          
+          // Create/update task with Replicate job ID
+          const characterName = characterSeeds?.find(s => s.id === characterId)?.name;
+          addBackgroundTask({
+            id: replicateJobId,
+            type: 'video',
+            showId: currentShowId,
+            characterId,
+            status: result.status || 'starting',
+            stepNumber: 5,
+            metadata: {
+              characterName: characterName || characterId,
+              showTitle: blueprint?.show_title || "Untitled Show",
+            },
+          });
+        }
+        
+        // Start polling with the correct Replicate job ID
+        startPolling(replicateJobId);
       } catch (err) {
         console.error("Video API call error:", err);
         setCharacterVideoErrors((prev) => ({
@@ -5396,6 +5423,15 @@ export default function Home() {
             err instanceof Error ? err.message : "Failed to start video generation.",
         }));
         setCharacterVideoLoading((prev) => ({ ...prev, [characterId]: false }));
+        
+        // Clean up background task with client-side UUID
+        if (currentShowId && jobId) {
+          updateBackgroundTask(jobId, { 
+            status: 'failed', 
+            error: err instanceof Error ? err.message : "Failed to start video generation." 
+          });
+          setTimeout(() => removeBackgroundTask(jobId), 10000);
+        }
         
         // Clean up
         videoJobsRef.current.delete(characterId);
