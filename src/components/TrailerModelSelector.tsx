@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Zap, Timer, Crown, Loader2 } from "lucide-react";
+import { Sparkles, Zap, Crown, Loader2 } from "lucide-react";
 
-type VideoModel = 'sora-2' | 'veo-3.1' | 'minimax' | 'kling' | 'runway';
+type VideoModel = 'sora-2' | 'sora-2-pro' | 'veo-3.1';
 
 interface ModelInfo {
   id: VideoModel;
@@ -18,13 +18,21 @@ interface ModelInfo {
 
 const MODEL_OPTIONS: ModelInfo[] = [
   {
+    id: 'sora-2-pro',
+    name: 'Sora 2 Pro',
+    duration: '12s',
+    quality: 'Premium',
+    description: 'OpenAI\'s top tier. Highest quality with high resolution.',
+    icon: <Crown className="h-4 w-4" />,
+    badge: 'Best',
+  },
+  {
     id: 'sora-2',
     name: 'Sora 2',
     duration: '12s',
-    quality: 'Premium',
-    description: 'OpenAI\'s latest. Highest quality, cinematic results.',
-    icon: <Crown className="h-4 w-4" />,
-    badge: 'Best',
+    quality: 'High',
+    description: 'OpenAI\'s standard model. Fast, high-quality results.',
+    icon: <Sparkles className="h-4 w-4" />,
   },
   {
     id: 'veo-3.1',
@@ -33,30 +41,6 @@ const MODEL_OPTIONS: ModelInfo[] = [
     quality: 'High',
     description: 'Google\'s model. Fast, reliable, great for quick iterations.',
     icon: <Zap className="h-4 w-4" />,
-  },
-  {
-    id: 'minimax',
-    name: 'Minimax',
-    duration: '6s',
-    quality: 'High',
-    description: 'Excellent motion, dynamic camera movements.',
-    icon: <Sparkles className="h-4 w-4" />,
-  },
-  {
-    id: 'kling',
-    name: 'Kling',
-    duration: '5s',
-    quality: 'Good',
-    description: 'Fast generation, good for testing concepts.',
-    icon: <Timer className="h-4 w-4" />,
-  },
-  {
-    id: 'runway',
-    name: 'Runway Gen-3',
-    duration: '10s',
-    quality: 'High',
-    description: 'Creative studio standard, artistic control.',
-    icon: <Sparkles className="h-4 w-4" />,
   },
 ];
 
@@ -74,7 +58,7 @@ export function TrailerModelSelector({
   disabled = false,
 }: TrailerModelSelectorProps) {
   const [selectedModel, setSelectedModel] = useState<VideoModel>(
-    (currentModel as VideoModel) || 'sora-2'
+    (currentModel as VideoModel) || 'sora-2-pro'
   );
   const [isExpanded, setIsExpanded] = useState(false);
 

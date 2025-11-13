@@ -13,7 +13,7 @@ type TrailerBody = {
   characterGridUrl: string;
   show: unknown;
   jobId?: string;
-  model?: 'sora-2' | 'veo-3.1' | 'minimax' | 'kling' | 'runway' | 'auto';
+  model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto';
 };
 
 // Helper function to generate with Sora 2
@@ -91,6 +91,84 @@ async function generateWithSora(
   return null;
 }
 
+// Helper function to generate with Sora 2 Pro
+async function generateWithSoraPro(
+  prompt: string,
+  characterGridUrl: string,
+  jobId?: string
+): Promise<{ url: string; model: string } | null> {
+  if (!process.env.REPLICATE_API_TOKEN) {
+    throw new Error("Missing REPLICATE_API_TOKEN");
+  }
+
+  console.log("🎬 Generating with Sora 2 Pro (12s, landscape, high res)...");
+  setTrailerStatusRecord(jobId, "sora-pro-starting");
+
+  const input = {
+    prompt,
+    input_reference: characterGridUrl,
+    seconds: 12,
+    aspect_ratio: "landscape",
+    resolution: "high",
+  };
+
+  const response = await fetch("https://api.replicate.com/v1/models/openai/sora-2-pro/predictions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ input }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error("Sora 2 Pro request failed body:", errorBody);
+    throw new Error(`Sora 2 Pro request failed: ${response.status} - ${errorBody}`);
+  }
+
+  const prediction = await response.json() as { id: string; status: string; error?: string; output?: unknown };
+  console.log("Sora Pro prediction created:", prediction.id);
+
+  // Poll for completion
+  let result = prediction;
+  setTrailerStatusRecord(jobId, `sora-pro-${result.status}`);
+  while (result.status === "starting" || result.status === "processing") {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+      headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
+    });
+    result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+    console.log("Sora Pro status:", result.status);
+    setTrailerStatusRecord(jobId, `sora-pro-${result.status}`);
+  }
+
+  if (result.status === "failed") {
+    throw new Error(result.error || "Sora Pro failed");
+  }
+
+  // Extract URL
+  let url: string | undefined;
+  if (typeof result.output === "string") {
+    url = result.output;
+  } else if (Array.isArray(result.output) && result.output.length > 0) {
+    url = result.output[0] as string;
+  } else if (result.output && typeof result.output === "object") {
+    const outputObj = result.output as Record<string, unknown>;
+    if ("url" in outputObj && typeof outputObj.url === "string") {
+      url = outputObj.url;
+    }
+  }
+
+  if (url) {
+    console.log("✅ Trailer generated with Sora 2 Pro:", url);
+    setTrailerStatusRecord(jobId, "succeeded", undefined, url, "sora-2-pro");
+    return { url, model: "sora-2-pro" };
+  }
+
+  return null;
+}
+
 // Helper function to generate with VEO 3.1
 async function generateWithVeo(
   prompt: string,
@@ -163,213 +241,6 @@ async function generateWithVeo(
   return null;
 }
 
-// Helper function to generate with Minimax
-async function generateWithMinimax(
-  prompt: string,
-  characterGridUrl: string,
-  jobId?: string
-): Promise<{ url: string; model: string } | null> {
-  if (!process.env.REPLICATE_API_TOKEN) {
-    throw new Error("Missing REPLICATE_API_TOKEN");
-  }
-
-  console.log("🎬 Generating with Minimax Video-01 (6s)...");
-  setTrailerStatusRecord(jobId, "minimax-starting");
-
-  const input = {
-    prompt,
-    first_frame_image: characterGridUrl,
-  };
-
-  const response = await fetch("https://api.replicate.com/v1/models/minimax/video-01/predictions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ input }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Minimax request failed: ${response.status}`);
-  }
-
-  const prediction = await response.json() as { id: string; status: string; error?: string; output?: unknown };
-  console.log("Minimax prediction created:", prediction.id);
-
-  // Poll for completion
-  let result = prediction;
-  setTrailerStatusRecord(jobId, `minimax-${result.status}`);
-  while (result.status === "starting" || result.status === "processing") {
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-      headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
-    });
-    result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-    console.log("Minimax status:", result.status);
-    setTrailerStatusRecord(jobId, `minimax-${result.status}`);
-  }
-
-  if (result.status === "failed") {
-    throw new Error(result.error || "Minimax failed");
-  }
-
-  // Extract URL
-  let url: string | undefined;
-  if (typeof result.output === "string") {
-    url = result.output;
-  } else if (Array.isArray(result.output) && result.output.length > 0) {
-    url = result.output[0] as string;
-  }
-
-  if (url) {
-    console.log("✅ Trailer generated with Minimax:", url);
-    setTrailerStatusRecord(jobId, "succeeded", undefined, url, "minimax");
-    return { url, model: "minimax" };
-  }
-
-  return null;
-}
-
-// Helper function to generate with Kling
-async function generateWithKling(
-  prompt: string,
-  characterGridUrl: string,
-  jobId?: string
-): Promise<{ url: string; model: string } | null> {
-  if (!process.env.REPLICATE_API_TOKEN) {
-    throw new Error("Missing REPLICATE_API_TOKEN");
-  }
-
-  console.log("🎬 Generating with Kling (5s)...");
-  setTrailerStatusRecord(jobId, "kling-starting");
-
-  const input = {
-    prompt,
-    image_url: characterGridUrl,
-    duration: "5",
-    aspect_ratio: "16:9",
-  };
-
-  const response = await fetch("https://api.replicate.com/v1/models/fofr/kling-video/predictions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ input }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Kling request failed: ${response.status}`);
-  }
-
-  const prediction = await response.json() as { id: string; status: string; error?: string; output?: unknown };
-  console.log("Kling prediction created:", prediction.id);
-
-  // Poll for completion
-  let result = prediction;
-  setTrailerStatusRecord(jobId, `kling-${result.status}`);
-  while (result.status === "starting" || result.status === "processing") {
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-      headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
-    });
-    result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-    console.log("Kling status:", result.status);
-    setTrailerStatusRecord(jobId, `kling-${result.status}`);
-  }
-
-  if (result.status === "failed") {
-    throw new Error(result.error || "Kling failed");
-  }
-
-  // Extract URL
-  let url: string | undefined;
-  if (typeof result.output === "string") {
-    url = result.output;
-  } else if (Array.isArray(result.output) && result.output.length > 0) {
-    url = result.output[0] as string;
-  }
-
-  if (url) {
-    console.log("✅ Trailer generated with Kling:", url);
-    setTrailerStatusRecord(jobId, "succeeded", undefined, url, "kling");
-    return { url, model: "kling" };
-  }
-
-  return null;
-}
-
-// Helper function to generate with Runway
-async function generateWithRunway(
-  prompt: string,
-  characterGridUrl: string,
-  jobId?: string
-): Promise<{ url: string; model: string } | null> {
-  if (!process.env.REPLICATE_API_TOKEN) {
-    throw new Error("Missing REPLICATE_API_TOKEN");
-  }
-
-  console.log("🎬 Generating with Runway Gen-3 (10s)...");
-  setTrailerStatusRecord(jobId, "runway-starting");
-
-  const input = {
-    prompt_text: prompt,
-    prompt_image: characterGridUrl,
-    seconds: 10,
-    aspect_ratio: "16:9",
-  };
-
-  const response = await fetch("https://api.replicate.com/v1/models/zsxkib/runway-gen3/predictions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ input }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Runway request failed: ${response.status}`);
-  }
-
-  const prediction = await response.json() as { id: string; status: string; error?: string; output?: unknown };
-  console.log("Runway prediction created:", prediction.id);
-
-  // Poll for completion
-  let result = prediction;
-  setTrailerStatusRecord(jobId, `runway-${result.status}`);
-  while (result.status === "starting" || result.status === "processing") {
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-      headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
-    });
-    result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-    console.log("Runway status:", result.status);
-    setTrailerStatusRecord(jobId, `runway-${result.status}`);
-  }
-
-  if (result.status === "failed") {
-    throw new Error(result.error || "Runway failed");
-  }
-
-  // Extract URL
-  let url: string | undefined;
-  if (typeof result.output === "string") {
-    url = result.output;
-  } else if (Array.isArray(result.output) && result.output.length > 0) {
-    url = result.output[0] as string;
-  }
-
-  if (url) {
-    console.log("✅ Trailer generated with Runway:", url);
-    setTrailerStatusRecord(jobId, "succeeded", undefined, url, "runway");
-    return { url, model: "runway" };
-  }
-
-  return null;
-}
 
 export async function POST(request: NextRequest) {
   if (!process.env.REPLICATE_API_TOKEN) {
@@ -506,14 +377,10 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
     switch (modelName) {
       case 'sora-2':
         return generateWithSora(trailerPrompt, characterGridUrl, jobId);
+      case 'sora-2-pro':
+        return generateWithSoraPro(trailerPrompt, characterGridUrl, jobId);
       case 'veo-3.1':
         return generateWithVeo(trailerPrompt, characterGridUrl, jobId);
-      case 'minimax':
-        return generateWithMinimax(trailerPrompt, characterGridUrl, jobId);
-      case 'kling':
-        return generateWithKling(trailerPrompt, characterGridUrl, jobId);
-      case 'runway':
-        return generateWithRunway(trailerPrompt, characterGridUrl, jobId);
       default:
         return null;
     }
@@ -536,18 +403,19 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
       throw new Error(`Failed to generate trailer with ${requestedModel}`);
     }
     
-    // Auto mode: Try Sora 2 first, fallback to VEO 3.1 on E005
-    console.log("🎬 Auto mode: Attempting trailer with Sora 2...");
+    // Auto mode: Try Sora 2 Pro first (best quality), fallback to regular Sora 2, then VEO 3.1 on E005
+    console.log("🎬 Auto mode: Attempting trailer with Sora 2 Pro...");
     const soraInput = {
       prompt: trailerPrompt,
       input_reference: characterGridUrl,
       seconds: 12,
       aspect_ratio: "landscape",
+      resolution: "high",
     };
 
-    console.log("Sora 2 input:", JSON.stringify(soraInput, null, 2));
+    console.log("Sora 2 Pro input:", JSON.stringify(soraInput, null, 2));
 
-    const soraResponse = await fetch("https://api.replicate.com/v1/models/openai/sora-2/predictions", {
+    const soraResponse = await fetch("https://api.replicate.com/v1/models/openai/sora-2-pro/predictions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
@@ -558,12 +426,12 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
 
     if (!soraResponse.ok) {
       const errorBody = await soraResponse.text();
-      console.error("Sora 2 request failed body:", errorBody);
-      throw new Error(`Sora 2 request failed: ${soraResponse.status}`);
+      console.error("Sora 2 Pro request failed body:", errorBody);
+      throw new Error(`Sora 2 Pro request failed: ${soraResponse.status}`);
     }
 
     const soraPrediction = await soraResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-    console.log("Sora prediction created:", soraPrediction.id);
+    console.log("Sora Pro prediction created:", soraPrediction.id);
 
     // Poll for completion
     let result = soraPrediction;
@@ -607,9 +475,9 @@ Show data: ${JSON.stringify(show).slice(0, 2000)}`;
     }
 
     if (finalUrl) {
-      console.log("✅ Trailer generated with Sora 2:", finalUrl);
-      setTrailerStatusRecord(jobId, "succeeded", undefined, finalUrl, "sora-2");
-      return NextResponse.json({ url: finalUrl, model: "sora-2" });
+      console.log("✅ Trailer generated with Sora 2 Pro:", finalUrl);
+      setTrailerStatusRecord(jobId, "succeeded", undefined, finalUrl, "sora-2-pro");
+      return NextResponse.json({ url: finalUrl, model: "sora-2-pro" });
     }
 
   } catch (error) {

@@ -1350,7 +1350,7 @@ function ResultView({
   trailerElapsed: number;
   editedTrailerPrompt: string;
   onSetEditedTrailerPrompt: (value: string) => void;
-  onGenerateTrailer: () => void;
+  onGenerateTrailer: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto') => void;
   onRegenerateGrid: () => void;
   onRegeneratePoster: (customPrompt?: string) => void;
   editedLibraryPosterPrompt: string;
@@ -3309,7 +3309,7 @@ function ResultView({
                   currentModel={trailerModel || undefined}
                   onRegenerate={(model) => {
                     console.log("🔄 Regenerating trailer with model:", model);
-                    void generateTrailer(model);
+                    void onGenerateTrailer(model);
                   }}
                   isLoading={trailerLoading}
                   disabled={trailerLoading || !portraitGridUrl}
@@ -5528,7 +5528,7 @@ export default function Home() {
     [blueprint, posterLoading, currentShowId]
   );
 
-  const generateTrailer = useCallback(async (requestedModel?: 'sora-2' | 'veo-3.1' | 'minimax' | 'kling' | 'runway' | 'auto') => {
+  const generateTrailer = useCallback(async (requestedModel?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto') => {
     console.log("🎬 generateTrailer called");
     console.log("   Requested model:", requestedModel || 'auto');
     console.log("   Has blueprint:", !!blueprint);
@@ -5656,6 +5656,16 @@ export default function Home() {
 
     try {
       console.log("🚀 Starting trailer generation with jobId:", jobId);
+      
+      // Create a clean, serializable copy of blueprint data
+      const cleanBlueprint = {
+        show_title: blueprint.show_title,
+        show_logline: blueprint.show_logline,
+        production_style: blueprint.production_style,
+        visual_aesthetics: blueprint.visual_aesthetics,
+        character_seeds: characterSeeds,
+      };
+      
       const response = await fetch("/api/trailer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -5663,7 +5673,7 @@ export default function Home() {
           title: blueprint.show_title ?? "Untitled Series",
           logline: blueprint.show_logline ?? "",
           characterGridUrl: gridUrl,
-          show: blueprint,
+          show: cleanBlueprint,
           jobId,
           model: requestedModel || 'auto',
         }),
@@ -7338,7 +7348,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
             trailerElapsed={trailerElapsed}
             editedTrailerPrompt={editedTrailerPrompt}
             onSetEditedTrailerPrompt={setEditedTrailerPrompt}
-            onGenerateTrailer={() => void generateTrailer()}
+            onGenerateTrailer={(model) => void generateTrailer(model)}
             onRegenerateGrid={() => {
               portraitGridDigestRef.current = "";
               setPortraitGridUrl(null);
