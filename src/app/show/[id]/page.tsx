@@ -31,10 +31,16 @@ import {
   Smile,
   Mic,
   Library,
+  Volume2,
+  VolumeX,
+  AlertCircle,
+  PlayCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { calculateShowCompletion } from "@/lib/show-completion";
+import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
 
 type ShowAssets = {
   portraits: string[];
@@ -169,39 +175,43 @@ export default function ShowPage() {
   const [generatedContent, setGeneratedContent] = useState<GeneratedContent | null>(null);
   const [copied, setCopied] = useState(false);
   const [trailerPlaying, setTrailerPlaying] = useState(false);
+  const [trailerMuted, setTrailerMuted] = useState(true);
   const [expandedCharacter, setExpandedCharacter] = useState<string | null>(null);
+  const [completionStatus, setCompletionStatus] = useState<ReturnType<typeof calculateShowCompletion> | null>(null);
 
   useEffect(() => {
     void loadShowData();
   }, [showId]);
 
-  // Auto-play trailer when assets load
+  // Pause all other videos when one starts playing
   useEffect(() => {
-    if (assets?.trailer) {
-      const video = document.getElementById('trailer-video') as HTMLVideoElement;
-      if (video) {
-        // Auto-play muted
-        video.muted = true;
-        video.play().then(() => {
-          setTrailerPlaying(true);
-        }).catch((error) => {
-          console.log("Auto-play prevented:", error);
-        });
+    const handleVideoPlay = (e: Event) => {
+      const playingVideo = e.target as HTMLVideoElement;
+      
+      // Get all video elements on the page
+      const allVideos = document.querySelectorAll('video');
+      
+      // Pause all other videos
+      allVideos.forEach((video) => {
+        if (video !== playingVideo && !video.paused) {
+          video.pause();
+        }
+      });
+    };
 
-        // Listen to play/pause events
-        const handlePlay = () => setTrailerPlaying(true);
-        const handlePause = () => setTrailerPlaying(false);
-        
-        video.addEventListener('play', handlePlay);
-        video.addEventListener('pause', handlePause);
+    // Add event listeners to all videos
+    const allVideos = document.querySelectorAll('video');
+    allVideos.forEach((video) => {
+      video.addEventListener('play', handleVideoPlay);
+    });
 
-        return () => {
-          video.removeEventListener('play', handlePlay);
-          video.removeEventListener('pause', handlePause);
-        };
-      }
-    }
-  }, [assets?.trailer]);
+    // Cleanup
+    return () => {
+      allVideos.forEach((video) => {
+        video.removeEventListener('play', handleVideoPlay);
+      });
+    };
+  }, [showData, assets]); // Re-run when content loads
 
   const loadShowData = async () => {
     setLoading(true);
@@ -219,6 +229,19 @@ export default function ShowPage() {
       const data = await response.json();
       setShowData(data.show);
       setAssets(data.assets);
+
+      // Calculate completion status
+      const completion = calculateShowCompletion({
+        characterSeeds: data.show.characterSeeds,
+        characterDocs: data.show.characterDocs,
+        characterPortraits: data.assets.characterPortraits,
+        characterVideos: data.assets.characterVideos,
+        posterUrl: data.assets.poster,
+        libraryPosterUrl: data.assets.libraryPoster,
+        portraitGridUrl: data.assets.portraitGrid,
+        trailerUrl: data.assets.trailer,
+      });
+      setCompletionStatus(completion);
 
       setGeneratingContent(true);
       const contentResponse = await fetch(`/api/show/${showId}/generate-content`, {
@@ -277,8 +300,22 @@ export default function ShowPage() {
       } else {
         video.play();
       }
-      setTrailerPlaying(!trailerPlaying);
     }
+  };
+
+  const toggleTrailerAudio = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering play/pause
+    const video = document.getElementById('trailer-video') as HTMLVideoElement;
+    if (video) {
+      video.muted = !video.muted;
+      setTrailerMuted(video.muted);
+    }
+  };
+
+  const continueProduction = () => {
+    // Store the show ID in sessionStorage so console page can load it
+    sessionStorage.setItem(LIBRARY_LOAD_STORAGE_KEY, showId);
+    router.push("/console");
   };
 
   if (loading) {
@@ -358,33 +395,99 @@ export default function ShowPage() {
       {/* Spacer for fixed header */}
       <div className="h-[72px]" />
 
+      {/* Incomplete Show Banner */}
+      {completionStatus && !completionStatus.isFullyComplete && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-500/20">
+          <div className="mx-auto max-w-7xl px-6 py-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-6 w-6 text-amber-500" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-amber-100 mb-1">
+                    Production Incomplete ({completionStatus.completionPercentage}%)
+                  </h3>
+                  <p className="text-sm text-amber-200/80 mb-2">
+                    This show is missing some assets. Continue production to complete it.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {completionStatus.missingItems.map((item, i) => (
+                      <Badge key={i} variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-200 text-xs">
+                        Missing: {item}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <Button
+                onClick={continueProduction}
+                size="lg"
+                className="bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-full shadow-lg hover:shadow-xl transition-all flex-shrink-0"
+              >
+                <PlayCircle className="mr-2 h-5 w-5" />
+                Continue Production
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section with Trailer */}
       {assets.trailer ? (
         <div className="relative h-[70vh] w-full overflow-hidden group cursor-pointer" onClick={toggleTrailer}>
           <video
             id="trailer-video"
             src={assets.trailer}
+            autoPlay
             loop
+            muted
             playsInline
+            onPlay={() => setTrailerPlaying(true)}
+            onPause={() => setTrailerPlaying(false)}
+            onVolumeChange={(e) => setTrailerMuted(e.currentTarget.muted)}
+            onLoadedData={(e) => {
+              const video = e.currentTarget;
+              video.play().then(() => {
+                setTrailerPlaying(true);
+              }).catch(() => {
+                setTrailerPlaying(false);
+              });
+            }}
             className="absolute inset-0 h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
           
           {/* Play Button - Shows when not playing */}
           {!trailerPlaying && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-24 w-24 items-center justify-center rounded-full bg-primary shadow-2xl transition-all hover:scale-110 hover:bg-primary/90">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-24 w-24 items-center justify-center rounded-full bg-primary shadow-2xl transition-all hover:scale-110 hover:bg-primary/90 z-10">
               <Play className="ml-2 h-12 w-12 text-white" />
             </div>
           )}
 
           {/* Pause Button - Shows on hover when playing */}
           {trailerPlaying && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-20 w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 hover:bg-black/90">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-20 w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-0 group-hover:opacity-100 hover:scale-110 hover:bg-black/90 z-10">
               <Pause className="h-10 w-10 text-white" />
             </div>
           )}
+
+          {/* Audio Toggle Button - Shows on hover for desktop, always visible on mobile */}
+          {trailerPlaying && (
+            <button
+              onClick={toggleTrailerAudio}
+              className="absolute top-6 right-6 flex h-12 w-12 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-xl transition-all hover:scale-110 hover:bg-black/90 z-10 md:opacity-0 md:group-hover:opacity-100"
+              aria-label={trailerMuted ? "Unmute trailer" : "Mute trailer"}
+            >
+              {trailerMuted ? (
+                <VolumeX className="h-6 w-6 text-white" />
+              ) : (
+                <Volume2 className="h-6 w-6 text-white" />
+              )}
+            </button>
+          )}
           
-          <div className="absolute bottom-0 left-0 right-0 px-6 pb-16">
+          <div className={`absolute bottom-0 left-0 right-0 px-6 pb-16 transition-opacity duration-500 ${trailerPlaying ? 'opacity-20' : 'opacity-100'}`}>
             <div className="mx-auto max-w-7xl">
               <h1 className="font-serif text-5xl font-bold tracking-tight lg:text-6xl mb-4">
                 {displayTitle}
@@ -565,9 +668,8 @@ export default function ShowPage() {
                         {hasVideo && videoUrl ? (
                           <video
                             src={videoUrl}
+                            controls
                             loop
-                            autoPlay
-                            muted
                             playsInline
                             className="absolute inset-0 h-full w-full object-cover"
                           />
