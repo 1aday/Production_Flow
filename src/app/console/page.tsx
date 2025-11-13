@@ -4857,11 +4857,11 @@ export default function Home() {
       });
 
       // Start polling for this portrait
-      const startPolling = () => {
+      const startPolling = (replicateJobId: string) => {
         const pollInterval = setInterval(async () => {
           try {
             const response = await fetch(
-              `/api/characters/portrait/status?jobId=${encodeURIComponent(jobId)}`,
+              `/api/characters/portrait/status?jobId=${encodeURIComponent(replicateJobId)}`,
               { cache: "no-store" }
             );
             
@@ -4895,11 +4895,11 @@ export default function Home() {
               
               // Update background task
               if (currentShowId) {
-                updateBackgroundTask(jobId, { 
+                updateBackgroundTask(replicateJobId, { 
                   status: 'succeeded', 
                   outputUrl: data.outputUrl 
                 });
-                setTimeout(() => removeBackgroundTask(jobId), 5000);
+                setTimeout(() => removeBackgroundTask(replicateJobId), 5000);
               }
               
               // Stop polling
@@ -4953,11 +4953,11 @@ export default function Home() {
               
               // Update background task
               if (currentShowId) {
-                updateBackgroundTask(jobId, { 
+                updateBackgroundTask(replicateJobId, { 
                   status: 'failed', 
                   error: errorMessage 
                 });
-                setTimeout(() => removeBackgroundTask(jobId), 10000);
+                setTimeout(() => removeBackgroundTask(replicateJobId), 10000);
               }
               
               // Stop polling
@@ -5009,10 +5009,21 @@ export default function Home() {
           throw new Error("Portrait API did not return job ID.");
         }
         
-        console.log(`🚀 Portrait generation started for ${characterId}, job: ${result.jobId}`);
+        // CRITICAL: Update the jobId to use the ACTUAL prediction ID from Replicate
+        const actualJobId = result.jobId;
+        portraitJobsRef.current.set(characterId, actualJobId);  // Update stored job ID
         
-        // Start polling for status
-        startPolling();
+        console.log(`🚀 Portrait generation started for ${characterId}`);
+        console.log(`   Original UUID: ${jobId}`);
+        console.log(`   Actual Replicate prediction ID: ${actualJobId}`);
+        
+        // Update background task with actual job ID
+        if (targetShowId) {
+          updateBackgroundTask(jobId, { id: actualJobId });
+        }
+        
+        // Start polling for status using the ACTUAL job ID
+        startPolling(actualJobId);
       } catch (err) {
         console.error("Portrait API call error:", err);
         let errorMessage = err instanceof Error ? err.message : "Failed to start portrait generation.";
