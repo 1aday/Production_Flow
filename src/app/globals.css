@@ -121,6 +121,9 @@
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
   }
   
   /* Premium Typography System */
@@ -183,6 +186,7 @@
   /* Smooth Scrolling */
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
   }
 
   /* Mobile-optimized Focus States */

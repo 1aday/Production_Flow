@@ -350,7 +350,7 @@ export default function ShowPage() {
   const posterDesc = showData.blueprint?.poster_description;
 
   return (
-    <div className="min-h-screen bg-black text-foreground">
+    <div className="min-h-screen bg-black text-foreground overflow-x-hidden">
       {/* Fixed Header */}
       <div className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-black/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-6 sm:py-4">
@@ -441,7 +441,7 @@ export default function ShowPage() {
 
       {/* Hero Section with Trailer */}
       {assets.trailer ? (
-        <div className="relative h-[50vh] sm:h-[60vh] lg:h-[70vh] w-full overflow-hidden group cursor-pointer touch-manipulation" onClick={toggleTrailer}>
+        <div className="relative h-[50vh] sm:h-[60vh] lg:h-[70vh] w-full max-w-full overflow-hidden group cursor-pointer touch-manipulation" onClick={toggleTrailer}>
           <video
             id="trailer-video"
             src={assets.trailer}
@@ -460,7 +460,7 @@ export default function ShowPage() {
                 setTrailerPlaying(false);
               });
             }}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full max-w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
           
@@ -507,12 +507,12 @@ export default function ShowPage() {
           </div>
         </div>
       ) : assets.libraryPoster || assets.poster ? (
-        <div className="relative h-[50vh] sm:h-[60vh] lg:h-[70vh] w-full overflow-hidden">
+        <div className="relative h-[50vh] sm:h-[60vh] lg:h-[70vh] w-full max-w-full overflow-hidden">
           <Image
             src={assets.libraryPoster || assets.poster || ""}
             alt={displayTitle}
             fill
-            className="object-cover"
+            className="object-cover max-w-full"
             priority
             quality={95}
           />
@@ -549,7 +549,7 @@ export default function ShowPage() {
       )}
 
       {/* Main Content */}
-      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:space-y-12 sm:px-6 sm:py-12 lg:space-y-16 lg:py-16">
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:space-y-12 sm:px-6 sm:py-12 lg:space-y-16 lg:py-16 w-full overflow-x-hidden">
         
         {/* Quick Info Bar */}
         <div className="flex flex-wrap gap-3">
@@ -593,13 +593,13 @@ export default function ShowPage() {
           <section className="grid gap-6 lg:grid-cols-3">
             {/* Poster */}
             {(assets.libraryPoster || assets.poster) && (
-              <div className="lg:col-span-1">
-                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/10 shadow-2xl">
+              <div className="lg:col-span-1 w-full max-w-full">
+                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/10 shadow-2xl w-full max-w-full">
                   <Image
                     src={assets.libraryPoster || assets.poster || ""}
                     alt={`${displayTitle} Poster`}
                     fill
-                    className="object-cover"
+                    className="object-cover max-w-full"
                     sizes="(min-width: 1024px) 33vw, 100vw"
                   />
                 </div>
@@ -670,10 +670,10 @@ export default function ShowPage() {
                     {/* Character Header */}
                     <div className="grid gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-3">
                       {/* Portrait or Video */}
-                      <div className={`relative overflow-hidden rounded-xl lg:col-span-1 ${hasVideo ? 'aspect-[9/16]' : 'aspect-square'} group cursor-pointer touch-manipulation`}>
+                      <div className={`relative overflow-hidden rounded-xl lg:col-span-1 ${hasVideo ? 'aspect-[9/16]' : 'aspect-square'} group cursor-pointer touch-manipulation w-full max-w-full`}>
                         {hasVideo && videoUrl ? (
                           <div 
-                            className="relative h-full w-full"
+                            className="relative h-full w-full max-w-full"
                             onClick={(e) => {
                               const video = e.currentTarget.querySelector('video');
                               if (video) {
@@ -695,7 +695,7 @@ export default function ShowPage() {
                               loop
                               playsInline
                               muted={false}
-                              className="absolute inset-0 h-full w-full object-cover"
+                              className="absolute inset-0 h-full w-full max-w-full object-cover"
                               onMouseEnter={(e) => {
                                 // Only auto-play on hover for desktop (non-touch devices)
                                 if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
@@ -739,7 +739,7 @@ export default function ShowPage() {
                             src={portraitUrl}
                             alt={character.name}
                             fill
-                            className="object-cover"
+                            className="object-cover max-w-full"
                             sizes="(min-width: 1024px) 33vw, 100vw"
                           />
                         ) : (

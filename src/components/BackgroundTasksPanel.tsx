@@ -151,20 +151,20 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
 
       {/* Sliding Panel */}
       <div
-        className={`fixed right-0 top-0 h-full w-full sm:w-[500px] bg-black border-l border-white/12 shadow-[0_24px_80px_rgba(0,0,0,0.7)] transition-transform duration-200 ease-out z-50 ${
+        className={`fixed right-0 top-0 h-full w-full sm:w-[500px] md:w-[560px] bg-black border-l border-white/12 shadow-[0_24px_80px_rgba(0,0,0,0.7)] transition-transform duration-200 ease-out z-50 ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-white/12 bg-black/95 backdrop-blur-xl">
-          <div className="flex items-center justify-between px-6 py-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-3xl bg-primary/10 border border-primary/20">
-                <Film className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between px-4 sm:px-5 md:px-6 py-4 sm:py-5">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-2xl sm:rounded-3xl bg-primary/10 border border-primary/20 shrink-0">
+                <Film className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Background Tasks</h2>
-                <p className="text-xs text-foreground/60">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base sm:text-lg font-semibold text-foreground truncate">Background Tasks</h2>
+                <p className="text-[10px] sm:text-xs text-foreground/60 truncate">
                   {activeTaskCount > 0 ? `${activeTaskCount} in progress` : "All caught up"}
                 </p>
               </div>
@@ -173,40 +173,40 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="rounded-full hover:bg-white/10"
+              className="rounded-full hover:bg-white/10 shrink-0 h-9 w-9 sm:h-10 sm:w-10 touch-manipulation min-h-[44px] sm:min-h-0"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </div>
 
           {/* Summary Stats */}
           {totalTasks > 0 && (
-            <div className="grid grid-cols-3 gap-3 px-6 pb-5">
-              <div className="rounded-3xl border border-white/12 bg-black/40 px-3 py-2.5">
-                <div className="text-xs text-foreground/60 mb-0.5">Active</div>
-                <div className="text-xl font-bold text-primary">{activeTaskCount}</div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 px-4 sm:px-5 md:px-6 pb-4 sm:pb-5">
+              <div className="rounded-2xl sm:rounded-3xl border border-white/12 bg-black/40 px-2.5 sm:px-3 py-2 sm:py-2.5">
+                <div className="text-[10px] sm:text-xs text-foreground/60 mb-0.5">Active</div>
+                <div className="text-lg sm:text-xl font-bold text-primary">{activeTaskCount}</div>
               </div>
-              <div className="rounded-3xl border border-white/12 bg-black/40 px-3 py-2.5">
-                <div className="text-xs text-foreground/60 mb-0.5">Done</div>
-                <div className="text-xl font-bold text-foreground">{completedTaskCount}</div>
+              <div className="rounded-2xl sm:rounded-3xl border border-white/12 bg-black/40 px-2.5 sm:px-3 py-2 sm:py-2.5">
+                <div className="text-[10px] sm:text-xs text-foreground/60 mb-0.5">Done</div>
+                <div className="text-lg sm:text-xl font-bold text-foreground">{completedTaskCount}</div>
               </div>
-              <div className="rounded-3xl border border-white/12 bg-black/40 px-3 py-2.5">
-                <div className="text-xs text-foreground/60 mb-0.5">Failed</div>
-                <div className="text-xl font-bold text-destructive">{failedTaskCount}</div>
+              <div className="rounded-2xl sm:rounded-3xl border border-white/12 bg-black/40 px-2.5 sm:px-3 py-2 sm:py-2.5">
+                <div className="text-[10px] sm:text-xs text-foreground/60 mb-0.5">Failed</div>
+                <div className="text-lg sm:text-xl font-bold text-destructive">{failedTaskCount}</div>
               </div>
             </div>
           )}
         </div>
 
         {/* Content */}
-        <div className="h-[calc(100%-180px)] overflow-y-auto px-6 py-6 space-y-8">
+        <div className="h-[calc(100%-160px)] sm:h-[calc(100%-180px)] overflow-y-auto px-4 sm:px-5 md:px-6 py-4 sm:py-5 md:py-6 space-y-6 sm:space-y-8">
           {totalTasks === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-20">
-              <div className="h-20 w-20 rounded-3xl bg-black/40 border border-white/12 flex items-center justify-center mb-4">
-                <Film className="h-10 w-10 text-primary/50" />
+            <div className="flex flex-col items-center justify-center h-full text-center py-12 sm:py-16 md:py-20 px-4">
+              <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl sm:rounded-3xl bg-black/40 border border-white/12 flex items-center justify-center mb-3 sm:mb-4">
+                <Film className="h-8 w-8 sm:h-10 sm:w-10 text-primary/50" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No Shows Yet</h3>
-              <p className="text-sm text-foreground/60 max-w-xs">
+              <h3 className="text-base sm:text-lg font-semibold text-foreground mb-1.5 sm:mb-2">No Shows Yet</h3>
+              <p className="text-xs sm:text-sm text-foreground/60 max-w-xs">
                 Generate a show to see the full production pipeline here.
               </p>
             </div>
@@ -225,8 +225,8 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
 
         {/* Footer */}
         {totalTasks > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 border-t border-white/12 bg-black/95 backdrop-blur-xl px-6 py-4">
-            <p className="text-xs text-center text-foreground/60">
+          <div className="absolute bottom-0 left-0 right-0 border-t border-white/12 bg-black/95 backdrop-blur-xl px-4 sm:px-5 md:px-6 py-3 sm:py-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+            <p className="text-[10px] sm:text-xs text-center text-foreground/60 leading-relaxed">
               Tasks are tracked in your browser and will resume if you refresh
             </p>
           </div>

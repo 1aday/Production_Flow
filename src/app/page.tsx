@@ -54,7 +54,7 @@ export default function LandingPage() {
   const [hoveredShow, setHoveredShow] = useState<string | null>(null);
 
   return (
-    <div className="min-h-screen bg-black text-foreground overflow-x-hidden">
+    <div className="min-h-screen bg-black text-foreground overflow-x-hidden w-full max-w-full">
       {/* Navigation Header - Transparent over hero */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/60 via-black/30 to-transparent backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 sm:px-6 py-6 sm:py-8">

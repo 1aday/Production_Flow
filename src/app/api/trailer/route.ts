@@ -14,6 +14,7 @@ type TrailerBody = {
   show: unknown;
   jobId?: string;
   model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto';
+  customPrompt?: string;
 };
 
 // Helper function to generate with Sora 2
@@ -193,7 +194,7 @@ export async function POST(request: NextRequest) {
 
   pruneTrailerStatusRecords();
 
-  const { title, logline, characterGridUrl, show, jobId: incomingJobId, model: requestedModel = 'auto' } = body;
+  const { title, logline, characterGridUrl, show, jobId: incomingJobId, model: requestedModel = 'auto', customPrompt } = body;
   const jobId =
     typeof incomingJobId === "string" && incomingJobId.trim().length > 0
       ? incomingJobId.trim()
@@ -214,7 +215,9 @@ export async function POST(request: NextRequest) {
     stylization_level?: string;
   } }).production_style;
 
-  const styleGuidance = productionStyle ? `
+  // Use custom prompt if provided, otherwise build default prompt
+  const trailerPrompt = customPrompt || (() => {
+    const styleGuidance = productionStyle ? `
 
 VISUAL STYLE (CRITICAL - Follow exactly):
 Medium: ${productionStyle.medium || 'Stylized cinematic'}
@@ -224,8 +227,8 @@ Stylization: ${productionStyle.stylization_level || 'cinematic'}
 
 IMPORTANT: Match this exact visual style. Do NOT use photorealistic or realistic rendering.` : '';
 
-  // Build a blockbuster-style trailer prompt
-  const trailerPrompt = `Create an iconic teaser trailer for the series "${title}".
+    // Build a blockbuster-style trailer prompt
+    return `Create an iconic teaser trailer for the series "${title}".
 
 ${logline}${styleGuidance}
 
@@ -296,6 +299,7 @@ VISUAL APPROACH:
 The character grid shows your cast - use them throughout but focus on MOMENTS and ATMOSPHERE matched with compelling narration.
 
 Show data: ${JSON.stringify(show).slice(0, 2000)}`;
+  })();
 
   console.log("=== TRAILER GENERATION ===");
   console.log("Title:", title);

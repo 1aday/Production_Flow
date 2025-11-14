@@ -80,7 +80,12 @@ function normalizeSchemaForStructuredOutputs(root: JSONSchemaNode) {
 
     if (isObjectType && node.properties && typeof node.properties === "object") {
       const keys = Object.keys(node.properties);
-      node.required = keys;
+      // Preserve existing required array if it exists, otherwise make all properties required
+      // This ensures optional fields (like art_style) remain optional
+      if (!node.required || node.required.length === 0) {
+        node.required = keys;
+      }
+      // Still visit all properties for normalization
       for (const key of keys) {
         visit(node.properties[key]);
       }

@@ -70,6 +70,292 @@
             "type": "string",
             "enum": ["highly_stylized", "moderately_stylized"],
             "description": "Level of artistic stylization. Only 'highly_stylized' or 'moderately_stylized' allowed - no realistic options."
+          },
+          "art_style": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Comprehensive art style definition capturing all aesthetic dimensions for accurate style replication (e.g., Family Guy, South Park, Wallace & Gromit, Wes Anderson).",
+            "properties": {
+              "line_art": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "outline_style": {
+                    "type": "string",
+                    "enum": ["bold", "thin", "variable", "none", "brush_stroke"],
+                    "description": "Style of character/object outlines"
+                  },
+                  "outline_color": {
+                    "type": "string",
+                    "enum": ["black", "colored", "variable", "none"],
+                    "description": "Color of outlines"
+                  },
+                  "outline_weight": {
+                    "type": "string",
+                    "enum": ["uniform", "variable", "tapered"],
+                    "description": "Consistency of outline thickness"
+                  },
+                  "line_quality": {
+                    "type": "string",
+                    "enum": ["clean", "sketchy", "hand_drawn", "vector_clean"],
+                    "description": "Quality and feel of line work"
+                  }
+                }
+              },
+              "shape_language": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "primary_shapes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["geometric", "organic", "angular", "rounded", "hybrid"]
+                    },
+                    "description": "Dominant shape types used in design"
+                  },
+                  "shape_simplification": {
+                    "type": "string",
+                    "enum": ["high", "medium", "low"],
+                    "description": "Level of geometric simplification"
+                  },
+                  "edge_softness": {
+                    "type": "string",
+                    "enum": ["hard", "soft", "mixed"],
+                    "description": "Hardness of shape edges"
+                  },
+                  "form_representation": {
+                    "type": "string",
+                    "enum": ["flat", "dimensional", "isometric"],
+                    "description": "How 3D forms are represented"
+                  }
+                }
+              },
+              "color_application": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "color_style": {
+                    "type": "string",
+                    "enum": ["flat", "gradient", "cel_shaded", "painterly", "textured", "mixed"],
+                    "description": "Primary method of color application"
+                  },
+                  "shading_method": {
+                    "type": "string",
+                    "enum": ["none", "flat_shadows", "gradient_shading", "cel_shading", "soft_shading"],
+                    "description": "How shadows and depth are indicated"
+                  },
+                  "color_count": {
+                    "type": "string",
+                    "enum": ["limited", "moderate", "extensive"],
+                    "description": "Number of colors in palette"
+                  },
+                  "color_saturation": {
+                    "type": "string",
+                    "enum": ["desaturated", "moderate", "highly_saturated", "vibrant"],
+                    "description": "Intensity of colors"
+                  },
+                  "color_harmony": {
+                    "type": "string",
+                    "enum": ["monochromatic", "complementary", "analogous", "triadic", "eclectic"],
+                    "description": "Color relationship scheme"
+                  }
+                }
+              },
+              "rendering_approach": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "dimensionality": {
+                    "type": "string",
+                    "enum": ["2d_flat", "2d_shaded", "2.5d", "3d_cel_shaded", "3d_realistic", "stop_motion", "mixed_media"],
+                    "description": "Dimensional rendering approach"
+                  },
+                  "surface_quality": {
+                    "type": "string",
+                    "enum": ["smooth", "textured", "hand_crafted", "digital_clean", "tactile"],
+                    "description": "Surface finish and texture feel"
+                  },
+                  "detail_level": {
+                    "type": "string",
+                    "enum": ["minimal", "simplified", "moderate", "detailed", "highly_detailed"],
+                    "description": "Amount of visual detail"
+                  },
+                  "texture_style": {
+                    "type": "string",
+                    "enum": ["none", "subtle", "visible", "prominent", "hand_drawn"],
+                    "description": "Presence and style of textures"
+                  }
+                }
+              },
+              "character_design": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "proportions": {
+                    "type": "string",
+                    "enum": ["realistic", "slightly_exaggerated", "moderately_exaggerated", "highly_exaggerated", "abstract"],
+                    "description": "Character proportion stylization"
+                  },
+                  "head_to_body_ratio": {
+                    "type": "string",
+                    "enum": ["1:6", "1:5", "1:4", "1:3", "1:2", "other"],
+                    "description": "Head size relative to body"
+                  },
+                  "feature_simplification": {
+                    "type": "string",
+                    "enum": ["detailed", "moderate", "simplified", "minimal", "iconic"],
+                    "description": "Level of facial feature detail"
+                  },
+                  "facial_features": {
+                    "type": "string",
+                    "enum": ["realistic", "stylized", "geometric", "minimal", "exaggerated"],
+                    "description": "Facial feature style"
+                  },
+                  "body_stylization": {
+                    "type": "string",
+                    "enum": ["realistic", "stylized", "geometric", "abstract"],
+                    "description": "Body form stylization"
+                  }
+                }
+              },
+              "background_style": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "detail_level": {
+                    "type": "string",
+                    "enum": ["minimal", "simplified", "moderate", "detailed", "highly_detailed"],
+                    "description": "Background detail amount"
+                  },
+                  "rendering_consistency": {
+                    "type": "string",
+                    "enum": ["matches_characters", "more_detailed", "less_detailed", "stylistically_different"],
+                    "description": "How backgrounds relate to character style"
+                  },
+                  "perspective_style": {
+                    "type": "string",
+                    "enum": ["flat", "one_point", "two_point", "isometric", "atmospheric"],
+                    "description": "Perspective approach"
+                  },
+                  "simplification_approach": {
+                    "type": "string",
+                    "enum": ["geometric", "organic", "textured", "pattern_based"],
+                    "description": "Method of background simplification"
+                  }
+                }
+              },
+              "animation_motion": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "motion_style": {
+                    "type": "string",
+                    "enum": ["smooth", "choppy", "limited", "full", "stylized", "stop_motion"],
+                    "description": "Animation motion quality"
+                  },
+                  "frame_rate_feel": {
+                    "type": "string",
+                    "enum": ["12fps_feel", "24fps_feel", "smooth_60fps", "variable"],
+                    "description": "Perceived frame rate"
+                  },
+                  "easing_style": {
+                    "type": "string",
+                    "enum": ["linear", "ease_in_out", "bouncy", "snappy", "organic"],
+                    "description": "Animation easing approach"
+                  },
+                  "exaggeration_level": {
+                    "type": "string",
+                    "enum": ["subtle", "moderate", "high", "extreme"],
+                    "description": "Level of motion exaggeration"
+                  }
+                }
+              },
+              "art_movement_references": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "primary_influences": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["pop_art", "minimalism", "art_deco", "art_nouveau", "brutalism", "retro", "vintage", "modernist", "postmodern", "surrealism", "expressionism"]
+                    },
+                    "description": "Art movements that influence the style"
+                  },
+                  "era_aesthetic": {
+                    "type": "string",
+                    "enum": ["1920s", "1950s", "1960s", "1970s", "1980s", "1990s", "2000s", "contemporary", "timeless"],
+                    "description": "Decade aesthetic reference"
+                  },
+                  "cultural_influences": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": ["japanese_anime", "european_comics", "american_cartoon", "indie_animation", "other"]
+                    },
+                    "description": "Cultural animation traditions"
+                  }
+                }
+              },
+              "visual_techniques": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "texture_overlay": {
+                    "type": "string",
+                    "enum": ["none", "subtle", "moderate", "prominent"],
+                    "description": "Texture overlay presence"
+                  },
+                  "grain_or_noise": {
+                    "type": "string",
+                    "enum": ["none", "film_grain", "digital_noise", "paper_texture", "canvas_texture"],
+                    "description": "Grain or texture noise type"
+                  },
+                  "halftone_patterns": {
+                    "type": "string",
+                    "enum": ["none", "subtle", "moderate", "prominent"],
+                    "description": "Halftone pattern usage"
+                  },
+                  "color_bleeding": {
+                    "type": "string",
+                    "enum": ["none", "subtle", "moderate", "prominent"],
+                    "description": "Color bleeding effect"
+                  },
+                  "hand_drawn_imperfections": {
+                    "type": "string",
+                    "enum": ["none", "subtle", "moderate", "prominent"],
+                    "description": "Visible hand-drawn quality"
+                  }
+                }
+              },
+              "composition_style": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "layout_approach": {
+                    "type": "string",
+                    "enum": ["symmetrical", "rule_of_thirds", "centered", "asymmetrical", "dynamic"],
+                    "description": "Composition layout style"
+                  },
+                  "framing_style": {
+                    "type": "string",
+                    "enum": ["tight", "medium", "wide", "variable"],
+                    "description": "Shot framing approach"
+                  },
+                  "depth_representation": {
+                    "type": "string",
+                    "enum": ["flat", "shallow", "moderate", "deep"],
+                    "description": "Depth of field representation"
+                  },
+                  "negative_space": {
+                    "type": "string",
+                    "enum": ["minimal", "moderate", "generous", "prominent"],
+                    "description": "Use of negative/empty space"
+                  }
+                }
+              }
+            }
           }
         }
       },

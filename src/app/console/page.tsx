@@ -1274,7 +1274,8 @@ function ResultView({
   trailerElapsed: number;
   editedTrailerPrompt: string;
   onSetEditedTrailerPrompt: (value: string) => void;
-  onGenerateTrailer: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto') => void;
+  onGenerateTrailer: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => void;
+  buildDefaultTrailerPrompt: () => string;
   onRegenerateGrid: () => void;
   onRegeneratePoster: (customPrompt?: string) => void;
   editedLibraryPosterPrompt: string;
@@ -1717,11 +1718,13 @@ function ResultView({
             Rendering trailer…
           </div>
         ) : trailerUrl ? (
-          <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+          <div className="overflow-hidden rounded-2xl sm:rounded-3xl border border-white/10 bg-black/60 shadow-[0_12px_40px_rgba(0,0,0,0.55)] sm:shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
             <video
               controls
               className="h-full w-full"
               poster={portraitGridUrl ?? undefined}
+              playsInline
+              preload="metadata"
             >
               <source src={trailerUrl} type="video/mp4" />
               Your browser does not support the video tag.
@@ -2249,7 +2252,7 @@ function ResultView({
             ) : null}
           </div>
         ) : null}
-        <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-max">
+        <div className="grid gap-3 sm:gap-4 md:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 auto-rows-max">
         {characterSeeds.map((seed) => {
           const doc = characterDocs[seed.id];
           const isBuilding = Boolean(characterBuilding[seed.id]);
@@ -2370,8 +2373,8 @@ function ResultView({
             <Card
               key={seed.id}
               className={cn(
-                'min-h-[240px] justify-between transition-all duration-500 ease-in-out overflow-hidden',
-                isActive ? 'sm:col-span-2 xl:col-span-3 scale-[1.01]' : 'scale-100',
+                'min-h-[200px] sm:min-h-[240px] justify-between transition-all duration-500 ease-in-out overflow-hidden',
+                isActive ? 'col-span-1 sm:col-span-2 lg:col-span-3 xl:col-span-4 scale-[1.01]' : 'scale-100',
                 !isActive && portraitUrl ? 'p-0' : ''
               )}
             >
@@ -2872,18 +2875,27 @@ function ResultView({
                 <Textarea
                   value={editedTrailerPrompt}
                   onChange={(e) => onSetEditedTrailerPrompt(e.target.value)}
-                  placeholder="Enter custom trailer prompt..."
-                  className="min-h-[140px] text-xs font-mono"
+                  onFocus={(e) => {
+                    // Pre-fill with default prompt on first focus if empty
+                    if (!e.target.value && blueprint) {
+                      const defaultPrompt = buildDefaultTrailerPrompt();
+                      onSetEditedTrailerPrompt(defaultPrompt);
+                    }
+                  }}
+                  placeholder="Click to load default prompt with style guide, then edit as needed..."
+                  className="min-h-[200px] text-xs font-mono resize-y"
                 />
+                <p className="text-xs text-foreground/50">
+                  Includes style guide from your show bible. Edit to customize the trailer prompt.
+                </p>
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     size="sm"
                     onClick={() => {
                       if (editedTrailerPrompt) {
-                        // TODO: Pass custom prompt to trailer generation
                         console.log("Regenerating trailer with custom prompt:", editedTrailerPrompt.slice(0, 100));
-                        onGenerateTrailer();
+                        onGenerateTrailer(undefined, editedTrailerPrompt);
                       }
                     }}
                     disabled={!editedTrailerPrompt || trailerLoading}
@@ -2981,13 +2993,15 @@ function ResultView({
         <div className="grid gap-6 lg:grid-cols-4">
           {/* Trailer - 3 columns (3/4 width) - LEFT SIDE */}
           <div className="lg:col-span-3">
-            <div className="overflow-hidden rounded-3xl border border-white/12 bg-black/60 shadow-[0_24px_80px_rgba(0,0,0,0.7)]">
+            <div className="overflow-hidden rounded-2xl sm:rounded-3xl border border-white/12 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.6)] sm:shadow-[0_24px_80px_rgba(0,0,0,0.7)]">
               {trailerUrl ? (
                 <video
                   controls
                   className="h-full w-full"
                   poster={portraitGridUrl ?? undefined}
                   autoPlay={false}
+                  playsInline
+                  preload="metadata"
                 >
                   <source src={trailerUrl} type="video/mp4" />
                   Your browser does not support the video tag.
@@ -3848,8 +3862,10 @@ function ResultView({
                           <video
                             key={currentVideoUrl}
                             controls
-                            className="absolute inset-0 h-full w-full rounded-2xl object-cover"
+                            className="absolute inset-0 h-full w-full rounded-xl sm:rounded-2xl object-cover"
                             poster={portraitUrl ?? undefined}
+                            playsInline
+                            preload="metadata"
                           >
                             <source src={currentVideoUrl} type="video/mp4" />
                             Your browser does not support the video tag.
@@ -4970,28 +4986,22 @@ export default function Home() {
               // Play success sound
               playSuccessChime();
               
-              // Check if all characters are done, then trigger library poster
-              console.log("🎨 Portrait completed!");
-              console.log("   libraryPosterUrl exists?", !!libraryPosterUrl);
+              // Portrait completed! 
+              // Note: Library poster will auto-generate when portrait grid is ready (see useEffect below)
+              console.log("✅ Portrait completed for:", characterId);
               
               // Check if ALL characters now have portraits
               const allPortraitsComplete = characterSeeds?.every(seed => 
                 characterPortraits[seed.id] || seed.id === characterId
               ) ?? false;
               
-              console.log("   All portraits complete?", allPortraitsComplete);
-              console.log("   Total characters:", characterSeeds?.length || 0);
-              
-              if (!libraryPosterUrl && allPortraitsComplete && portraitGridUrl) {
-                console.log("✅ All portraits done! Triggering library poster generation in 1.5s...");
-                setTimeout(() => {
-                  console.log("🎬 Calling saveCurrentShow(true) for library poster");
-                  void saveCurrentShow(true);
-                }, 1500);
-              } else if (!allPortraitsComplete) {
-                console.log("⏳ Waiting for remaining portraits to complete");
-              } else if (!portraitGridUrl) {
-                console.log("⏳ Waiting for portrait grid");
+              if (allPortraitsComplete) {
+                console.log("🎉 All portraits complete! Portrait grid will auto-generate, then poster will follow.");
+              } else {
+                const completedCount = characterSeeds?.filter(seed => 
+                  characterPortraits[seed.id] || seed.id === characterId
+                ).length || 0;
+                console.log(`⏳ ${completedCount}/${characterSeeds?.length || 0} portraits complete`);
               }
             } else if (data.status === "failed" || data.status === null) {
               console.error(`❌ Portrait ${characterId} failed:`, data.detail);
@@ -5703,7 +5713,7 @@ export default function Home() {
     [blueprint, posterLoading, currentShowId]
   );
 
-  const generateTrailer = useCallback(async (requestedModel?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto') => {
+  const generateTrailer = useCallback(async (requestedModel?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => {
     console.log("🎬 generateTrailer called");
     console.log("   Requested model:", requestedModel || 'auto');
     console.log("   Has blueprint:", !!blueprint);
@@ -5862,6 +5872,7 @@ export default function Home() {
             show: cleanBlueprint,
             jobId,
             model: requestedModel || 'auto',
+            customPrompt: customPrompt || undefined,
           }),
         }).catch((fetchError) => {
           throw new Error(`Network error: ${fetchError.message || "Check your connection and try again"}`);
@@ -5935,14 +5946,9 @@ export default function Home() {
           message = "Trailer was flagged by content filters. Attempting VEO 3.1 fallback automatically, or edit the prompt below.";
         }
         
-        // Pre-populate edit field with original prompt if not already set
+        // Pre-populate edit field with default prompt if not already set
         if (!editedTrailerPrompt && blueprint) {
-          const defaultPrompt = `Create a blockbuster-style teaser trailer for the series "${blueprint.show_title || 'Untitled'}".
-
-${blueprint.show_logline || ''}
-
-Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the characters, high-energy moments, and a sense of scale and adventure. Professional movie trailer aesthetic with dynamic camera movements, impactful compositions, and a sense of intrigue that makes you want to watch the show.`;
-          
+          const defaultPrompt = buildDefaultTrailerPrompt();
           setEditedTrailerPrompt(defaultPrompt);
         }
       }
@@ -6804,6 +6810,94 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
     ].join("\n");
   }, [blueprint]);
 
+  const buildDefaultTrailerPrompt = useCallback(() => {
+    if (!blueprint) return "";
+    
+    const showTitle = blueprint.show_title || "Untitled Show";
+    const logline = blueprint.show_logline || "";
+    const productionStyle = blueprint.production_style;
+    
+    const styleGuidance = productionStyle ? `
+
+VISUAL STYLE (CRITICAL - Follow exactly):
+Medium: ${productionStyle.medium || 'Stylized cinematic'}
+References: ${(productionStyle.cinematic_references || []).join(', ')}
+Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}
+Stylization: ${productionStyle.stylization_level || 'cinematic'}
+
+IMPORTANT: Match this exact visual style. Do NOT use photorealistic or realistic rendering.` : '';
+
+    return `Create an iconic teaser trailer for the series "${showTitle}".
+
+${logline}${styleGuidance}
+
+TRAILER REQUIREMENTS:
+
+1. OPENING TITLE CARD: Begin with a striking title card displaying "${showTitle}" in beautiful, bold typography that matches the show's aesthetic. The title should be elegant, memorable, and set the tone for what follows. Hold for 2-3 seconds.
+
+2. VOICEOVER NARRATION: Include a professional, CINEMATIC trailer voiceover that sounds like an ACTUAL movie trailer - NOT someone reading a script or explaining the show:
+   
+   CRITICAL: The voiceover must be ENGAGING, DRAMATIC, and ICONIC - like the voice actors in real Hollywood trailers.
+   
+   Genre-Specific Voice Direction:
+   - For COMEDY: The "In a World" guy doing comedy - dry wit, impeccable timing, knowing irony. Think: casual cool meets sharp humor
+   - For ACTION: Deep, gravelly, INTENSE voice (think: Hans Zimmer trailer narrator). Every word drips with stakes and danger
+   - For HORROR: Whispered menace, bone-chilling calm before the storm. Not explaining - HAUNTING
+   - For DRAMA: Emotional power, thoughtful gravitas, pulls at heartstrings. Raw and real
+   - For ADVENTURE: Epic, wonder-struck, makes you FEEL the journey. Grand and inspiring
+   
+   VOICEOVER STYLE RULES:
+   ✓ Short, punchy phrases that PUNCTUATE visuals
+   ✓ Build tension and intrigue with each line
+   ✓ Use trailer-speak: fragments, dramatic pauses, building rhythm
+   ✓ Match the energy of what's on screen
+   ✓ End lines on power words that hit hard
+   ✓ Create mystery - DON'T explain everything
+   
+   ✗ NEVER sound like: "This is a show about..." or "Meet the characters who..."
+   ✗ NEVER be explanatory or expository
+   ✗ NEVER use boring, flat narration
+   ✗ NEVER sound like a documentary narrator
+   
+   EXAMPLE GOOD TRAILER VOICEOVER STYLE:
+   "Some secrets... [pause] ...refuse to stay buried."
+   "In a world on the edge... one choice... will change everything."
+   "They thought they knew the truth. They were wrong."
+   
+   The narrator should sound like a PROFESSIONAL TRAILER VOICE ACTOR - commanding, magnetic, impossible to ignore.
+
+3. Study the character grid reference image to understand the cast, weaving them into the narrative
+4. Create a well-paced, exciting montage that captures the show's core vibe and genre
+5. Showcase the MOST INTERESTING and ICONIC moments that would make viewers want to watch
+6. Build anticipation and intrigue through dynamic editing, compelling visuals, and punchy narration
+
+PACING & STRUCTURE:
+- Open with the title card (2-3 seconds) with impactful music
+- Voiceover opens with a HOOK - short, powerful, mysterious (NOT "In a world where..." unless it's perfect for the tone)
+- Quick cuts showcasing key characters and moments, each PUNCTUATED by sharp voiceover phrases
+- Build energy and TENSION throughout - narration should ESCALATE, not plateau
+- Include 2-3 memorable "money shots" with power-word voiceover hits
+- Voiceover rhythm: SHORT bursts that let visuals breathe, then hit HARD on the next beat
+- FINAL LINE must be a KILLER moment that leaves you wanting more - one perfect sentence that defines everything
+
+TONE & GENRE GUIDANCE:
+- If COMEDY: Visual humor, perfect timing, absurd situations. Voiceover: DRY, WITTY, self-aware - the voice is IN on the joke.
+- If ACTION: Dynamic movement, EXPLOSIVE tension, life-or-death stakes. Voiceover: INTENSE, gravelly, every word is WAR.
+- If HORROR: Creeping dread, shadows, the unseen. Voiceover: WHISPERED menace, bone-chilling calm, what's NOT said is scarier.
+- If DRAMA: Raw emotion, character conflict, human stakes. Voiceover: POWERFUL vulnerability, real and heartfelt, tears or triumph.
+- If ADVENTURE: Epic scope, wonder, impossible journeys. Voiceover: GRAND, awe-filled, makes you believe in magic.
+
+VISUAL APPROACH:
+- Use dynamic camera movements and impactful compositions
+- Vary shot sizes: wide establishing shots, dramatic close-ups, mid-shots for action
+- Match the show's visual style and production medium exactly (see above)
+- Create a sense of scale and production value
+- Every frame should feel intentional and exciting
+- Sync visuals with voiceover for maximum impact
+
+The character grid shows your cast - use them throughout but focus on MOMENTS and ATMOSPHERE matched with compelling narration.`;
+  }, [blueprint]);
+
   const generateLibraryPoster = useCallback(async (customPrompt?: string) => {
     const canGenerate = canGenerateLibraryPoster();
     
@@ -7349,24 +7443,24 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
       />
       
       <header className="sticky top-0 z-50 border-b border-white/12 bg-black/95 backdrop-blur-xl shadow-lg shadow-black/20">
-        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-3 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Link href="/" className="text-sm sm:text-base font-bold uppercase tracking-[0.22em] sm:tracking-[0.28em] text-primary hover:text-primary/80 transition-colors cursor-pointer whitespace-nowrap">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 overflow-hidden">
+            <Link href="/" className="text-xs sm:text-sm md:text-base font-bold uppercase tracking-[0.18em] sm:tracking-[0.22em] md:tracking-[0.28em] text-primary hover:text-primary/80 transition-colors cursor-pointer whitespace-nowrap">
               Production Flow
             </Link>
-            <span className="hidden lg:inline text-xs text-foreground/55 whitespace-nowrap">Look bible console</span>
+            <span className="hidden xl:inline text-xs text-foreground/55 whitespace-nowrap">Look bible console</span>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-3 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {blueprint ? (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={startNewShow}
-                className="gap-1.5 rounded-full shrink-0 h-9 sm:h-10"
+                className="gap-1 sm:gap-1.5 rounded-full shrink-0 h-9 sm:h-10 px-2.5 sm:px-4 min-w-[44px] touch-manipulation"
               >
-                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden md:inline">New Show</span>
+                <Plus className="h-4 w-4 sm:h-4 sm:w-4" />
+                <span className="hidden md:inline text-xs sm:text-sm">New Show</span>
               </Button>
             ) : null}
             
@@ -7375,11 +7469,11 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
               variant="ghost"
               size="sm"
               onClick={() => setIsPipelinePanelOpen(true)}
-              className="gap-1.5 rounded-full shrink-0 h-9 sm:h-10"
+              className="gap-1 sm:gap-1.5 rounded-full shrink-0 h-9 sm:h-10 px-2.5 sm:px-3 min-w-[44px] touch-manipulation"
               title="Production Pipeline Tracker"
             >
               <ListChecks className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
-              <span className="hidden lg:inline">Pipeline</span>
+              <span className="hidden xl:inline text-xs sm:text-sm">Pipeline</span>
             </Button>
             
             <Button
@@ -7387,11 +7481,11 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
               variant="ghost"
               size="sm"
               onClick={() => setShowSettingsDialog(true)}
-              className="gap-1.5 rounded-full shrink-0 h-9 sm:h-10"
+              className="gap-1 sm:gap-1.5 rounded-full shrink-0 h-9 sm:h-10 px-2.5 sm:px-3 min-w-[44px] touch-manipulation"
               title="Model Settings"
             >
               <Sliders className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
-              <span className="hidden lg:inline">Settings</span>
+              <span className="hidden xl:inline text-xs sm:text-sm">Settings</span>
             </Button>
             
             <Link href="/prompts">
@@ -7399,11 +7493,11 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="gap-1.5 rounded-full shrink-0 h-9 sm:h-10"
+                className="gap-1 sm:gap-1.5 rounded-full shrink-0 h-9 sm:h-10 px-2.5 sm:px-3 min-w-[44px] touch-manipulation"
                 title="Edit AI prompt templates"
               >
                 <FileText className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
-                <span className="hidden lg:inline">Prompts</span>
+                <span className="hidden xl:inline text-xs sm:text-sm">Prompts</span>
               </Button>
             </Link>
             
@@ -7412,10 +7506,10 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="gap-1.5 rounded-full shrink-0 h-9 sm:h-10"
+                className="gap-1 sm:gap-1.5 rounded-full shrink-0 h-9 sm:h-10 px-2.5 sm:px-3 min-w-[44px] touch-manipulation"
               >
                 <Library className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
-                <span className="hidden md:inline">Library</span>
+                <span className="hidden xl:inline text-xs sm:text-sm">Library</span>
               </Button>
             </Link>
             <label
@@ -7428,7 +7522,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
               id="model-select"
               value={model}
               onChange={(event) => setModel(event.target.value as ModelId)}
-              className="hidden sm:block rounded-full border border-white/15 bg-black/60 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm text-foreground/75 focus:outline-none focus:ring-2 focus:ring-primary/50 shrink-0"
+              className="hidden md:block rounded-full border border-white/15 bg-black/60 px-3 py-2 text-xs sm:text-sm text-foreground/75 focus:outline-none focus:ring-2 focus:ring-primary/50 shrink-0 touch-manipulation min-h-[44px]"
             >
               {MODEL_OPTIONS.map((option) => (
                 <option key={option.id} value={option.id}>
@@ -7440,12 +7534,12 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
         </div>
       </header>
 
-      <main className="flex-1 pb-[120px] sm:pb-32">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 sm:gap-6 px-3 sm:px-6 py-4 sm:py-10">
+      <main className="flex-1 pb-[100px] sm:pb-[120px] md:pb-32">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 sm:gap-5 md:gap-6 px-4 sm:px-5 md:px-6 py-4 sm:py-6 md:py-10">
           {error ? (
-            <div className="space-y-2 rounded-2xl sm:rounded-3xl border border-red-500/40 bg-red-500/10 px-4 sm:px-6 py-3.5 sm:py-4 text-sm animate-in slide-in-from-top-2 duration-300">
-              <p className="font-semibold text-red-200">Request failed</p>
-              <p className="text-red-200/85 break-words text-sm">{error}</p>
+            <div className="space-y-2 rounded-xl sm:rounded-2xl md:rounded-3xl border border-red-500/40 bg-red-500/10 px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 md:py-4 text-xs sm:text-sm animate-in slide-in-from-top-2 duration-300">
+              <p className="font-semibold text-red-200 text-sm sm:text-base">Request failed</p>
+              <p className="text-red-200/85 break-words">{error}</p>
             </div>
           ) : null}
 
@@ -7542,7 +7636,8 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
             trailerElapsed={trailerElapsed}
             editedTrailerPrompt={editedTrailerPrompt}
             onSetEditedTrailerPrompt={setEditedTrailerPrompt}
-            onGenerateTrailer={(model) => void generateTrailer(model)}
+            buildDefaultTrailerPrompt={buildDefaultTrailerPrompt}
+            onGenerateTrailer={(model, customPrompt) => void generateTrailer(model, customPrompt)}
             onRegenerateGrid={() => {
               portraitGridDigestRef.current = "";
               setPortraitGridUrl(null);
@@ -7590,12 +7685,12 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
 
       {/* Show input only when starting a new show or when no blueprint exists */}
       {(showPromptInput || !blueprint) ? (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/12 bg-black/95 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.6)] safe-area-inset-bottom">
-          <div className="mx-auto w-full max-w-4xl px-3 sm:px-6 py-3 sm:py-4">
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/12 bg-black/95 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.6)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <div className="mx-auto w-full max-w-4xl px-4 sm:px-5 md:px-6 py-3 sm:py-4">
             <form onSubmit={handleSubmit}>
               <div
                 className={cn(
-                  "flex items-center gap-2 sm:gap-3 rounded-2xl border bg-black/70 px-3 sm:px-5 py-2 sm:py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all duration-200",
+                  "flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl border bg-black/70 px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all duration-200",
                   "focus-within:border-primary/50 focus-within:bg-black/80 focus-within:shadow-[0_10px_35px_rgba(229,9,20,0.3)]",
                   !blueprint ? "border-primary/40" : "border-white/15"
                 )}
@@ -7605,7 +7700,7 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
                 onChange={(event) => setInput(event.target.value)}
                   placeholder="Describe your show..."
                   className={cn(
-                    "min-h-[44px] sm:h-11 sm:min-h-0 flex-1 resize-none border-none bg-transparent px-0 py-2 sm:py-0 text-base font-medium leading-snug text-foreground caret-primary placeholder:text-foreground/45 placeholder:font-normal rounded-none",
+                    "min-h-[48px] sm:min-h-[44px] md:h-11 md:min-h-0 flex-1 resize-none border-none bg-transparent px-0 py-2.5 sm:py-2 md:py-0 text-sm sm:text-base font-medium leading-snug text-foreground caret-primary placeholder:text-foreground/45 placeholder:font-normal rounded-none",
                     "focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-none focus-visible:outline-none touch-manipulation"
                   )}
                   rows={1}
@@ -7622,17 +7717,17 @@ Style: Cinematic trailer with dramatic pacing, quick cuts showcasing the charact
                     type="submit"
                     disabled={!canSubmit}
                   className={cn(
-                    "shrink-0 rounded-full bg-primary px-4 sm:px-5 py-2.5 sm:py-2 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(229,9,20,0.35)] transition-all duration-200 min-h-[44px] sm:min-h-0 touch-manipulation active:scale-95",
+                    "shrink-0 rounded-full bg-primary px-4 sm:px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(229,9,20,0.35)] transition-all duration-200 min-h-[48px] sm:min-h-[44px] md:min-h-0 touch-manipulation active:scale-95",
                     "hover:bg-primary/90 hover:shadow-[0_14px_36px_rgba(229,9,20,0.55)]",
                     "disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:active:scale-100"
                   )}
                   >
                     {isLoading ? (
-                    <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                    <Loader2 className="h-4 w-4 sm:h-4.5 md:h-5 md:w-5 animate-spin" />
                   ) : (
                     <div className="flex items-center gap-1.5 sm:gap-2">
                       <span className="hidden sm:inline">Send</span>
-                      <SendHorizontal className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                      <SendHorizontal className="h-4 w-4 sm:h-4 md:h-4.5 md:w-4.5" />
                     </div>
                     )}
                   </Button>

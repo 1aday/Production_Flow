@@ -203,23 +203,23 @@ export function ProductionPipeline({ showId, tasks, showTitle, showData }: Produ
   const completedTasks = pipelineState.filter(s => s.status === 'succeeded').length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Header - Clickable to expand/collapse */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-3 pb-3 border-b border-white/12 hover:border-white/20 transition-colors cursor-pointer group"
+        className="w-full flex items-center gap-2 sm:gap-3 pb-2.5 sm:pb-3 border-b border-white/12 hover:border-white/20 active:border-white/30 transition-colors cursor-pointer group touch-manipulation min-h-[48px] sm:min-h-0"
       >
-        <Film className="h-5 w-5 text-primary" />
-        <div className="flex-1 text-left">
-          <h3 className="text-base font-semibold text-foreground group-hover:text-primary/90 transition-colors">
+        <Film className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+        <div className="flex-1 text-left min-w-0">
+          <h3 className="text-sm sm:text-base font-semibold text-foreground group-hover:text-primary/90 transition-colors truncate">
             {showTitle}
           </h3>
-          <p className="text-xs text-foreground/60">
+          <p className="text-[10px] sm:text-xs text-foreground/60 truncate">
             {activeTasks > 0 ? `${activeTasks} in progress` : `${completedTasks} / ${pipelineState.length} steps complete`}
           </p>
         </div>
         <ChevronDown 
-          className={`h-5 w-5 text-foreground/50 transition-transform duration-200 ${
+          className={`h-4 w-4 sm:h-5 sm:w-5 text-foreground/50 transition-transform duration-200 shrink-0 ${
             isExpanded ? '' : '-rotate-90'
           }`}
         />
@@ -227,7 +227,7 @@ export function ProductionPipeline({ showId, tasks, showTitle, showData }: Produ
 
       {/* Pipeline Steps - Collapsible */}
       {isExpanded && (
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
         {pipelineState.map((step, index) => {
           const Icon = step.icon;
           const isLast = index === pipelineState.length - 1;
@@ -236,35 +236,35 @@ export function ProductionPipeline({ showId, tasks, showTitle, showData }: Produ
             <div key={step.id} className="relative">
               {/* Step Card */}
               <div
-                className={`rounded-3xl border p-4 transition-all ${getStepClasses(step.status)}`}
+                className={`rounded-2xl sm:rounded-3xl border p-3 sm:p-4 transition-all ${getStepClasses(step.status)}`}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2 sm:gap-3">
                   {/* Icon */}
                   <div className="flex-shrink-0 mt-0.5">
-                    <Icon className="h-4 w-4 text-foreground/80" />
+                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-foreground/80" />
                   </div>
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <h4 className="text-sm font-medium text-foreground">
+                    <div className="flex items-center justify-between gap-2 mb-1.5 sm:mb-2">
+                      <h4 className="text-xs sm:text-sm font-medium text-foreground truncate">
                         {step.label}
                       </h4>
-                      {getStatusIcon(step.status)}
+                      <div className="shrink-0">{getStatusIcon(step.status)}</div>
                     </div>
 
                     {/* Progress for character-level tasks */}
                     {step.isCharacterLevel && step.total > 0 && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-foreground/70">
+                      <div className="space-y-1 sm:space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px] sm:text-xs">
+                          <span className="text-foreground/70 truncate">
                             {step.completed} of {step.total} complete
                           </span>
                           {step.active > 0 && (
-                            <span className="text-primary">{step.active} in progress</span>
+                            <span className="text-primary shrink-0 ml-2">{step.active} in progress</span>
                           )}
                         </div>
-                        <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-1 sm:h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-500 ${
                               step.status === 'succeeded' 
@@ -281,7 +281,7 @@ export function ProductionPipeline({ showId, tasks, showTitle, showData }: Produ
 
                     {/* Status text for single tasks */}
                     {!step.isCharacterLevel && step.status !== 'pending' && (
-                      <p className="text-xs text-foreground/70 capitalize">
+                      <p className="text-[10px] sm:text-xs text-foreground/70 capitalize">
                         {step.status === 'starting' || step.status === 'processing' 
                           ? 'In progress...' 
                           : step.status}
@@ -290,7 +290,7 @@ export function ProductionPipeline({ showId, tasks, showTitle, showData }: Produ
 
                     {/* Error messages */}
                     {step.failed > 0 && (
-                      <p className="text-xs text-destructive mt-1.5">
+                      <p className="text-[10px] sm:text-xs text-destructive mt-1 sm:mt-1.5">
                         {step.failed} failed
                       </p>
                     )}
@@ -300,7 +300,7 @@ export function ProductionPipeline({ showId, tasks, showTitle, showData }: Produ
 
               {/* Connection Line to Next Step */}
               {!isLast && (
-                <div className="absolute left-[30px] top-full w-0.5 h-3 bg-white/12" />
+                <div className="absolute left-[20px] sm:left-[30px] top-full w-0.5 h-2 sm:h-3 bg-white/12" />
               )}
             </div>
           );
@@ -310,16 +310,16 @@ export function ProductionPipeline({ showId, tasks, showTitle, showData }: Produ
 
       {/* Overall Progress - Always visible */}
       {isExpanded && (
-        <div className="rounded-3xl border border-white/12 bg-black/40 p-4 mt-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-foreground/80">
+        <div className="rounded-2xl sm:rounded-3xl border border-white/12 bg-black/40 p-3 sm:p-4 mt-4 sm:mt-6">
+          <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+            <span className="text-[10px] sm:text-xs font-semibold text-foreground/80">
               Overall Progress
             </span>
-            <span className="text-xs text-foreground/70">
+            <span className="text-[10px] sm:text-xs text-foreground/70">
               {pipelineState.filter(s => s.status === 'succeeded').length} / {pipelineState.length} steps
             </span>
           </div>
-        <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+        <div className="h-1.5 sm:h-2 w-full bg-white/10 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
               completedTasks === pipelineState.length
