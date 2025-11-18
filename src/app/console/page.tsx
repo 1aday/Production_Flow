@@ -1218,6 +1218,7 @@ function ResultView({
   trailerModel,
   buildDefaultLibraryPosterPrompt,
   stylizationGuardrails,
+  toggleStylizationGuardrails,
 }: {
   blueprint: ShowBlueprint | null;
   usage?: ApiResponse["usage"];
@@ -1289,6 +1290,7 @@ function ResultView({
   onOpenLightbox: (url: string) => void;
   trailerModel: string | null;
   stylizationGuardrails: boolean;
+  toggleStylizationGuardrails: () => void;
 }) {
   const loaderActive = !blueprint && isLoading;
   const loaderMessage = useRotatingMessage(loaderActive, LOADING_MESSAGES, 1700);
