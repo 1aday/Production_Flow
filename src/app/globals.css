@@ -183,10 +183,60 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Show page media helpers */
+  .show-page {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .show-page .media-frame {
+    position: relative;
+    width: min(100%, 100vw);
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .show-page .media-frame img:not([data-nimg="fill"]) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .show-page .media-frame video {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .console-master-shell {
+    width: 100%;
+    max-width: min(1400px, 75vw);
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  @media (max-width: 1000px) {
+    .console-master-shell {
+      max-width: 95vw;
+    }
+  }
+
+  .console-tabs-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
+
+  .console-tabs-scroll * {
+    touch-action: pan-x;
+  }
+
   /* Smooth Scrolling */
   html {
     scroll-behavior: smooth;
     overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
   }
 
   /* Mobile-optimized Focus States */
@@ -211,6 +261,138 @@
   /* Better Text Rendering */
   body {
     text-rendering: optimizeLegibility;
+  }
+
+  /* Prevent horizontal overflow on all media elements */
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  video {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+  }
+
+  /* Ensure all containers respect viewport bounds */
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Prevent any element from overflowing horizontally */
+  .overflow-x-hidden {
+    overflow-x: hidden;
+  }
+
+  /* Prevent any element from extending beyond viewport */
+  html {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    position: relative;
+  }
+
+  body {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    position: relative;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Force all videos and images to never exceed container */
+  video:not([style*="absolute"]):not(.absolute) {
+    max-width: 100% !important;
+    width: auto !important;
+  }
+
+  /* Absolutely positioned videos MUST fill container */
+  video[style*="absolute"],
+  video.absolute,
+  video.inset-0,
+  video#trailer-video {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+  }
+
+  /* Ensure trailer video is always responsive */
+  video#trailer-video {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Force video to respect container width - override any intrinsic dimensions */
+  video#trailer-video {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  video#trailer-video[style*="object-cover"],
+  video#trailer-video[style*="object-contain"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Prevent video from maintaining intrinsic aspect ratio that overrides container */
+  video#trailer-video {
+    aspect-ratio: unset !important;
+  }
+
+  img:not([style*="absolute"]):not(.absolute) {
+    max-width: 100% !important;
+    width: auto !important;
+  }
+
+  /* Absolutely positioned images MUST fill container */
+  img[style*="absolute"],
+  img.absolute,
+  img.inset-0,
+  img[data-nimg="fill"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+  }
+
+  /* Next.js Image fill constraint */
+  img[data-nimg="fill"] {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+  }
+
+  /* Prevent any absolutely positioned element from extending */
+  [style*="position: absolute"],
+  [style*="position:absolute"] {
+    max-width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
   }
 }
 

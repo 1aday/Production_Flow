@@ -88,3 +88,5 @@ Added the ability for users to edit the Sora trailer prompt in a clean, user-fri
 - ✅ Generate trailer with custom prompt → API receives custom prompt
 - ✅ Verify custom prompt is used instead of default in API logs
 
+
+

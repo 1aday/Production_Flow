@@ -230,3 +230,5 @@ Tasks shown in indicator also log to console:
 
 All done! The background tasks indicator is now live and working! 🎉
 
+
+

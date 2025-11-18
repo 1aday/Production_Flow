@@ -186,3 +186,5 @@ Production Medium: 2D hand-drawn animation
 ✅ Easy to edit specific aspects without regenerating entire show
 ✅ Clear visibility into what instructions the AI receives
 
+
+

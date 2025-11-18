@@ -485,3 +485,5 @@ Motion: {art_style.animation_motion.motion_style} animation, {art_style.animatio
 Influences: {art_style.art_movement_references.primary_influences.join(', ')} style, {art_style.art_movement_references.era_aesthetic} aesthetic
 ```
 
+
+

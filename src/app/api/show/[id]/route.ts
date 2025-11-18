@@ -45,6 +45,10 @@ export async function GET(
       portraitGridUrl: show.portrait_grid_url,
       trailerUrl: show.trailer_url,
       model: show.model,
+      videoAspectRatio:
+        show.video_aspect_ratio ??
+        show.blueprint?.video_aspect_ratio ??
+        show.blueprint?.videoAspectRatio,
     };
     
     // Gather assets from the show data

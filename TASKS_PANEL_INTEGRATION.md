@@ -235,3 +235,5 @@ Panel disappears (all tasks done!)
 
 Perfect! Now everything is tracked in the background tasks panel! 🎉
 
+
+

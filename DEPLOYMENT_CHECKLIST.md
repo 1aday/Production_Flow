@@ -232,3 +232,5 @@ If you still encounter issues after deployment:
 
 **Ready to deploy?** Just push to GitHub and let Vercel auto-deploy! 🚀
 
+
+

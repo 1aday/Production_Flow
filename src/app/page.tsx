@@ -132,7 +132,7 @@ export default function LandingPage() {
         {/* Epic Background */}
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black to-black" />
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-primary/10 rounded-full blur-[150px]" />
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[90vw] max-w-[1000px] h-[60vw] max-h-[600px] bg-primary/10 rounded-full blur-[150px]" />
         </div>
 
         {/* Content */}

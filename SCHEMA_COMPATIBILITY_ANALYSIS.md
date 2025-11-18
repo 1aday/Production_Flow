@@ -154,3 +154,5 @@ After implementing the fix:
 - New shows will optionally include `art_style` when generated
 - Old shows will continue to work without `art_style`
 
+
+

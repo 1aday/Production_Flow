@@ -191,3 +191,5 @@ If portraits still fail on Vercel:
 **Tested**: Linter checks passed
 **Breaking Changes**: None - API contract remains the same
 
+
+

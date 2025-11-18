@@ -196,3 +196,5 @@ Selected image model: flux
 
 The model selector now actually works! Try changing it in Settings and watch the console to see which model is used. 🎨
 
+
+

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle } from "lucide-react";
+import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle, Sparkles, Users, Film, PlayCircle, Boxes } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -865,8 +865,8 @@ function CharacterDossierContent({
         <div className="space-y-4">
           <DossierSection title="Portrait">
             {posterAvailable ? (
-              <div className="space-y-3">
-                <div className="relative overflow-hidden rounded-3xl border border-white/12 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+              <div className="space-y-3 w-full max-w-full">
+                <div className="relative overflow-hidden rounded-3xl border border-white/12 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)] w-full">
                   <div className="relative h-0 w-full pb-[100%]">
                     {portraitUrl ? (
                       <Image
@@ -1411,6 +1411,30 @@ function ResultView({
       });
     };
   }, []);
+
+  // Tab navigation hooks (must be before any conditional returns)
+  const tabNavRef = useRef<HTMLDivElement>(null);
+  const [tabScrollState, setTabScrollState] = useState({ canScrollLeft: false, canScrollRight: false });
+
+  const updateTabScrollState = useCallback(() => {
+    const container = tabNavRef.current;
+    if (!container) return;
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    const maxScrollLeft = scrollWidth - clientWidth;
+    setTabScrollState({
+      canScrollLeft: scrollLeft > 4,
+      canScrollRight: scrollLeft < maxScrollLeft - 4,
+    });
+  }, []);
+
+  useEffect(() => {
+    const container = tabNavRef.current;
+    if (!container) return;
+    updateTabScrollState();
+    const handleScroll = () => updateTabScrollState();
+    container.addEventListener("scroll", handleScroll, { passive: true } as AddEventListenerOptions);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [updateTabScrollState]);
 
   if (!blueprint) {
     if (isLoading) {
@@ -2383,11 +2407,11 @@ function ResultView({
                   type="button"
                   onClick={() => onOpenLightbox(portraitUrl)}
                   className={cn(
-                    "relative overflow-hidden bg-black/60 cursor-zoom-in transition-transform hover:scale-[1.02]",
+                    "relative overflow-hidden bg-black/60 cursor-zoom-in transition-transform hover:scale-[1.02] w-full max-w-full",
                     portraitError && "ring-2 ring-amber-500/50"
                   )}
                 >
-                  <div className="relative h-0 w-full pb-[100%]">
+                  <div className="relative h-0 w-full max-w-full pb-[100%]">
                     {(portraitLoading || !portraitLoaded) ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/80">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -2961,7 +2985,7 @@ function ResultView({
       onClick={() => onOpenLightbox(libraryPosterUrl)}
       className="overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.65)] cursor-zoom-in transition-transform hover:scale-[1.01] w-full"
     >
-      <div className="relative w-full" style={{ aspectRatio: '9/16' }}>
+      <div className="relative w-full" style={{ aspectRatio: '9/16', maxWidth: '100%' }}>
         <Image
           src={libraryPosterUrl}
           alt="Show poster"
@@ -2972,14 +2996,14 @@ function ResultView({
       </div>
     </button>
   ) : libraryPosterLoading ? (
-    <div className="flex items-center justify-center rounded-3xl border border-white/12 bg-black/45" style={{ aspectRatio: '9/16' }}>
+    <div className="flex items-center justify-center rounded-3xl border border-white/12 bg-black/45 w-full max-w-full" style={{ aspectRatio: '9/16' }}>
       <div className="flex flex-col items-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-sm font-medium text-foreground/70">Generating poster…</p>
       </div>
     </div>
   ) : (
-    <div className="flex items-center justify-center rounded-3xl border border-dashed border-white/15 bg-black/35 p-6 text-center" style={{ aspectRatio: '9/16' }}>
+    <div className="flex items-center justify-center rounded-3xl border border-dashed border-white/15 bg-black/35 p-6 text-center w-full max-w-full" style={{ aspectRatio: '9/16' }}>
       <p className="text-sm text-foreground/60">
         Show poster will generate automatically after portrait grid is ready
       </p>
@@ -2989,15 +3013,15 @@ function ResultView({
   const masterContent = (
     <div className="space-y-8 sm:space-y-10">
       {/* Hero Section - Trailer (3/4) & Poster (1/4) Side by Side */}
-      <div className="max-w-[1400px] mx-auto">
+      <div className="w-full max-w-[900px] lg:max-w-[1400px] mx-auto px-4 sm:px-0">
         <div className="grid gap-6 lg:grid-cols-4">
           {/* Trailer - 3 columns (3/4 width) - LEFT SIDE */}
-          <div className="lg:col-span-3">
-            <div className="overflow-hidden rounded-2xl sm:rounded-3xl border border-white/12 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.6)] sm:shadow-[0_24px_80px_rgba(0,0,0,0.7)]">
+          <div className="lg:col-span-3 w-full max-w-full">
+            <div className="overflow-hidden rounded-2xl sm:rounded-3xl border border-white/12 bg-black/60 shadow-[0_18px_60px_rgba(0,0,0,0.6)] sm:shadow-[0_24px_80px_rgba(0,0,0,0.7)] w-full max-w-full">
               {trailerUrl ? (
                 <video
                   controls
-                  className="h-full w-full"
+                  className="h-full w-full max-w-full"
                   poster={portraitGridUrl ?? undefined}
                   autoPlay={false}
                   playsInline
@@ -3274,15 +3298,17 @@ function ResultView({
           </div>
           
           {/* Show Poster - 1 column (1/4 width) - RIGHT SIDE */}
-          <div className="lg:col-span-1">
-            {simplePosterImage}
+          <div className="lg:col-span-1 w-full">
+            <div className="w-full max-w-[280px] sm:max-w-xs md:max-w-sm mx-auto lg:max-w-none lg:mx-0">
+              {simplePosterImage}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Character Cards */}
       {characterSeeds && characterSeeds.length > 0 ? (
-        <div className="max-w-[1400px] mx-auto space-y-4">
+        <div className="w-full max-w-[1400px] mx-auto space-y-4 px-4 sm:px-0">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               Character Lineup
@@ -3296,7 +3322,7 @@ function ResultView({
       ) : null}
 
       {/* Visual Direction Section */}
-      <div className="max-w-[1400px] mx-auto">
+      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-0">
         <div className="mb-6">
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
             Look Bible
@@ -3309,7 +3335,7 @@ function ResultView({
       </div>
 
       {/* Technical Specs Grid */}
-      <div className="max-w-[1400px] mx-auto">
+      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-0">
         <div className="mb-6">
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
             Production Specifications
@@ -3570,7 +3596,7 @@ function ResultView({
       </div>
 
       {/* Species Design */}
-      <div className="max-w-[1400px] mx-auto">
+      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-0">
         <div className="mb-6">
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
             Species Design
@@ -3658,7 +3684,7 @@ function ResultView({
       </div>
 
       {/* Global Rules */}
-      <div className="max-w-[1400px] mx-auto">
+      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-0">
         <CollapsibleSection
           title="Global prohibitions"
           description="Do-not-cross guardrails to keep the look coherent."
@@ -4057,7 +4083,7 @@ function ResultView({
   })();
 
   const trailerContent = (
-    <div className="space-y-6 max-w-[1000px] mx-auto">
+    <div className="space-y-6 w-full max-w-[1000px] mx-auto px-4 sm:px-0">
       {portraitGridSection}
       {trailerSection}
     </div>
@@ -4152,6 +4178,25 @@ function ResultView({
     </section>
   );
 
+  const navigationTabs = [
+    { value: "master", label: "Master", icon: Sparkles, busy: false, busyLabel: "" },
+    { value: "characters", label: "Characters", icon: Users, busy: charactersTabBusy, busyLabel: "Character tasks running" },
+    { value: "videos", label: "Videos", icon: Film, busy: videosTabBusy, busyLabel: "Video renders running" },
+    { value: "trailer", label: "Trailer", icon: PlayCircle, busy: trailerTabBusy, busyLabel: "Trailer rendering" },
+    { value: "assets", label: "Assets", icon: Boxes, busy: assetsTabBusy, busyLabel: "Asset renders running" },
+  ] as const;
+
+  const scrollTabs = (direction: "left" | "right") => {
+    const container = tabNavRef.current;
+    if (!container) return;
+    const scrollAmount = container.clientWidth * 0.8;
+    container.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+    window.requestAnimationFrame(updateTabScrollState);
+  };
+
   return (
     <>
       {/* Show Overview with Integrated Tabs */}
@@ -4177,65 +4222,79 @@ function ResultView({
 
           {/* Tabs Section */}
           <Tabs defaultValue="master" className="space-y-0" id="main-tabs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-3 sm:px-6 pt-3 sm:pt-4 pb-2">
-              <TabsList className="w-full sm:w-auto justify-start bg-black/40 overflow-x-auto scrollbar-hide">
-          <TabsTrigger value="master" className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation whitespace-nowrap">
-            <span className="flex items-center gap-1.5 sm:gap-2">
-              Master
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="characters" className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation whitespace-nowrap">
-            <span className="flex items-center gap-1.5 sm:gap-2">
-              Characters
-              {charactersTabBusy ? (
-                <span
-                  className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
-                  aria-label="Character tasks running"
+            <div className="flex flex-col gap-3 px-3 sm:px-6 pt-3 sm:pt-4 pb-2">
+              <div className="relative w-full">
+                <div
+                  className={cn(
+                    "pointer-events-none absolute inset-y-1 left-0 hidden w-6 rounded-l-2xl bg-gradient-to-r from-black/80 to-transparent transition-opacity duration-200 sm:block",
+                    tabScrollState.canScrollLeft ? "opacity-100" : "opacity-0"
+                  )}
+                  aria-hidden="true"
                 />
-              ) : null}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="videos" className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation whitespace-nowrap">
-            <span className="flex items-center gap-1.5 sm:gap-2">
-              Videos
-              {videosTabBusy ? (
-                <span
-                  className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
-                  aria-label="Video renders running"
+                <div
+                  className={cn(
+                    "pointer-events-none absolute inset-y-1 right-0 hidden w-6 rounded-r-2xl bg-gradient-to-l from-black/80 to-transparent transition-opacity duration-200 sm:block",
+                    tabScrollState.canScrollRight ? "opacity-100" : "opacity-0"
+                  )}
+                  aria-hidden="true"
                 />
-              ) : null}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="trailer" className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation whitespace-nowrap">
-            <span className="flex items-center gap-1.5 sm:gap-2">
-              Trailer
-              {trailerTabBusy ? (
-                <span
-                  className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
-                  aria-label="Trailer rendering"
-                />
-              ) : null}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="assets" className="flex-1 sm:flex-none text-xs sm:text-sm touch-manipulation whitespace-nowrap">
-            <span className="flex items-center gap-1.5 sm:gap-2">
-              Assets
-              {assetsTabBusy ? (
-                <span
-                  className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-primary shadow-[0_0_12px_rgba(229,9,20,0.4)] animate-pulse"
-                  aria-label="Asset renders running"
-                />
-              ) : null}
-            </span>
-          </TabsTrigger>
-              </TabsList>
-              <div className="hidden sm:block">
+
+                <button
+                  type="button"
+                  aria-label="Scroll tabs left"
+                  onClick={() => scrollTabs("left")}
+                  className={cn(
+                    "absolute left-1 top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/80 text-foreground shadow-lg transition-opacity duration-200 sm:flex",
+                    tabScrollState.canScrollLeft ? "opacity-100" : "opacity-0 pointer-events-none"
+                  )}
+                >
+                  <ChevronDown className="-rotate-90 h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Scroll tabs right"
+                  onClick={() => scrollTabs("right")}
+                  className={cn(
+                    "absolute right-1 top-1/2 z-20 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/80 text-foreground shadow-lg transition-opacity duration-200 sm:flex",
+                    tabScrollState.canScrollRight ? "opacity-100" : "opacity-0 pointer-events-none"
+                  )}
+                >
+                  <ChevronDown className="rotate-90 h-4 w-4" />
+                </button>
+
+                <div
+                  ref={tabNavRef}
+                  className="console-tabs-scroll scrollbar-hide overflow-x-auto rounded-2xl border border-white/12 bg-black/40 p-1.5 sm:p-2"
+                >
+                  <TabsList className="flex min-w-max gap-2 bg-transparent p-0 text-foreground/70 snap-x snap-mandatory">
+                    {navigationTabs.map((tab) => (
+                      <TabsTrigger
+                        key={tab.value}
+                        value={tab.value}
+                        className="flex-none rounded-xl px-3.5 py-2 text-[11px] sm:text-sm font-semibold tracking-wide uppercase text-foreground/70 transition-all duration-200 border border-transparent data-[state=active]:bg-white/15 data-[state=active]:text-foreground data-[state=active]:border-white/20 focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none whitespace-nowrap snap-center"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <tab.icon className="h-3.5 w-3.5 text-primary/80" />
+                          <span>{tab.label}</span>
+                          {tab.busy ? (
+                            <span
+                              className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_10px_rgba(229,9,20,0.65)] animate-pulse"
+                              aria-label={tab.busyLabel}
+                            />
+                          ) : null}
+                        </span>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
+              </div>
+              <div className="w-full">
                 <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} currentShowId={currentShowId} />
               </div>
             </div>
             
             {/* Tab Content - All inside the show overview container */}
-            <div className="px-3 sm:px-6 pb-4 sm:pb-6">
+            <div className="console-master-shell px-3 sm:px-6 pb-4 sm:pb-6">
               <TabsContent value="master" className="mt-4 sm:mt-6">
                 {masterContent}
               </TabsContent>
