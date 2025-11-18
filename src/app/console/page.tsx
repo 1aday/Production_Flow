@@ -35,6 +35,8 @@ function sanitizeFilename(name: string): string {
     .toLowerCase();
 }
 
+const STYLIZATION_GUARDRAILS_STORAGE_KEY = "production-flow.stylization-guardrails";
+
 type FrameRates = {
   animation_capture: number;
   playback: number;
@@ -1564,40 +1566,11 @@ function ResultView({
                   value={editedLibraryPosterPrompt}
                   onChange={(e) => setEditedLibraryPosterPrompt(e.target.value)}
                   onFocus={(e) => {
-                    // Pre-fill with default prompt on first focus if empty
-                    if (!e.target.value && blueprint) {
-                      const defaultPrompt = (() => {
-                        const showTitle = blueprint.show_title || "Untitled Show";
-                        const logline = blueprint.show_logline || "";
-                        const productionStyle = blueprint.production_style;
-                        
-                        // Build clean, structured style guide
-                        const styleGuide = productionStyle ? [
-                          `Production Medium: ${productionStyle.medium || 'Stylized cinematic'}`,
-                          `Visual References: ${(productionStyle.cinematic_references || []).join(', ')}`,
-                          `Stylization Level: ${productionStyle.stylization_level || 'moderately stylized'}`,
-                          `Visual Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}`,
-                          "",
-                          "CRITICAL: DO NOT use photorealistic rendering. MUST match the specified visual style exactly.",
-                        ].join("\n") : [
-                          "Use theatrical/stylized treatment, NOT photorealistic rendering.",
-                          "Display the show title prominently with bold typography.",
-                        ].join("\n");
-                        
-                        return [
-                          "Create a show poster for:",
-                          "",
-                          `Show Title: ${showTitle}`,
-                          "",
-                          `Show Description: ${logline}`,
-                          "",
-                          `Style Guide:`,
-                          styleGuide,
-                          "",
-                          "I have attached the character sheet. Use some of the characters in the poster.",
-                        ].join("\n");
-                      })();
-                      setEditedLibraryPosterPrompt(defaultPrompt);
+                    if (!e.target.value) {
+                      const defaultPrompt = buildDefaultLibraryPosterPrompt();
+                      if (defaultPrompt) {
+                        setEditedLibraryPosterPrompt(defaultPrompt);
+                      }
                     }
                   }}
                   placeholder="Click to load default prompt with style guide, then edit as needed..."
@@ -4196,6 +4169,10 @@ function ResultView({
     { value: "assets", label: "Assets", icon: Boxes, busy: assetsTabBusy, busyLabel: "Asset renders running" },
   ] as const;
 
+  const guardrailToggleBaseClasses = stylizationGuardrails
+    ? "border-primary/50 bg-primary/15 text-foreground hover:bg-primary/25"
+    : "border-white/25 bg-transparent text-foreground/70 hover:bg-white/10";
+
   const scrollTabs = (direction: "left" | "right") => {
     const container = tabNavRef.current;
     if (!container) return;
@@ -4298,8 +4275,36 @@ function ResultView({
                   </TabsList>
                 </div>
               </div>
-              <div className="w-full">
+              <div className="hidden sm:flex w-full items-center justify-between gap-3">
                 <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} currentShowId={currentShowId} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={toggleStylizationGuardrails}
+                  className={cn(
+                    "rounded-full px-4 py-2 text-xs font-semibold tracking-[0.2em] uppercase transition-colors",
+                    guardrailToggleBaseClasses
+                  )}
+                  title="Toggle stylization guardrails"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  Stylization Guardrails: {stylizationGuardrails ? "On" : "Off"}
+                </Button>
+              </div>
+              <div className="sm:hidden w-full">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={toggleStylizationGuardrails}
+                  className={cn(
+                    "w-full rounded-full px-4 py-2 text-[11px] font-semibold tracking-[0.2em] uppercase transition-colors",
+                    guardrailToggleBaseClasses
+                  )}
+                  title="Toggle stylization guardrails"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  Stylization Guardrails: {stylizationGuardrails ? "On" : "Off"}
+                </Button>
               </div>
             </div>
             
@@ -4367,6 +4372,7 @@ export default function Home() {
   const [showCompletionBanner, setShowCompletionBanner] = useState(false);
   const [showPromptInput, setShowPromptInput] = useState(false);
   const [input, setInput] = useState("");
+  const [stylizationGuardrails, setStylizationGuardrails] = useState(true);
   const [blueprint, setBlueprint] = useState<ShowBlueprint | null>(null);
   const [usage, setUsage] = useState<ApiResponse["usage"]>();
   const [rawJson, setRawJson] = useState<string | null>(null);
@@ -4378,6 +4384,26 @@ export default function Home() {
   const [videoGenModel, setVideoGenModel] = useState<VideoGenerationModelId>("sora-2");
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [isPipelinePanelOpen, setIsPipelinePanelOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(STYLIZATION_GUARDRAILS_STORAGE_KEY);
+    if (stored !== null) {
+      setStylizationGuardrails(stored !== "false");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      STYLIZATION_GUARDRAILS_STORAGE_KEY,
+      stylizationGuardrails ? "true" : "false"
+    );
+  }, [stylizationGuardrails]);
+
+  const toggleStylizationGuardrails = () => {
+    setStylizationGuardrails((prev) => !prev);
+  };
   const selectedModelOption = useMemo(
     () => MODEL_OPTIONS.find((option) => option.id === model) ?? MODEL_OPTIONS[0],
     [model]
@@ -6851,19 +6877,28 @@ export default function Home() {
     const showTitle = blueprint.show_title || "Untitled Show";
     const logline = blueprint.show_logline || "";
     const productionStyle = blueprint.production_style;
+    const guardrailLines = stylizationGuardrails
+      ? [
+          "",
+          "CRITICAL: DO NOT use photorealistic rendering. MUST match the specified visual style exactly.",
+          "Use theatrical/stylized treatment, NOT photorealistic rendering.",
+        ]
+      : [];
     
-    // Build clean, structured style guide
-    const styleGuide = productionStyle ? [
-      `Production Medium: ${productionStyle.medium || 'Stylized cinematic'}`,
-      `Visual References: ${(productionStyle.cinematic_references || []).join(', ')}`,
-      `Stylization Level: ${productionStyle.stylization_level || 'moderately stylized'}`,
-      `Visual Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}`,
-      "",
-      "CRITICAL: DO NOT use photorealistic rendering. MUST match the specified visual style exactly.",
-    ].join("\n") : [
-      "Use theatrical/stylized treatment, NOT photorealistic rendering.",
-      "Display the show title prominently with bold typography.",
-    ].join("\n");
+    const styleGuideLines = productionStyle
+      ? [
+          `Production Medium: ${productionStyle.medium || 'Stylized cinematic'}`,
+          `Visual References: ${(productionStyle.cinematic_references || []).join(', ')}`,
+          `Stylization Level: ${productionStyle.stylization_level || 'moderately stylized'}`,
+          `Visual Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}`,
+          ...guardrailLines,
+        ]
+      : [
+          stylizationGuardrails ? "Use theatrical/stylized treatment, NOT photorealistic rendering." : null,
+          "Display the show title prominently with bold typography.",
+        ].filter(Boolean) as string[];
+    
+    const styleGuide = styleGuideLines.join("\n");
     
     return [
       "Create a show poster for:",
@@ -6877,7 +6912,7 @@ export default function Home() {
       "",
       "I have attached the character sheet. Use some of the characters in the poster.",
     ].join("\n");
-  }, [blueprint]);
+  }, [blueprint, stylizationGuardrails]);
 
   const buildDefaultTrailerPrompt = useCallback(() => {
     if (!blueprint) return "";
@@ -6885,8 +6920,12 @@ export default function Home() {
     const showTitle = blueprint.show_title || "Untitled Show";
     const logline = blueprint.show_logline || "";
     const productionStyle = blueprint.production_style;
+    const guardrailMessage = stylizationGuardrails
+      ? "IMPORTANT: Match this exact visual style. Do NOT use photorealistic or realistic rendering."
+      : "";
     
-    const styleGuidance = productionStyle ? `
+    const styleGuidance = productionStyle
+      ? `
 
 VISUAL STYLE (CRITICAL - Follow exactly):
 Medium: ${productionStyle.medium || 'Stylized cinematic'}
@@ -6894,7 +6933,13 @@ References: ${(productionStyle.cinematic_references || []).join(', ')}
 Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}
 Stylization: ${productionStyle.stylization_level || 'cinematic'}
 
-IMPORTANT: Match this exact visual style. Do NOT use photorealistic or realistic rendering.` : '';
+${guardrailMessage}`
+      : guardrailMessage
+        ? `
+
+VISUAL STYLE GUARDRAIL:
+${guardrailMessage}`
+        : '';
 
     return `Create an iconic teaser trailer for the series "${showTitle}".
 
@@ -6965,7 +7010,7 @@ VISUAL APPROACH:
 - Sync visuals with voiceover for maximum impact
 
 The character grid shows your cast - use them throughout but focus on MOMENTS and ATMOSPHERE matched with compelling narration.`;
-  }, [blueprint]);
+  }, [blueprint, stylizationGuardrails]);
 
   const generateLibraryPoster = useCallback(async (customPrompt?: string) => {
     const canGenerate = canGenerateLibraryPoster();

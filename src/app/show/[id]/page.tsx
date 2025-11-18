@@ -485,7 +485,7 @@ export default function ShowPage() {
       {/* Hero Section with Trailer */}
       {assets.trailer ? (
         <div
-          className={`media-frame relative overflow-hidden ${isLandscapeVideo ? 'group cursor-pointer' : 'bg-gradient-to-b from-black via-black/80 to-black'} touch-manipulation`}
+          className={`media-frame relative overflow-hidden ${isLandscapeVideo ? 'group cursor-pointer' : 'lg:bg-gradient-to-b from-black via-black/80 to-black'} touch-manipulation`}
           style={{
             minWidth: 0,
             minHeight: isLandscapeVideo ? '50vh' : '60vh',
@@ -534,7 +534,8 @@ export default function ShowPage() {
               WebkitTapHighlightColor: 'transparent',
             }}
           />
-          <div className={`absolute inset-0 ${isLandscapeVideo ? 'bg-gradient-to-t from-black via-black/40 to-transparent' : 'bg-gradient-to-t from-black via-black/60 to-transparent'}`} />
+          {/* Darkening overlay - Desktop only */}
+          <div className={`absolute inset-0 hidden lg:block ${isLandscapeVideo ? 'bg-gradient-to-t from-black via-black/40 to-transparent' : 'bg-gradient-to-t from-black via-black/60 to-transparent'}`} />
           
           {/* Subtle Play Button - Shows when not playing or when muted */}
           {(!trailerPlaying || trailerMuted) && (
@@ -565,7 +566,7 @@ export default function ShowPage() {
             </button>
           )}
           
-          <div className={`absolute bottom-0 left-0 right-0 px-4 pb-6 sm:px-6 sm:pb-12 lg:pb-16 safe-area-inset-bottom transition-opacity duration-500 ${trailerPlaying ? 'opacity-20' : 'opacity-100'}`}>
+          <div className={`absolute bottom-0 left-0 right-0 px-4 pb-6 sm:px-6 sm:pb-12 lg:pb-16 safe-area-inset-bottom transition-opacity duration-500 ${trailerPlaying ? 'lg:opacity-20 opacity-100' : 'opacity-100'}`}>
             <div className="mx-auto max-w-7xl">
               <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-2 sm:mb-4 leading-tight">
                 {displayTitle}
@@ -590,7 +591,8 @@ export default function ShowPage() {
             quality={95}
             sizes="100vw"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+          {/* Darkening overlay - Desktop only */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent hidden lg:block" />
           
           <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 sm:px-6 sm:pb-12 lg:pb-16 safe-area-inset-bottom">
             <div className="mx-auto max-w-7xl">
