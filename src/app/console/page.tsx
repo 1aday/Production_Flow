@@ -7801,6 +7801,7 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
             onOpenLightbox={(url) => setLightboxImage(url)}
             trailerModel={trailerModel}
             stylizationGuardrails={stylizationGuardrails}
+            toggleStylizationGuardrails={toggleStylizationGuardrails}
           />
         </div>
       </main>
