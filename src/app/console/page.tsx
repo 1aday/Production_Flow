@@ -3021,7 +3021,13 @@ function ResultView({
               {trailerUrl ? (
                 <video
                   controls
-                  className="h-full w-full max-w-full"
+                  controlsList="nodownload"
+                  className="h-full w-full max-w-full rounded-2xl sm:rounded-3xl bg-black"
+                  style={{ 
+                    aspectRatio: '16/9',
+                    objectFit: 'contain',
+                    maxHeight: '70vh'
+                  }}
                   poster={portraitGridUrl ?? undefined}
                   autoPlay={false}
                   playsInline
@@ -3888,7 +3894,11 @@ function ResultView({
                           <video
                             key={currentVideoUrl}
                             controls
-                            className="absolute inset-0 h-full w-full rounded-xl sm:rounded-2xl object-cover"
+                            controlsList="nodownload"
+                            className="absolute inset-0 h-full w-full rounded-xl sm:rounded-2xl object-cover bg-black"
+                            style={{
+                              WebkitTapHighlightColor: 'transparent'
+                            }}
                             poster={portraitUrl ?? undefined}
                             playsInline
                             preload="metadata"

@@ -232,9 +232,8 @@ export default function LandingPage() {
                     className="group relative overflow-hidden rounded-lg bg-zinc-900 hover:ring-2 hover:ring-white/20 transition-all duration-200 hover:scale-105 hover:z-10 cursor-pointer"
                     onMouseEnter={() => setHoveredShow(show.id)}
                     onMouseLeave={() => setHoveredShow(null)}
-                    onDoubleClick={() => {
-                      sessionStorage.setItem("production-flow.library-load.v1", show.id);
-                      router.push("/console");
+                    onClick={() => {
+                      router.push(`/show/${show.id}`);
                     }}
                   >
                     {/* Video or Poster */}
@@ -278,9 +277,9 @@ export default function LandingPage() {
                       {/* Hover Actions - Slide up from bottom */}
                       <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center gap-2 translate-y-full group-hover:translate-y-0 transition-transform duration-200">
                         <Button
-                          onClick={() => {
-                            sessionStorage.setItem("production-flow.library-load.v1", show.id);
-                            router.push("/console");
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/show/${show.id}`);
                           }}
                           size="sm"
                           className="flex-1 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-xs h-10 shadow-lg"
@@ -344,4 +343,3 @@ export default function LandingPage() {
     </div>
   );
 }
-

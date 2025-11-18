@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -181,10 +181,6 @@ export default function ShowPage() {
   const [completionStatus, setCompletionStatus] = useState<ReturnType<typeof calculateShowCompletion> | null>(null);
   const [playingVideos, setPlayingVideos] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    void loadShowData();
-  }, [showId]);
-
   // Pause all other videos when one starts playing
   useEffect(() => {
     const handleVideoPlay = (e: Event) => {
@@ -194,15 +190,19 @@ export default function ShowPage() {
       
       const playingVideo = target;
       
-      // Get all video elements on the page
-      const allVideos = document.querySelectorAll('video');
-      
-      // Pause all other videos
-      allVideos.forEach((video) => {
-        if (video !== playingVideo && !video.paused) {
-          video.pause();
-        }
-      });
+      // Small delay to let the video actually start playing
+      // Prevents the handler from pausing the video that just started
+      setTimeout(() => {
+        // Get all video elements on the page
+        const allVideos = document.querySelectorAll('video');
+        
+        // Pause all other videos (not the one that triggered this)
+        allVideos.forEach((video) => {
+          if (video !== playingVideo && !video.paused) {
+            video.pause();
+          }
+        });
+      }, 100);
     };
 
     // Use event delegation at document level to catch all video play events
@@ -215,17 +215,42 @@ export default function ShowPage() {
     };
   }, []); // Only run once on mount
 
-  const loadShowData = async () => {
+  const loadShowData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/show/${showId}`);
       if (!response.ok) {
         if (response.status === 404) {
-          alert("Show not found");
-          router.push("/library");
+          console.error("Show not found:", showId);
+          // Wait a moment before redirecting in case of temporary issue
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Try one more time before giving up
+          const retryResponse = await fetch(`/api/show/${showId}`);
+          if (!retryResponse.ok) {
+            alert("Show not found. Redirecting to library...");
+            router.push("/library");
+            return;
+          }
+          // If retry succeeded, continue with retry response
+          const retryData = await retryResponse.json();
+          setShowData(retryData.show);
+          setAssets(retryData.assets);
+          
+          const completion = calculateShowCompletion({
+            characterSeeds: retryData.show.characterSeeds,
+            characterDocs: retryData.show.characterDocs,
+            characterPortraits: retryData.assets.characterPortraits,
+            characterVideos: retryData.assets.characterVideos,
+            posterUrl: retryData.assets.poster,
+            libraryPosterUrl: retryData.assets.libraryPoster,
+            portraitGridUrl: retryData.assets.portraitGrid,
+            trailerUrl: retryData.assets.trailer,
+          });
+          setCompletionStatus(completion);
           return;
         }
-        throw new Error("Failed to load show");
+        throw new Error(`Failed to load show: ${response.status}`);
       }
 
       const data = await response.json();
@@ -256,12 +281,17 @@ export default function ShowPage() {
       }
     } catch (error) {
       console.error("Error loading show:", error);
-      alert("Failed to load show");
+      // Don't redirect on error - just show alert and stay on page
+      alert(`Failed to load show: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
       setGeneratingContent(false);
     }
-  };
+  }, [showId, router]);
+
+  useEffect(() => {
+    void loadShowData();
+  }, [loadShowData]);
 
   const copyShareUrl = async () => {
     const url = window.location.href;
@@ -485,7 +515,7 @@ export default function ShowPage() {
                 setTrailerPlaying(false);
               });
             }}
-            className={`absolute inset-0 transition-all duration-500 ${isLandscapeVideo ? 'object-cover' : 'object-contain'}`}
+            className={`absolute inset-0 transition-all duration-500 touch-manipulation ${isLandscapeVideo ? 'object-cover' : 'object-contain'}`}
             style={{ 
               position: 'absolute',
               top: 0,
@@ -501,6 +531,7 @@ export default function ShowPage() {
               margin: 0,
               padding: 0,
               boxSizing: 'border-box',
+              WebkitTapHighlightColor: 'transparent',
             }}
           />
           <div className={`absolute inset-0 ${isLandscapeVideo ? 'bg-gradient-to-t from-black via-black/40 to-transparent' : 'bg-gradient-to-t from-black via-black/60 to-transparent'}`} />
@@ -512,9 +543,9 @@ export default function ShowPage() {
             </div>
           )}
 
-          {/* Pause Button - Shows on hover when playing with audio (desktop) or tap (mobile) */}
+          {/* Pause Button - Shows ONLY on hover when playing with audio */}
           {trailerPlaying && !trailerMuted && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 active:scale-95 hover:scale-110 hover:bg-black/90 z-10 touch-manipulation">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-0 group-hover:opacity-100 active:scale-95 hover:scale-110 hover:bg-black/90 z-10 touch-manipulation pointer-events-none group-hover:pointer-events-auto">
               <Pause className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-white" />
             </div>
           )}
@@ -778,11 +809,11 @@ export default function ShowPage() {
                     {/* Character Header */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 p-3 sm:p-4 lg:p-6 w-full">
                       {/* Portrait or Video */}
-                      <div className={`media-frame relative overflow-hidden rounded-lg sm:rounded-xl group cursor-pointer touch-manipulation max-w-[540px] lg:max-w-full mx-auto lg:mx-0 w-full`} style={{ minWidth: 0, aspectRatio: mediaAspectRatio, position: 'relative' }}>
+                      <div className={`media-frame relative overflow-hidden rounded-lg sm:rounded-xl group cursor-pointer touch-manipulation max-w-[540px] lg:max-w-full mx-auto lg:mx-0 w-full bg-black`} style={{ minWidth: 0, aspectRatio: mediaAspectRatio, position: 'relative', minHeight: '200px' }}>
                         {hasVideo && videoUrl ? (
                           <div 
-                            className="absolute inset-0"
-                            style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                            className="absolute inset-0 bg-black"
+                            style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, WebkitTapHighlightColor: 'transparent' }}
                             onClick={(e) => {
                               const video = e.currentTarget.querySelector('video');
                               if (video) {
@@ -804,8 +835,19 @@ export default function ShowPage() {
                               loop
                               playsInline
                               muted={false}
-                              className="absolute inset-0 object-cover"
-                              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                              controls={window.matchMedia('(max-width: 768px)').matches}
+                              className="absolute inset-0 object-cover bg-black rounded-lg sm:rounded-xl touch-manipulation"
+                              style={{ 
+                                position: 'absolute', 
+                                top: 0, 
+                                left: 0, 
+                                right: 0, 
+                                bottom: 0, 
+                                width: '100%', 
+                                height: '100%', 
+                                objectFit: 'cover',
+                                WebkitTapHighlightColor: 'transparent'
+                              }}
                               onMouseEnter={(e) => {
                                 // Only auto-play on hover for desktop (non-touch devices)
                                 if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
@@ -825,18 +867,14 @@ export default function ShowPage() {
                               onPlay={() => setPlayingVideos(prev => ({ ...prev, [character.id]: true }))}
                               onPause={() => setPlayingVideos(prev => ({ ...prev, [character.id]: false }))}
                             />
-                            {/* Play/Pause indicator */}
-                            <div 
-                              className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity duration-300 pointer-events-none ${
-                                playingVideos[character.id] 
-                                  ? 'opacity-0 group-hover:opacity-0' 
-                                  : 'opacity-100'
-                              }`}
-                            >
-                              <div className="rounded-full bg-white/90 p-3 sm:p-4 shadow-xl backdrop-blur-sm animate-pulse">
-                                <Play className="h-6 w-6 sm:h-8 sm:w-8 text-black ml-1" />
+                            {/* Play/Pause indicator - Only show when paused */}
+                            {!playingVideos[character.id] && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity duration-300 pointer-events-none">
+                                <div className="rounded-full bg-white/90 p-3 sm:p-4 shadow-xl backdrop-blur-sm">
+                                  <Play className="h-6 w-6 sm:h-8 sm:w-8 text-black ml-1" />
+                                </div>
                               </div>
-                            </div>
+                            )}
                             {/* Tap hint for mobile - shows briefly */}
                             {!playingVideos[character.id] && (
                               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-sm text-white text-[10px] sm:text-xs font-medium pointer-events-none lg:hidden animate-pulse">
