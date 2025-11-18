@@ -1216,6 +1216,7 @@ function ResultView({
   onClearTrailer,
   onOpenLightbox,
   trailerModel,
+  buildDefaultLibraryPosterPrompt,
 }: {
   blueprint: ShowBlueprint | null;
   usage?: ApiResponse["usage"];
@@ -1278,6 +1279,7 @@ function ResultView({
   onSetEditedTrailerPrompt: (value: string) => void;
   onGenerateTrailer: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => void;
   buildDefaultTrailerPrompt: () => string;
+  buildDefaultLibraryPosterPrompt: () => string;
   onRegenerateGrid: () => void;
   onRegeneratePoster: (customPrompt?: string) => void;
   editedLibraryPosterPrompt: string;
@@ -7751,6 +7753,7 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
             editedTrailerPrompt={editedTrailerPrompt}
             onSetEditedTrailerPrompt={setEditedTrailerPrompt}
             buildDefaultTrailerPrompt={buildDefaultTrailerPrompt}
+            buildDefaultLibraryPosterPrompt={buildDefaultLibraryPosterPrompt}
             onGenerateTrailer={(model, customPrompt) => void generateTrailer(model, customPrompt)}
             onRegenerateGrid={() => {
               portraitGridDigestRef.current = "";
