@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Sparkles, ArrowRight, Play, Loader2, Library, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
 
 type Show = {
   id: string;
@@ -23,6 +24,7 @@ export default function LandingPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [stylizationGuardrails, setStylizationGuardrails] = useState(true);
 
   useEffect(() => {
     const loadShows = async () => {
@@ -40,6 +42,30 @@ export default function LandingPage() {
     };
     void loadShows();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(STYLIZATION_GUARDRAILS_STORAGE_KEY);
+    if (stored !== null) {
+      setStylizationGuardrails(stored !== "false");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      STYLIZATION_GUARDRAILS_STORAGE_KEY,
+      stylizationGuardrails ? "true" : "false"
+    );
+  }, [stylizationGuardrails]);
+
+  const toggleStylizationGuardrails = () => {
+    setStylizationGuardrails((prev) => !prev);
+  };
+
+  const guardrailButtonClasses = stylizationGuardrails
+    ? "border-primary/60 bg-primary/20 text-white hover:bg-primary/30"
+    : "border-white/25 bg-transparent text-white/70 hover:bg-white/10";
 
   const handleSubmit = async () => {
     if (!input.trim()) return;
@@ -177,6 +203,21 @@ export default function LandingPage() {
                 disabled={isSubmitting}
                 className="relative w-full h-20 bg-zinc-900/50 border-2 border-white/20 focus:border-primary/40 rounded-2xl px-8 text-2xl text-white placeholder:text-white/25 focus:outline-none focus:bg-zinc-900/70 transition-all duration-300 backdrop-blur-2xl font-light"
               />
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={toggleStylizationGuardrails}
+                className={`w-full sm:w-auto rounded-full px-5 py-3 font-semibold tracking-[0.25em] text-[11px] uppercase transition-colors ${guardrailButtonClasses}`}
+              >
+                <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                Stylization Guardrails: {stylizationGuardrails ? "On" : "Off"}
+              </Button>
+              <p className="text-xs text-white/60">
+                {stylizationGuardrails ? "Stylized outputs enforced." : "Photoreal options unlocked."}
+              </p>
             </div>
             
             <div className="flex items-center justify-center mt-2">

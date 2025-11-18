@@ -23,7 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
+import { LIBRARY_LOAD_STORAGE_KEY, STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
 import { calculateShowCompletion } from "@/lib/show-completion";
 import { addBackgroundTask, updateBackgroundTask, removeBackgroundTask, getShowTasks } from "@/lib/background-tasks";
 
@@ -35,7 +35,6 @@ function sanitizeFilename(name: string): string {
     .toLowerCase();
 }
 
-const STYLIZATION_GUARDRAILS_STORAGE_KEY = "production-flow.stylization-guardrails";
 
 type FrameRates = {
   animation_capture: number;
@@ -3878,7 +3877,6 @@ function ResultView({
                             style={{
                               WebkitTapHighlightColor: 'transparent'
                             }}
-                            poster={portraitUrl ?? undefined}
                             playsInline
                             preload="metadata"
                           >
@@ -3974,7 +3972,6 @@ function ResultView({
                               <div className="relative h-16 w-28">
                                 <video
                                   className="h-full w-full object-cover"
-                                  poster={portraitUrl ?? undefined}
                                   preload="metadata"
                                 >
                                   <source src={url} type="video/mp4" />
