@@ -535,7 +535,7 @@ export default function ShowPage() {
             }}
           />
           {/* Darkening overlay - Desktop only */}
-          <div className={`absolute inset-0 hidden lg:block ${isLandscapeVideo ? 'bg-gradient-to-t from-black via-black/40 to-transparent' : 'bg-gradient-to-t from-black via-black/60 to-transparent'}`} />
+          <div className={`absolute inset-0 hidden lg:block ${isLandscapeVideo ? 'bg-gradient-to-t from-black via-black/20 to-transparent' : 'bg-gradient-to-t from-black via-black/30 to-transparent'}`} />
           
           {/* Subtle Play Button - Shows when not playing or when muted */}
           {(!trailerPlaying || trailerMuted) && (
@@ -566,9 +566,9 @@ export default function ShowPage() {
             </button>
           )}
           
-          <div className={`absolute bottom-0 left-0 right-0 px-4 pb-6 sm:px-6 sm:pb-12 lg:pb-16 safe-area-inset-bottom transition-opacity duration-500 ${trailerPlaying ? 'lg:opacity-20 opacity-100' : 'opacity-100'}`}>
+          <div className={`absolute bottom-12 sm:bottom-20 lg:bottom-24 left-0 right-0 px-4 sm:px-6 safe-area-inset-bottom transition-opacity duration-500 ${trailerPlaying ? 'lg:opacity-20 opacity-100' : 'opacity-100'}`}>
             <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-2 sm:mb-4 leading-tight">
+              <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-1 sm:mb-2 leading-tight">
                 {displayTitle}
               </h1>
               {generatedContent?.hero_tagline && (
@@ -592,11 +592,11 @@ export default function ShowPage() {
             sizes="100vw"
           />
           {/* Darkening overlay - Desktop only */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent hidden lg:block" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent hidden lg:block" />
           
-          <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 sm:px-6 sm:pb-12 lg:pb-16 safe-area-inset-bottom">
+          <div className="absolute bottom-12 sm:bottom-20 lg:bottom-24 left-0 right-0 px-4 sm:px-6 safe-area-inset-bottom">
             <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-2 sm:mb-4 leading-tight">
+              <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-1 sm:mb-2 leading-tight">
                 {displayTitle}
               </h1>
               {generatedContent?.hero_tagline && (
@@ -609,9 +609,9 @@ export default function ShowPage() {
         </div>
       ) : (
       <div className="media-frame relative overflow-hidden bg-gradient-to-br from-primary/20 to-transparent" style={{ minHeight: '40vh', maxHeight: '50vh' }}>
-          <div className="absolute bottom-0 left-0 right-0 px-4 pb-6 pt-12 sm:px-6 sm:pb-12 sm:pt-20 lg:pb-16 lg:pt-24 safe-area-inset-bottom">
+          <div className="absolute bottom-12 sm:bottom-20 lg:bottom-24 left-0 right-0 px-4 sm:px-6 pt-12 sm:pt-20 lg:pt-24 safe-area-inset-bottom">
             <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-2 sm:mb-4 leading-tight">
+              <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-1 sm:mb-2 leading-tight">
                 {displayTitle}
               </h1>
               {generatedContent?.hero_tagline && (
@@ -625,7 +625,7 @@ export default function ShowPage() {
       )}
 
       {/* Main Content */}
-      <div className="mx-auto max-w-7xl w-full space-y-6 sm:space-y-8 lg:space-y-12 px-4 py-6 sm:px-6 sm:py-8 lg:py-12" style={{ boxSizing: 'border-box' }}>
+      <div className="mx-auto max-w-7xl w-full space-y-4 sm:space-y-6 lg:space-y-8 px-4 py-4 sm:px-6 sm:py-6 lg:py-8" style={{ boxSizing: 'border-box' }}>
         
         {/* Quick Info Bar */}
         <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -641,7 +641,7 @@ export default function ShowPage() {
         </div>
 
         {/* Logline & Description */}
-        <section className="space-y-4 sm:space-y-6">
+        <section className="space-y-3 sm:space-y-4">
           {logline && (
             <p className="text-base sm:text-lg lg:text-xl xl:text-2xl font-light leading-relaxed text-foreground/90 italic border-l-4 border-primary pl-3 sm:pl-4 lg:pl-6">
               {logline}

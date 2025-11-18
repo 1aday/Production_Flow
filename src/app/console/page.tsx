@@ -1217,6 +1217,7 @@ function ResultView({
   onOpenLightbox,
   trailerModel,
   buildDefaultLibraryPosterPrompt,
+  stylizationGuardrails,
 }: {
   blueprint: ShowBlueprint | null;
   usage?: ApiResponse["usage"];
@@ -1287,6 +1288,7 @@ function ResultView({
   onClearTrailer: () => void;
   onOpenLightbox: (url: string) => void;
   trailerModel: string | null;
+  stylizationGuardrails: boolean;
 }) {
   const loaderActive = !blueprint && isLoading;
   const loaderMessage = useRotatingMessage(loaderActive, LOADING_MESSAGES, 1700);
@@ -7796,6 +7798,7 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
             }}
             onOpenLightbox={(url) => setLightboxImage(url)}
             trailerModel={trailerModel}
+            stylizationGuardrails={stylizationGuardrails}
           />
         </div>
       </main>
