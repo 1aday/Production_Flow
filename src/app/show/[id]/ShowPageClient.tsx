@@ -179,6 +179,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
   const [expandedCharacter, setExpandedCharacter] = useState<string | null>(null);
   const [completionStatus, setCompletionStatus] = useState<ReturnType<typeof calculateShowCompletion> | null>(null);
   const [playingVideos, setPlayingVideos] = useState<Record<string, boolean>>({});
+  const [trailerReady, setTrailerReady] = useState(false);
 
   // Pause all other videos when one starts playing
   useEffect(() => {
@@ -484,7 +485,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
       {/* Hero Section with Trailer */}
       {assets.trailer ? (
         <div
-          className={`media-frame relative overflow-hidden ${isLandscapeVideo ? 'group cursor-pointer' : 'lg:bg-gradient-to-b from-black via-black/80 to-black'} touch-manipulation`}
+          className={`media-frame relative overflow-hidden ${isLandscapeVideo ? 'group' : 'lg:bg-gradient-to-b from-black via-black/80 to-black'}`}
           style={{
             minWidth: 0,
             minHeight: isLandscapeVideo ? '50vh' : '60vh',
@@ -494,21 +495,41 @@ export default function ShowPageClient({ showId }: { showId: string }) {
             padding: 0,
             boxSizing: 'border-box',
           }}
-          onClick={toggleTrailer}
         >
           <video
             id="trailer-video"
             src={assets.trailer}
-            muted
+            preload="metadata"
             playsInline
             controls
-            onPlay={() => setTrailerPlaying(true)}
+            onPlay={(e) => {
+              const video = e.currentTarget;
+              // On first play, restart from beginning and unmute
+              if (!trailerPlaying && video.currentTime > 0) {
+                video.currentTime = 0;
+              }
+              // Unmute on play
+              video.muted = false;
+              setTrailerMuted(false);
+              setTrailerPlaying(true);
+            }}
             onPause={() => setTrailerPlaying(false)}
             onVolumeChange={(e) => setTrailerMuted(e.currentTarget.muted)}
-            onLoadedData={(e) => {
+            onLoadedMetadata={(e) => {
               const video = e.currentTarget;
-              // Don't autoplay - user must click to play
-              setTrailerPlaying(false);
+              // Seek to 2 seconds for thumbnail, but don't play
+              video.muted = true; // Mute initially for thumbnail
+              video.currentTime = 2;
+              video.pause(); // Ensure it doesn't autoplay
+              setTrailerMuted(true);
+            }}
+            onSeeked={(e) => {
+              const video = e.currentTarget;
+              // Pause after seek to prevent autoplay
+              if (!trailerReady && video.currentTime === 2) {
+                video.pause();
+                setTrailerReady(true);
+              }
             }}
             className={`absolute inset-0 transition-all duration-500 touch-manipulation ${isLandscapeVideo ? 'object-cover' : 'object-contain'}`}
             style={{ 
@@ -529,20 +550,36 @@ export default function ShowPageClient({ showId }: { showId: string }) {
               WebkitTapHighlightColor: 'transparent',
             }}
           />
-          {/* Darkening overlay - Desktop only */}
-          <div className={`absolute inset-0 hidden lg:block ${isLandscapeVideo ? 'bg-gradient-to-t from-black via-black/20 to-transparent' : 'bg-gradient-to-t from-black via-black/30 to-transparent'}`} />
           
-          {/* Subtle Play Button - Shows when not playing or when muted */}
-          {(!trailerPlaying || trailerMuted) && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-black/70 backdrop-blur-sm shadow-xl transition-all active:scale-95 hover:scale-110 hover:bg-black/80 z-10 border-2 border-white/30 touch-manipulation">
-              <Play className="ml-0.5 h-6 w-6 sm:h-7 sm:w-7 text-white" />
+          {/* Subtle Play Button - Shows ONLY when not playing */}
+          {!trailerPlaying && (
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                const video = document.getElementById('trailer-video') as HTMLVideoElement;
+                if (video) {
+                  video.play();
+                }
+              }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-black/70 backdrop-blur-sm shadow-xl transition-all active:scale-95 hover:scale-110 hover:bg-black/80 z-10 border-2 border-white/30 touch-manipulation cursor-pointer"
+            >
+              <Play className="ml-0.5 h-6 w-6 sm:h-7 sm:w-7 text-white pointer-events-none" />
             </div>
           )}
 
           {/* Pause Button - Shows ONLY on hover when playing with audio */}
           {trailerPlaying && !trailerMuted && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-0 group-hover:opacity-100 active:scale-95 hover:scale-110 hover:bg-black/90 z-10 touch-manipulation pointer-events-none group-hover:pointer-events-auto">
-              <Pause className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-white" />
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                const video = document.getElementById('trailer-video') as HTMLVideoElement;
+                if (video) {
+                  video.pause();
+                }
+              }}
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-0 group-hover:opacity-100 active:scale-95 hover:scale-110 hover:bg-black/90 z-10 touch-manipulation pointer-events-none group-hover:pointer-events-auto cursor-pointer"
+            >
+              <Pause className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-white pointer-events-none" />
             </div>
           )}
 
@@ -560,19 +597,6 @@ export default function ShowPageClient({ showId }: { showId: string }) {
               )}
             </button>
           )}
-          
-          <div className={`absolute bottom-12 sm:bottom-20 lg:bottom-24 left-0 right-0 px-4 sm:px-6 safe-area-inset-bottom transition-opacity duration-500 ${trailerPlaying ? 'lg:opacity-20 opacity-100' : 'opacity-100'}`}>
-            <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-1 sm:mb-2 leading-tight">
-                {displayTitle}
-              </h1>
-              {generatedContent?.hero_tagline && (
-                <p className="text-sm sm:text-lg lg:text-xl xl:text-2xl text-foreground/90 max-w-3xl leading-relaxed">
-                  {generatedContent.hero_tagline}
-                </p>
-              )}
-            </div>
-          </div>
         </div>
       ) : assets.libraryPoster || assets.poster ? (
       <div className="media-frame relative overflow-hidden" style={{ height: '50vh', minHeight: '50vh', maxHeight: '70vh', position: 'relative', left: 0, right: 0 }}>
@@ -616,6 +640,20 @@ export default function ShowPageClient({ showId }: { showId: string }) {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Show Title Section - Clean, no overlay */}
+      {assets.trailer && (
+        <div className="mx-auto max-w-7xl w-full px-4 pt-6 sm:px-6 sm:pt-8 lg:pt-12">
+          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-2 sm:mb-3 leading-tight">
+            {displayTitle}
+          </h1>
+          {generatedContent?.hero_tagline && (
+            <p className="text-base sm:text-lg lg:text-xl xl:text-2xl text-foreground/80 max-w-4xl leading-relaxed">
+              {generatedContent.hero_tagline}
+            </p>
+          )}
         </div>
       )}
 
