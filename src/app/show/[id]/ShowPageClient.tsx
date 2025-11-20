@@ -485,13 +485,12 @@ export default function ShowPageClient({ showId }: { showId: string }) {
       {/* Hero Section with Trailer */}
       {assets.trailer ? (
         <div
-          className={`media-frame relative overflow-hidden ${isLandscapeVideo ? 'group' : 'lg:bg-gradient-to-b from-black via-black/80 to-black'}`}
+          className="media-frame relative overflow-hidden group w-full"
           style={{
-            minWidth: 0,
-            minHeight: isLandscapeVideo ? '50vh' : '60vh',
-            maxHeight: isLandscapeVideo ? '75vh' : '85vh',
+            aspectRatio: '16 / 9',
+            maxHeight: '75vh',
             position: 'relative',
-            margin: 0,
+            margin: '0 auto',
             padding: 0,
             boxSizing: 'border-box',
           }}
@@ -531,23 +530,9 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                 setTrailerReady(true);
               }
             }}
-            className={`absolute inset-0 transition-all duration-500 touch-manipulation ${isLandscapeVideo ? 'object-cover' : 'object-contain'}`}
+            className="absolute inset-0 w-full h-full object-contain transition-all duration-500"
             style={{ 
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              minWidth: 0,
-              height: '100%',
-              maxHeight: '100%',
-              minHeight: 0,
               backgroundColor: '#000',
-              objectFit: isLandscapeVideo ? 'cover' : 'contain',
-              margin: 0,
-              padding: 0,
-              boxSizing: 'border-box',
-              WebkitTapHighlightColor: 'transparent',
             }}
           />
           

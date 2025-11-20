@@ -76,6 +76,8 @@ Make it engaging, professional, and shareable. Focus on what makes this show uni
               "visual_identity",
               "unique_features",
               "behind_the_scenes",
+              "episode_concepts",
+              "tone_keywords",
             ],
             properties: {
               hero_tagline: {
