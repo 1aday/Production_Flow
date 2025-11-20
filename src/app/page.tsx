@@ -273,7 +273,9 @@ export default function LandingPage() {
                     onMouseEnter={() => setHoveredShow(show.id)}
                     onMouseLeave={() => setHoveredShow(null)}
                     onClick={() => {
-                      router.push(`/show/${show.id}`);
+                      // Use slug if available, fall back to ID
+                      const identifier = show.slug || show.id;
+                      router.push(`/show/${identifier}`);
                     }}
                   >
                     {/* Video or Poster */}
@@ -319,7 +321,9 @@ export default function LandingPage() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(`/show/${show.id}`);
+                            // Use slug if available, fall back to ID
+                            const identifier = show.slug || show.id;
+                            router.push(`/show/${identifier}`);
                           }}
                           size="sm"
                           className="flex-1 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-xs h-10 shadow-lg"

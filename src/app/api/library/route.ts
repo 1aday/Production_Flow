@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, uploadToSupabase, downloadAsBuffer } from "@/lib/supabase";
+import { generateSlug } from "@/lib/slug";
 
 type ShowMetadata = {
   id: string;
+  slug?: string;
   title: string;
   showTitle?: string;
   createdAt: string;
@@ -22,7 +24,7 @@ export async function GET() {
     
     const { data: shows, error } = await supabase
       .from('shows')
-      .select('id, title, created_at, updated_at, model, poster_url, library_poster_url, portrait_grid_url, trailer_url, blueprint, character_seeds, character_docs, character_portraits, character_videos')
+      .select('id, slug, title, created_at, updated_at, model, poster_url, library_poster_url, portrait_grid_url, trailer_url, blueprint, character_seeds, character_docs, character_portraits, character_videos')
       .order('updated_at', { ascending: false })
       .limit(50); // Limit for performance
     
@@ -36,6 +38,7 @@ export async function GET() {
     // Transform to expected format with trailerUrl included
     const showMetadata: ShowMetadata[] = (shows || []).map(show => ({
       id: show.id,
+      slug: show.slug,
       title: show.title,
       showTitle: (show.blueprint as { show_title?: string })?.show_title,
       createdAt: show.created_at,
@@ -148,6 +151,9 @@ export async function POST(request: NextRequest) {
     
     const title = blueprint.show_title || blueprint.show_logline?.slice(0, 100) || "Untitled Show";
     
+    // Generate URL-friendly slug from title
+    const slug = generateSlug(title);
+    
     // Upload assets to Supabase Storage if they're data URLs
     const uploadedAssets = await uploadAssetsToStorage(supabase, id, {
       characterPortraits: characterPortraits || {},
@@ -160,6 +166,7 @@ export async function POST(request: NextRequest) {
     
     const showData = {
       id,
+      slug,
       title,
       created_at: body.createdAt || now,
       updated_at: now,

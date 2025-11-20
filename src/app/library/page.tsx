@@ -105,7 +105,9 @@ export default function LibraryPage() {
 
   const viewShow = (showId: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    router.push(`/show/${showId}`);
+    // Use slug if available, fall back to ID
+    const identifier = show?.slug || showId;
+    router.push(`/show/${identifier}`);
   };
 
   useEffect(() => {
