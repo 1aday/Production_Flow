@@ -41,7 +41,6 @@ export const metadata: Metadata = {
   authors: [{ name: "As You Wish" }],
   creator: "As You Wish",
   publisher: "As You Wish",
-  themeColor: "#090909",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -92,6 +91,7 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
   viewportFit: "cover",
+  themeColor: "#090909",
 };
 
 export default function RootLayout({

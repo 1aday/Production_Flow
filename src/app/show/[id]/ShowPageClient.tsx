@@ -180,6 +180,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
   const [completionStatus, setCompletionStatus] = useState<ReturnType<typeof calculateShowCompletion> | null>(null);
   const [playingVideos, setPlayingVideos] = useState<Record<string, boolean>>({});
   const [trailerReady, setTrailerReady] = useState(false);
+  const [showControls, setShowControls] = useState(true);
 
   // Pause all other videos when one starts playing
   useEffect(() => {
@@ -292,6 +293,28 @@ export default function ShowPageClient({ showId }: { showId: string }) {
   useEffect(() => {
     void loadShowData();
   }, [loadShowData]);
+
+  // Auto-hide controls after 3 seconds when playing
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    
+    if (trailerPlaying) {
+      // Show controls initially
+      setShowControls(true);
+      
+      // Hide after 3 seconds
+      timer = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    } else {
+      // Show controls when paused
+      setShowControls(true);
+    }
+    
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [trailerPlaying]);
 
   const copyShareUrl = async () => {
     const url = window.location.href;
@@ -494,6 +517,8 @@ export default function ShowPageClient({ showId }: { showId: string }) {
             padding: 0,
             boxSizing: 'border-box',
           }}
+          onMouseEnter={() => setShowControls(true)}
+          onMouseMove={() => setShowControls(true)}
         >
           <video
             id="trailer-video"
@@ -552,7 +577,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
             </div>
           )}
 
-          {/* Pause Button - Shows ONLY on hover when playing with audio */}
+          {/* Pause Button - Shows on hover or for first 3 seconds */}
           {trailerPlaying && !trailerMuted && (
             <div 
               onClick={(e) => {
@@ -562,17 +587,19 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                   video.pause();
                 }
               }}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all opacity-0 group-hover:opacity-100 active:scale-95 hover:scale-110 hover:bg-black/90 z-10 touch-manipulation pointer-events-none group-hover:pointer-events-auto cursor-pointer"
+              onMouseEnter={() => setShowControls(true)}
+              className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-14 w-14 sm:h-16 sm:w-16 lg:h-20 lg:w-20 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-2xl transition-all active:scale-95 hover:scale-110 hover:bg-black/90 z-10 touch-manipulation cursor-pointer ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             >
               <Pause className="h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-white pointer-events-none" />
             </div>
           )}
 
-          {/* Audio Toggle Button - Always visible on mobile, hover on desktop */}
+          {/* Audio Toggle Button - Auto-hides after 3 seconds, shows on hover */}
           {trailerPlaying && (
             <button
               onClick={toggleTrailerAudio}
-              className="absolute top-3 right-3 sm:top-6 sm:right-6 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-xl transition-all active:scale-95 hover:scale-110 hover:bg-black/90 z-10 opacity-100 md:opacity-0 md:group-hover:opacity-100 touch-manipulation"
+              onMouseEnter={() => setShowControls(true)}
+              className={`absolute top-3 right-3 sm:top-6 sm:right-6 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-black/80 backdrop-blur-sm shadow-xl transition-all active:scale-95 hover:scale-110 hover:bg-black/90 z-10 touch-manipulation ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
               aria-label={trailerMuted ? "Unmute trailer" : "Mute trailer"}
             >
               {trailerMuted ? (
@@ -829,47 +856,17 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                     {/* Character Header */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 p-3 sm:p-4 lg:p-6 w-full">
                       {/* Portrait or Video */}
-                      <div className={`media-frame relative overflow-hidden rounded-lg sm:rounded-xl group max-w-[540px] lg:max-w-full mx-auto lg:mx-0 w-full bg-black`} style={{ minWidth: 0, aspectRatio: mediaAspectRatio, position: 'relative', minHeight: '200px' }}>
+                      <div className={`media-frame relative overflow-hidden rounded-lg sm:rounded-xl max-w-[540px] lg:max-w-full mx-auto lg:mx-0 w-full bg-black`} style={{ minWidth: 0, aspectRatio: mediaAspectRatio, position: 'relative', minHeight: '200px' }}>
                         {hasVideo && videoUrl ? (
-                          <div 
-                            className="absolute inset-0 bg-black"
-                            style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, WebkitTapHighlightColor: 'transparent' }}
-                          >
                             <video
                               src={videoUrl}
                               playsInline
                               muted={false}
                               controls
-                              className="absolute inset-0 object-cover bg-black rounded-lg sm:rounded-xl touch-manipulation"
-                              style={{ 
-                                position: 'absolute', 
-                                top: 0, 
-                                left: 0, 
-                                right: 0, 
-                                bottom: 0, 
-                                width: '100%', 
-                                height: '100%', 
-                                objectFit: 'cover',
-                                WebkitTapHighlightColor: 'transparent'
-                              }}
+                              className="absolute inset-0 w-full h-full object-cover bg-black rounded-lg sm:rounded-xl"
                               onPlay={() => setPlayingVideos(prev => ({ ...prev, [character.id]: true }))}
                               onPause={() => setPlayingVideos(prev => ({ ...prev, [character.id]: false }))}
                             />
-                            {/* Play/Pause indicator - Only show when paused */}
-                            {!playingVideos[character.id] && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity duration-300 pointer-events-none">
-                                <div className="rounded-full bg-white/90 p-3 sm:p-4 shadow-xl backdrop-blur-sm">
-                                  <Play className="h-6 w-6 sm:h-8 sm:w-8 text-black ml-1" />
-                                </div>
-                              </div>
-                            )}
-                            {/* Tap hint for mobile - shows briefly */}
-                            {!playingVideos[character.id] && (
-                              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/80 backdrop-blur-sm text-white text-[10px] sm:text-xs font-medium pointer-events-none lg:hidden animate-pulse">
-                                Tap to play
-                              </div>
-                            )}
-                          </div>
                         ) : portraitUrl ? (
                           <div className="absolute inset-0" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
                             <Image
