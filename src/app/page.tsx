@@ -7,6 +7,7 @@ import { Sparkles, ArrowRight, Play, Loader2, Library, FileText, Plus } from "lu
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
+import { getShowUrl } from "@/lib/slug";
 
 type Show = {
   id: string;
@@ -273,9 +274,8 @@ export default function LandingPage() {
                     onMouseEnter={() => setHoveredShow(show.id)}
                     onMouseLeave={() => setHoveredShow(null)}
                     onClick={() => {
-                      // Use slug if available, fall back to ID
-                      const identifier = show.slug || show.id;
-                      router.push(`/show/${identifier}`);
+                      const url = getShowUrl({ id: show.id, title: show.title });
+                      router.push(url);
                     }}
                   >
                     {/* Video or Poster */}
@@ -321,9 +321,8 @@ export default function LandingPage() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Use slug if available, fall back to ID
-                            const identifier = show.slug || show.id;
-                            router.push(`/show/${identifier}`);
+                            const url = getShowUrl({ id: show.id, title: show.title, showTitle: show.showTitle });
+                            router.push(url);
                           }}
                           size="sm"
                           className="flex-1 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-xs h-10 shadow-lg"

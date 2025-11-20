@@ -1,48 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { isId } from "@/lib/slug";
+import { extractShowId } from "@/lib/slug";
 
 /**
  * GET /api/show/[id]
  * Fetches complete show data including all assets from Supabase
- * Accepts either slug or ID
  */
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: showIdOrSlug } = await context.params;
+    const { id: slugOrId } = await context.params;
+    const showId = extractShowId(slugOrId);
     
     const supabase = createServerSupabaseClient();
     
-    // Try to fetch show by slug first, then by ID
-    let show, error;
-    
-    if (isId(showIdOrSlug)) {
-      // Looks like an ID, search by ID
-      ({ data: show, error } = await supabase
-        .from('shows')
-        .select('*')
-        .eq('id', showIdOrSlug)
-        .single());
-    } else {
-      // Looks like a slug, search by slug first
-      ({ data: show, error } = await supabase
-        .from('shows')
-        .select('*')
-        .eq('slug', showIdOrSlug)
-        .single());
-      
-      // If not found by slug, try by ID as fallback
-      if (error || !show) {
-        ({ data: show, error } = await supabase
-          .from('shows')
-          .select('*')
-          .eq('id', showIdOrSlug)
-          .single());
-      }
-    }
+    // Fetch show from Supabase
+    const { data: show, error } = await supabase
+      .from('shows')
+      .select('*')
+      .eq('id', showId)
+      .single();
     
     if (error || !show) {
       return NextResponse.json(
@@ -54,7 +33,6 @@ export async function GET(
     // Transform to match expected format
     const showData = {
       id: show.id,
-      slug: show.slug,
       title: show.title,
       showTitle: show.blueprint?.show_title || show.title,
       createdAt: show.created_at,

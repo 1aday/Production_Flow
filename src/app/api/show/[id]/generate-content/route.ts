@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createServerSupabaseClient } from "@/lib/supabase";
+import { extractShowId } from "@/lib/slug";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -15,7 +16,8 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: showId } = await context.params;
+    const { id: slugOrId } = await context.params;
+    const showId = extractShowId(slugOrId);
     
     const supabase = createServerSupabaseClient();
     

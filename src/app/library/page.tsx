@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
 import { calculateShowCompletion, getCompletionBadgeVariant } from "@/lib/show-completion";
+import { getShowUrl } from "@/lib/slug";
 
 type LibraryShow = {
   id: string;
@@ -103,11 +104,10 @@ export default function LibraryPage() {
     }
   };
 
-  const viewShow = (showId: string, event: React.MouseEvent) => {
+  const viewShow = (show: LibraryShow, event: React.MouseEvent) => {
     event.stopPropagation();
-    // Use slug if available, fall back to ID
-    const identifier = show?.slug || showId;
-    router.push(`/show/${identifier}`);
+    const url = getShowUrl({ id: show.id, title: show.title, showTitle: show.showTitle });
+    router.push(url);
   };
 
   useEffect(() => {
@@ -244,7 +244,7 @@ export default function LibraryPage() {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={(e) => viewShow(show.id, e)}
+                    onClick={(e) => viewShow(show, e)}
                     className="h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-green-500/80 group-hover:opacity-100"
                     title="View show page"
                   >

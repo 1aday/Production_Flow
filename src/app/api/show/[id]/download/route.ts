@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import JSZip from "jszip";
 import { createServerSupabaseClient } from "@/lib/supabase";
+import { extractShowId } from "@/lib/slug";
 
 export const maxDuration = 60;
 
@@ -30,7 +31,8 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const { id: showId } = await context.params;
+  const { id: slugOrId } = await context.params;
+  const showId = extractShowId(slugOrId);
 
   try {
     const supabase = createServerSupabaseClient();

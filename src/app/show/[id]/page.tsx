@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { createServerSupabaseClient } from "@/lib/supabase";
+import { extractShowId } from "@/lib/slug";
 import ShowPageClient from "./ShowPageClient";
 
 type Props = {
@@ -7,7 +8,8 @@ type Props = {
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
+  const { id: slugOrId } = await params;
+  const id = extractShowId(slugOrId);
   const supabase = createServerSupabaseClient();
 
   try {
@@ -178,6 +180,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ShowPage({ params }: Props) {
-  const { id } = await params;
+  const { id: slugOrId } = await params;
+  const id = extractShowId(slugOrId);
   return <ShowPageClient showId={id} />;
 }
