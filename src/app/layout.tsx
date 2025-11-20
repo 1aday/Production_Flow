@@ -18,15 +18,71 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://productionflow.vercel.app";
+
 export const metadata: Metadata = {
-  title: "Production Flow — AI Show Bible Generator",
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: "As You Wish — AI Show Bible Generator",
+    template: "%s | As You Wish",
+  },
   description:
     "Transform ideas into complete visual production bibles with AI-powered characters, aesthetics, and trailers.",
+  keywords: [
+    "AI show bible",
+    "production bible",
+    "character design",
+    "show development",
+    "TV production",
+    "character generator",
+    "AI storytelling",
+    "production flow",
+  ],
+  authors: [{ name: "As You Wish" }],
+  creator: "As You Wish",
+  publisher: "As You Wish",
   themeColor: "#090909",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Production Flow",
+    title: "As You Wish",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: baseUrl,
+    siteName: "As You Wish",
+    title: "As You Wish — AI Show Bible Generator",
+    description:
+      "Transform ideas into complete visual production bibles with AI-powered characters, aesthetics, and trailers.",
+    images: [
+      {
+        url: "/og-image-temp.webp",
+        width: 1200,
+        height: 630,
+        alt: "As You Wish - AI Show Bible Generator",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "As You Wish — AI Show Bible Generator",
+    description:
+      "Transform ideas into complete visual production bibles with AI-powered characters, aesthetics, and trailers.",
+    images: ["/og-image-temp.webp"],
+    creator: "@asyouwish",
+    site: "@asyouwish",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 };
 

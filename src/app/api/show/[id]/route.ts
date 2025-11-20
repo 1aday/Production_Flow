@@ -36,6 +36,7 @@ export async function GET(
       createdAt: show.created_at,
       updatedAt: show.updated_at,
       blueprint: show.blueprint,
+      generatedContent: show.generated_content,
       characterSeeds: show.character_seeds,
       characterDocs: show.character_docs,
       characterPortraits: show.character_portraits,

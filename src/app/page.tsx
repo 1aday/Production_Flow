@@ -139,7 +139,6 @@ export default function LandingPage() {
               <video
                 src={videoLightbox.url}
                 controls
-                autoPlay
                 className="w-full h-full rounded-lg shadow-2xl"
               />
               <button
@@ -280,12 +279,12 @@ export default function LandingPage() {
                     {/* Video or Poster */}
                     <div className="relative aspect-[2/3]">
                       {hasTrailer && show.trailerUrl && isHovered ? (
-                        // Auto-play trailer on hover with AUDIO
+                        // Show trailer on hover but don't autoplay
                         <video
                           src={show.trailerUrl}
-                          autoPlay
-                          loop
                           playsInline
+                          muted
+                          controls
                           className="absolute inset-0 w-full h-full object-cover"
                         />
                       ) : posterUrl ? (
