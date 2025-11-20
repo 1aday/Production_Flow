@@ -41,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calculateShowCompletion } from "@/lib/show-completion";
 import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
+import { sanitizeText, getDisplayName } from "@/lib/text-utils";
 
 type ShowAssets = {
   portraits: string[];
@@ -850,7 +851,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                           <div className="absolute inset-0" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
                             <Image
                               src={portraitUrl}
-                              alt={character.name}
+                              alt={getDisplayName(character.name, "Character portrait")}
                               fill
                               className="object-cover"
                               style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', objectFit: 'cover' }}
@@ -860,7 +861,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-transparent" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
                             <span className="text-8xl font-bold text-foreground/20">
-                              {character.name.charAt(0)}
+                              {getDisplayName(character.name, "?").charAt(0).toUpperCase()}
                             </span>
                           </div>
                         )}
@@ -869,14 +870,14 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                       {/* Basic Info */}
                       <div className="space-y-3 sm:space-y-4 lg:space-y-6 min-w-0 lg:col-span-2">
                         <div>
-                          <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2 leading-tight">{character.name}</h3>
+                          <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2 leading-tight">{getDisplayName(character.name, "Character")}</h3>
                           <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
                             <Badge variant="default" className="text-xs sm:text-sm px-2 py-0.5">
-                              {character.role}
+                              {sanitizeText(character.role) || "Character"}
                             </Badge>
                             {character.vibe && (
                               <Badge variant="outline" className="text-xs sm:text-sm px-2 py-0.5">
-                                {character.vibe}
+                                {sanitizeText(character.vibe)}
                               </Badge>
                             )}
                             {charDoc?.biometrics?.age_years && (
@@ -885,14 +886,14 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                               </Badge>
                             )}
                           </div>
-                          {character.summary && (
+                          {character.summary && sanitizeText(character.summary) && (
                             <p className="text-base sm:text-lg text-foreground/80 leading-relaxed">
-                              {character.summary}
+                              {sanitizeText(character.summary)}
                             </p>
                           )}
-                          {character.description && (
+                          {character.description && sanitizeText(character.description) && (
                             <p className="mt-2 sm:mt-3 text-sm sm:text-base text-foreground/70 leading-relaxed">
-                              {character.description}
+                              {sanitizeText(character.description)}
                             </p>
                           )}
                         </div>
