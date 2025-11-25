@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   Plus,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -92,20 +93,32 @@ function StoryboardSection({
       
       {/* Image or Placeholder */}
       {imageUrl ? (
-        <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden border border-white/10">
+        <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden border border-white/10 group">
           <Image
             src={imageUrl}
             alt={`${label} keyframe`}
             fill
             className="object-cover"
           />
-          <button
-            onClick={onGenerate}
-            disabled={isGenerating}
-            className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-black/70 hover:bg-black/90 text-[10px] font-medium text-foreground/70 hover:text-foreground transition-colors"
-          >
-            {isGenerating ? "Regenerating..." : "Regenerate"}
-          </button>
+          {/* Regenerating overlay */}
+          {isGenerating && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-6 w-6 text-white animate-spin" />
+                <span className="text-xs text-white/80">Regenerating...</span>
+              </div>
+            </div>
+          )}
+          {/* Regenerate button - visible on hover */}
+          {!isGenerating && (
+            <button
+              onClick={onGenerate}
+              className="absolute bottom-2 right-2 px-3 py-1.5 rounded-lg bg-black/80 hover:bg-primary text-xs font-medium text-white/80 hover:text-white transition-all opacity-0 group-hover:opacity-100 flex items-center gap-1.5"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Regenerate
+            </button>
+          )}
         </div>
       ) : (
         <button 
@@ -178,6 +191,15 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
           if (data.assets?.portraitGrid) {
             setPortraitGridUrl(data.assets.portraitGrid);
           }
+          // Load saved episode stills
+          if (data.show.episodeStills) {
+            // Convert string keys to numbers for our state
+            const stills: Record<number, Record<string, string>> = {};
+            Object.entries(data.show.episodeStills).forEach(([epNum, sections]) => {
+              stills[parseInt(epNum)] = sections as Record<string, string>;
+            });
+            setGeneratedStills(stills);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch show:", error);
@@ -212,6 +234,9 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     
     const key = `${currentEpisode.episode_number}-${sectionLabel}`;
     setGeneratingStills(prev => ({ ...prev, [key]: true }));
+    
+    console.log("🎬 Generating still for:", sectionLabel);
+    console.log("   Portrait Grid URL:", portraitGridUrl || "NOT AVAILABLE");
     
     try {
       const response = await fetch('/api/episodes/stills', {

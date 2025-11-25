@@ -55,6 +55,10 @@ export async function GET(
       // Episode format and loglines
       showFormat: show.show_format,
       episodes: show.episodes,
+      // Episode media
+      episodeStills: show.episode_stills,
+      episodeClips: show.episode_clips,
+      episodeVideos: show.episode_videos,
     };
     
     // Gather assets from the show data

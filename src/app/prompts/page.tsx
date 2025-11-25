@@ -142,7 +142,7 @@ export default function PromptsPage() {
               <h1 className="text-lg font-semibold">AI Prompts</h1>
               <p className="text-xs text-foreground/50">Global templates for all shows</p>
             </div>
-          </div>
+            </div>
           <div className="flex items-center gap-3">
             <Badge variant="outline" className="text-[10px]">
               v{templates.version}
