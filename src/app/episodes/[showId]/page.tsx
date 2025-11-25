@@ -84,20 +84,13 @@ function StoryboardSection({
         </div>
       </div>
       
-      {/* 4 Image Placeholders */}
-      <div className="grid grid-cols-4 gap-2">
-        {[1, 2, 3, 4].map((num) => (
-          <button
-            key={num}
-            className="group aspect-video rounded-lg border-2 border-dashed border-white/10 bg-black/30 hover:border-white/20 hover:bg-black/40 transition-all flex flex-col items-center justify-center gap-1"
-          >
-            <div className="w-6 h-6 rounded-full bg-white/5 group-hover:bg-white/10 flex items-center justify-center transition-colors">
-              <Plus className="h-3 w-3 text-foreground/30 group-hover:text-foreground/50" />
-            </div>
-            <span className="text-[9px] text-foreground/30 group-hover:text-foreground/50">Shot {num}</span>
-          </button>
-        ))}
-      </div>
+      {/* Image Placeholder */}
+      <button className="group w-full aspect-[16/9] rounded-lg border-2 border-dashed border-white/10 bg-black/30 hover:border-white/20 hover:bg-black/40 transition-all flex flex-col items-center justify-center gap-2">
+        <div className="w-10 h-10 rounded-full bg-white/5 group-hover:bg-white/10 flex items-center justify-center transition-colors">
+          <Plus className="h-5 w-5 text-foreground/30 group-hover:text-foreground/50" />
+        </div>
+        <span className="text-xs text-foreground/30 group-hover:text-foreground/50">Generate keyframe</span>
+      </button>
     </div>
   );
 }
@@ -457,49 +450,38 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                     <p className="text-sm text-foreground/70 leading-relaxed">{currentEpisode.logline}</p>
                   </div>
 
-                  {/* Storyboard Sections */}
-                  <div className="space-y-3">
-                    {/* Teaser / Cold Open */}
+                  {/* Storyboard Sections - 2 Column Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <StoryboardSection
                       label="TEASER"
                       description={currentEpisode.cold_open_hook}
                       color="amber"
                       icon={<Zap className="h-4 w-4" />}
                     />
-
-                    {/* Act 1 */}
                     <StoryboardSection
                       label="ACT 1"
                       description={currentEpisode.a_plot}
                       color="blue"
                       icon={<Play className="h-4 w-4" />}
                     />
-
-                    {/* Act 2 */}
                     <StoryboardSection
                       label="ACT 2"
                       description={currentEpisode.b_plot || "Complications arise..."}
                       color="emerald"
                       icon={<Target className="h-4 w-4" />}
                     />
-
-                    {/* Act 3 */}
                     <StoryboardSection
                       label="ACT 3"
                       description="Crisis point and confrontation"
                       color="rose"
                       icon={<Zap className="h-4 w-4" />}
                     />
-
-                    {/* Act 4 */}
                     <StoryboardSection
                       label="ACT 4"
                       description={currentEpisode.cliffhanger_or_button}
                       color="violet"
                       icon={<Sparkles className="h-4 w-4" />}
                     />
-
-                    {/* Tag */}
                     <StoryboardSection
                       label="TAG"
                       description="Final comedic or emotional beat"
