@@ -7,6 +7,7 @@ type ExtractRequest = {
   prompt: string;
   show?: unknown;
   model?: string;
+  stylizationGuardrails?: boolean;
 };
 
 type CharacterSeed = {
@@ -45,7 +46,7 @@ const structuredSchema = {
   },
 } as const;
 
-const systemPrompt = `You are a casting researcher and story analyst.
+const systemPromptStylized = `You are a casting researcher and story analyst.
 Given a show concept, list up to ten distinct characters that appear or should appear.
 If no explicit characters are provided, invent ten that would anchor the story.
 For each character provide:
@@ -56,6 +57,18 @@ For each character provide:
 Use concise language and ensure identifiers are unique.
 
 IMPORTANT: Avoid using "realistic" or "photorealistic" in summaries or vibes. Use terms like "cinematic", "theatrical", "stylized" instead.`;
+
+const systemPromptRealistic = `You are a casting researcher and story analyst.
+Given a show concept, list up to ten distinct characters that appear or should appear.
+If no explicit characters are provided, invent ten that would anchor the story.
+For each character provide:
+- an "id" in kebab-case,
+- the "name",
+- a short "summary" (<= 280 characters),
+- a "role" (use null if unknown) and a "vibe" descriptor (use null if unknown).
+Use concise language and ensure identifiers are unique.
+
+Use descriptive terms appropriate to the show's style - whether animated, stylized, realistic, or any other aesthetic.`;
 
 const trimJSON = (input: unknown): string | undefined => {
   if (!input) return undefined;
@@ -146,6 +159,16 @@ export async function POST(request: Request) {
     }
     model = body.model;
   }
+
+  // Get stylization guardrails setting (defaults to true for backward compatibility)
+  const stylizationGuardrails = body.stylizationGuardrails !== false;
+  
+  // Choose system prompt based on guardrails
+  const systemPrompt = stylizationGuardrails ? systemPromptStylized : systemPromptRealistic;
+  
+  console.log("=== CHARACTER EXTRACT ===");
+  console.log("Stylization Guardrails:", stylizationGuardrails);
+  console.log("Using system prompt:", stylizationGuardrails ? "Stylized (avoids 'realistic')" : "Realistic (allows all terms)");
 
   const showContext = trimJSON(body.show);
   const context = [

@@ -146,31 +146,31 @@ function ControlPanelContent() {
     <div className="min-h-screen bg-black text-foreground">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-white/12 bg-black/95 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-4 px-6 py-4">
-          <div className="flex items-center gap-4">
+        <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-2 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <Button
               type="button"
               variant="ghost"
               size="icon"
               onClick={() => router.push("/")}
-              className="rounded-full"
+              className="rounded-full shrink-0"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-3">
-              <Settings className="h-5 w-5 text-primary" />
-              <div>
-                <h1 className="text-lg font-semibold uppercase tracking-[0.32em] text-primary">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-lg font-semibold uppercase tracking-[0.2em] sm:tracking-[0.32em] text-primary truncate">
                   Control Panel
                 </h1>
-                <p className="text-xs text-foreground/50">{prompts.title}</p>
+                <p className="text-xs text-foreground/50 truncate">{prompts.title}</p>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {hasChanges ? (
-              <Badge variant="outline" className="text-amber-400 border-amber-400/40 bg-amber-400/10">
-                Unsaved changes
+              <Badge variant="outline" className="text-amber-400 border-amber-400/40 bg-amber-400/10 hidden sm:flex">
+                Unsaved
               </Badge>
             ) : null}
             <Button
@@ -179,10 +179,11 @@ function ControlPanelContent() {
               size="sm"
               onClick={savePrompts}
               disabled={saving || !hasChanges}
-              className="gap-2 rounded-full"
+              className="gap-1.5 sm:gap-2 rounded-full h-9 sm:h-10 px-3 sm:px-4"
             >
               <Save className="h-4 w-4" />
-              {saving ? "Saving..." : "Save All"}
+              <span className="hidden sm:inline">{saving ? "Saving..." : "Save All"}</span>
+              <span className="sm:hidden">{saving ? "..." : "Save"}</span>
             </Button>
           </div>
         </div>
@@ -306,12 +307,12 @@ function ControlPanelContent() {
               <Badge variant="outline">{prompts.characterSeeds.length} characters</Badge>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
               {prompts.characterSeeds.map((char) => (
                 <Card key={char.id} className="border-white/8 bg-black/30">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">{char.name}</CardTitle>
-                    <CardDescription className="text-xs">{char.id}</CardDescription>
+                  <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6 pt-3 sm:pt-6">
+                    <CardTitle className="text-sm sm:text-base">{char.name}</CardTitle>
+                    <CardDescription className="text-[10px] sm:text-xs truncate">{char.id}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {/* Portrait Prompt */}
@@ -427,4 +428,5 @@ export default function ControlPanelPage() {
     </Suspense>
   );
 }
+
 

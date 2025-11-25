@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 
 export const maxDuration = 60; // Reduced to 60s since we return immediately
 
-type VideoModelId = "openai/sora-2" | "openai/sora-2-pro";
+type VideoModelId = "openai/sora-2" | "openai/sora-2-pro" | "google/veo-3.1";
 type VideoAspectRatio = "portrait" | "landscape";
-type VideoDuration = 4 | 8 | 12;
-type VideoResolution = "standard" | "high";
+type VideoDuration = 4 | 6 | 8 | 12;
+type VideoResolution = "standard" | "high" | "720p" | "1080p";
 
 type VideoModelConfig = {
   modelPath: string;
@@ -51,6 +51,25 @@ const VIDEO_MODELS: Record<VideoModelId, VideoModelConfig> = {
       input_reference: portraitUrl,
     }),
   },
+  "google/veo-3.1": {
+    modelPath: "google/veo-3.1",
+    seconds: [4, 6, 8],
+    aspectRatios: ["portrait", "landscape"],
+    resolutions: ["720p", "1080p"],
+    buildInput: ({ prompt, seconds, aspectRatio, portraitUrl, resolution }) => {
+      // VEO 3.1 uses reference_images instead of input_reference
+      // and different parameter names
+      const veoAspectRatio = aspectRatio === "portrait" ? "9:16" : "16:9";
+      return {
+        prompt,
+        duration: seconds,
+        aspect_ratio: veoAspectRatio,
+        resolution: resolution ?? "1080p",
+        generate_audio: true,
+        reference_images: [portraitUrl],
+      };
+    },
+  },
 };
 
 const DEFAULT_MODEL: VideoModelId = "openai/sora-2";
@@ -64,6 +83,7 @@ type VideoBody = {
   aspectRatio?: VideoAspectRatio;
   resolution?: VideoResolution;
   jobId?: string;
+  stylizationGuardrails?: boolean;
 };
 
 const MAX_JSON_LENGTH = 20000;
@@ -172,9 +192,14 @@ const normalizeAspectRatio = (
 
 const normalizeResolution = (
   value: unknown,
-  allowed?: readonly VideoResolution[]
+  allowed?: readonly VideoResolution[],
+  modelId?: VideoModelId
 ): VideoResolution | undefined => {
   if (!allowed?.length) {
+    // Default resolutions based on model
+    if (modelId === "google/veo-3.1") {
+      return "1080p";
+    }
     return undefined;
   }
   if (typeof value === "string" && allowed.includes(value as VideoResolution)) {
@@ -266,7 +291,10 @@ export async function POST(request: Request) {
   const modelConfig = VIDEO_MODELS[modelId];
   const seconds = normalizeSeconds(body.seconds, modelConfig.seconds);
   const aspectRatio = normalizeAspectRatio(body.aspectRatio, modelConfig.aspectRatios);
-  const resolution = normalizeResolution(body.resolution, modelConfig.resolutions);
+  const resolution = normalizeResolution(body.resolution, modelConfig.resolutions, modelId);
+  
+  // Get stylization guardrails setting (defaults to true for backward compatibility)
+  const stylizationGuardrails = body.stylizationGuardrails !== false;
 
   // Extract production style
   const productionStyle = (body.show as { production_style?: {
@@ -275,15 +303,23 @@ export async function POST(request: Request) {
     visual_treatment?: string;
   } }).production_style;
 
-  const styleGuidance = productionStyle ? [
+  // Build style guidance - only add restrictions if guardrails are ON
+  const styleGuidance = stylizationGuardrails && productionStyle ? [
     "",
     "VISUAL STYLE (CRITICAL - Match exactly):",
-    `Medium: ${productionStyle.medium || 'Stylized cinematic'}`,
+    `Medium: ${productionStyle.medium}`,
     `References: ${(productionStyle.cinematic_references || []).join(', ')}`,
-    `Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}`,
-    "Do NOT use photorealistic rendering if the style specifies animation or stylization.",
+    `Treatment: ${productionStyle.visual_treatment}`,
     "",
-  ] : [];
+  ] : [
+    "",
+    "RENDERING APPROACH:",
+    "- Photorealistic rendering is ALLOWED and ENCOURAGED if desired",
+    "- Realistic, naturalistic, photographic styles are ALLOWED",
+    "- Live-action appearance is ALLOWED",
+    "- You may render in ANY style - realistic, stylized, animated, or illustrated",
+    "",
+  ];
 
   const prompt = [
     `Produce a ${seconds}-second, ${describeAspectRatio(aspectRatio)} cinematic showcase featuring ONLY the specified character.`,

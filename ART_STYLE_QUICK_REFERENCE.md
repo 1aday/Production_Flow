@@ -487,3 +487,4 @@ Influences: {art_style.art_movement_references.primary_influences.join(', ')} st
 
 
 
+

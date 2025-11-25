@@ -26,7 +26,7 @@
         "type": "object",
         "additionalProperties": false,
         "required": ["medium", "cinematic_references", "visual_treatment", "stylization_level"],
-        "description": "CRITICAL: Must choose a concrete non-photorealistic visual style. Avoid anything that looks like real photography or live-action footage.",
+        "description": "Define the visual production style. Choose from animation styles OR live-action/cinematic styles based on the creative vision.",
         "properties": {
           "medium": {
             "type": "string",
@@ -50,26 +50,31 @@
               "Comic book visual style",
               "Art deco animation",
               "Retro cartoon aesthetic",
-              "Painterly 3D animation"
+              "Painterly 3D animation",
+              "Live-action cinematic style",
+              "Photorealistic CGI",
+              "Theatrical live-action",
+              "Documentary realism",
+              "Prestige drama cinematography"
             ],
-            "description": "MUST choose from this list. These are proven non-photorealistic styles that work well with image/video generators. DO NOT create custom descriptions or use any 'live-action' terminology."
+            "description": "Choose from this list of visual styles. Includes both stylized animation and photorealistic/live-action options. Select based on the show's creative direction."
           },
           "cinematic_references": {
             "type": "array",
             "minItems": 2,
             "maxItems": 4,
             "items": { "type": "string" },
-            "description": "2-4 specific animation films, cartoon series, or highly stylized films that define the visual style. Examples: 'The Incredibles character design', 'Spirited Away backgrounds', 'Wallace & Gromit texture work', 'Into the Spider-Verse animation style', 'Arcane painted rendering', 'Kubo and the Two Strings stop-motion', 'Adventure Time color palette', 'Avatar: The Last Airbender art style', 'Fantastic Mr Fox craftsmanship', 'Klaus lighting techniques'."
+            "description": "2-4 specific films or TV shows that define the visual style. For animation: 'Pixar character design', 'Ghibli backgrounds', 'Spider-Verse style'. For realistic/cinematic: 'Breaking Bad cinematography', 'Roger Deakins lighting', 'Denis Villeneuve's Dune', 'True Detective Season 1 visuals', 'The Dark Knight grading'."
           },
           "visual_treatment": {
             "type": "string",
             "minLength": 50,
-            "description": "Detailed description emphasizing the ANIMATED or ILLUSTRATED nature of the visuals. Must use terms like: 'hand-crafted', 'animated', 'illustrated', 'painterly', 'stylized rendering', 'cartoon aesthetic', 'animated textures', 'non-photographic'. Examples: 'Vibrant 3D animation with exaggerated character proportions and painterly lighting', 'Hand-drawn aesthetic with visible brush strokes and watercolor backgrounds', 'Claymation with tactile textures and imperfect surfaces', 'Stylized 3D with bold outlines and graphic shadows'."
+            "description": "Detailed description of the visual approach. For animated styles: use terms like 'animated', 'illustrated', 'painterly', 'stylized'. For cinematic/realistic styles: use terms like 'photorealistic', 'cinematic', 'naturalistic', 'theatrical'. Examples for animation: 'Vibrant 3D animation with painterly lighting'. Examples for realistic: 'Cinematic photography with naturalistic lighting and real-world textures'."
           },
           "stylization_level": {
             "type": "string",
-            "enum": ["highly_stylized", "moderately_stylized"],
-            "description": "Level of artistic stylization. Only 'highly_stylized' or 'moderately_stylized' allowed - no realistic options."
+            "enum": ["highly_stylized", "moderately_stylized", "slightly_stylized", "cinematic_realistic"],
+            "description": "Level of artistic stylization. Options: 'highly_stylized' (cartoon/animation), 'moderately_stylized' (animated with details), 'slightly_stylized' (realistic with artistic touches), 'cinematic_realistic' (photorealistic/live-action style)."
           },
           "art_style": {
             "type": "object",
@@ -285,7 +290,7 @@
                   },
                   "era_aesthetic": {
                     "type": "string",
-                    "enum": ["1920s", "1950s", "1960s", "1970s", "1980s", "1990s", "2000s", "contemporary", "timeless"],
+                    "enum": ["1920s", "1930s", "1940s", "1950s", "1960s", "1970s", "1980s", "1990s", "2000s", "contemporary", "timeless"],
                     "description": "Decade aesthetic reference"
                   },
                   "cultural_influences": {

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle, Sparkles, Users, Film, PlayCircle, Boxes } from "lucide-react";
+import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle, Sparkles, Users, Film, PlayCircle, Boxes, Edit3, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { BackgroundTasksIndicator } from "@/components/BackgroundTasksIndicator";
 import { TrailerModelSelector } from "@/components/TrailerModelSelector";
+import { CharacterVideoModelSelector } from "@/components/CharacterVideoModelSelector";
 import {
   Card,
   CardContent,
@@ -363,7 +364,7 @@ type CharacterBehavior =
 };
 
 type ModelId = "gpt-5" | "gpt-4o";
-type ImageModelId = "gpt-image" | "flux";
+type ImageModelId = "gpt-image" | "flux" | "nano-banana-pro";
 type VideoGenerationModelId = "sora-2" | "sora-2-pro" | "veo-3.1";
 
 const MODEL_OPTIONS: Array<{
@@ -397,6 +398,11 @@ const IMAGE_MODEL_OPTIONS: Array<{
     id: "flux",
     label: "FLUX 1.1 Pro",
     description: "Fast, excellent for stylized art and character consistency",
+  },
+  {
+    id: "nano-banana-pro",
+    label: "Nano Banana Pro",
+    description: "Google's fast image model, high quality 2K output",
   },
 ];
 
@@ -433,10 +439,10 @@ const LOADING_MESSAGES = [
   "Scoring delivery exports and validation hooks",
 ] as const;
 
-type VideoModelId = "openai/sora-2" | "openai/sora-2-pro";
+type VideoModelId = "openai/sora-2" | "openai/sora-2-pro" | "google/veo-3.1";
 type VideoAspectRatio = "portrait" | "landscape";
-type VideoDuration = 4 | 8 | 12;
-type VideoResolution = "standard" | "high";
+type VideoDuration = 4 | 6 | 8 | 12;
+type VideoResolution = "standard" | "high" | "720p" | "1080p";
 
 type VideoModelOption = {
   id: VideoModelId;
@@ -463,6 +469,14 @@ const VIDEO_MODEL_OPTIONS: readonly VideoModelOption[] = [
     aspectRatios: ["portrait", "landscape"],
     resolutions: ["standard", "high"],
   },
+  {
+    id: "google/veo-3.1",
+    label: "VEO 3.1",
+    description: "Google's model with reference image support.",
+    seconds: [4, 6, 8],
+    aspectRatios: ["portrait", "landscape"],
+    resolutions: ["720p", "1080p"],
+  },
 ];
 
 const VIDEO_MODEL_OPTION_MAP = VIDEO_MODEL_OPTIONS.reduce<Record<VideoModelId, VideoModelOption>>(
@@ -475,6 +489,7 @@ const VIDEO_MODEL_OPTION_MAP = VIDEO_MODEL_OPTIONS.reduce<Record<VideoModelId, V
 
 const VIDEO_DURATION_LABELS: Record<VideoDuration, string> = {
   4: "4 seconds",
+  6: "6 seconds",
   8: "8 seconds",
   12: "12 seconds",
 };
@@ -487,6 +502,8 @@ const VIDEO_ASPECT_LABELS: Record<VideoAspectRatio, string> = {
 const VIDEO_RESOLUTION_LABELS: Record<VideoResolution, string> = {
   standard: "Standard (720p)",
   high: "High (1024p)",
+  "720p": "720p",
+  "1080p": "1080p",
 };
 
 function useRotatingMessage(active: boolean, messages: readonly string[], intervalMs = 1600) {
@@ -1208,6 +1225,7 @@ function ResultView({
   editedTrailerPrompt,
   onSetEditedTrailerPrompt,
   onGenerateTrailer,
+  buildDefaultTrailerPrompt,
   onRegenerateGrid,
   onRegeneratePoster,
   editedLibraryPosterPrompt,
@@ -1741,26 +1759,137 @@ function ResultView({
           </div>
         )}
         {trailerError ? (
-          <p className="text-xs text-red-300">{trailerError}</p>
+          <div className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-orange-500/5 p-4 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="shrink-0 mt-0.5">
+                <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                  <AlertCircle className="h-4 w-4 text-amber-400" />
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-200">Trailer generation failed</p>
+                <p className="mt-1 text-xs text-amber-200/70 break-words leading-relaxed">{trailerError}</p>
+              </div>
+            </div>
+            
+            {/* Edit prompt & retry */}
+            <div className="border-t border-amber-500/20 pt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Edit3 className="h-3.5 w-3.5 text-amber-300" />
+                <p className="text-xs font-medium text-amber-200">Edit prompt and try again</p>
+              </div>
+              
+              <Textarea
+                value={editedTrailerPrompt}
+                onChange={(e) => onSetEditedTrailerPrompt(e.target.value)}
+                onFocus={(e) => {
+                  if (!e.target.value && blueprint) {
+                    const defaultPrompt = buildDefaultTrailerPrompt();
+                    onSetEditedTrailerPrompt(defaultPrompt);
+                  }
+                }}
+                placeholder="Click here to load the default trailer prompt, then edit as needed..."
+                className="min-h-[160px] text-xs font-mono resize-y bg-black/30 border-amber-500/20 focus:border-amber-400/50 placeholder:text-amber-200/30"
+              />
+              
+              <p className="text-[11px] text-foreground/50 leading-relaxed">
+                Try simplifying the description or adjusting character details.
+              </p>
+              
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    if (editedTrailerPrompt) {
+                      onGenerateTrailer(undefined, editedTrailerPrompt);
+                    }
+                  }}
+                  disabled={!editedTrailerPrompt || trailerLoading}
+                  className="flex-1 rounded-full text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold"
+                >
+                  {trailerLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCcw className="mr-2 h-3.5 w-3.5" />
+                      Retry with edited prompt
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSetEditedTrailerPrompt("")}
+                  disabled={trailerLoading}
+                  className="rounded-full text-xs text-amber-200/70 hover:text-amber-200 hover:bg-amber-500/10"
+                >
+                  Clear
+                </Button>
+              </div>
+              
+              {/* Quick retry with different models */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                <p className="w-full text-[10px] uppercase tracking-wider text-foreground/40 font-medium">Quick retry:</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onGenerateTrailer('sora-2')}
+                  disabled={trailerLoading}
+                  className="rounded-full text-[11px] h-7 px-3 border-white/10 hover:border-white/20"
+                >
+                  Sora 2
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onGenerateTrailer('veo-3.1')}
+                  disabled={trailerLoading}
+                  className="rounded-full text-[11px] h-7 px-3 border-white/10 hover:border-white/20"
+                >
+                  VEO 3.1
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onGenerateTrailer('auto')}
+                  disabled={trailerLoading}
+                  className="rounded-full text-[11px] h-7 px-3 border-white/10 hover:border-white/20"
+                >
+                  Auto
+                </Button>
+              </div>
+            </div>
+          </div>
         ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => onGenerateTrailer()}
-          disabled={!portraitGridUrl || trailerLoading}
-          className="w-full justify-center rounded-full text-sm"
-        >
-          {trailerLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Rendering trailer…
-            </>
-          ) : trailerUrl ? (
-            "Re-render trailer"
-          ) : (
-            "Generate trailer"
-          )}
-        </Button>
+        
+        {!trailerError ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onGenerateTrailer()}
+            disabled={!portraitGridUrl || trailerLoading}
+            className="w-full justify-center rounded-full text-sm"
+          >
+            {trailerLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Rendering trailer…
+              </>
+            ) : trailerUrl ? (
+              "Re-render trailer"
+            ) : (
+              "Generate trailer"
+            )}
+          </Button>
+        ) : null}
       </div>
     </CollapsibleSection>
   );
@@ -2780,181 +2909,122 @@ function ResultView({
   
   // Removed repetitive trailer section - trailer content shown in Trailer tab
   const trailerPreviewSection = null;
-  
-  /*
-  const OLD_trailerPreviewSection = canGenerateTrailerFromPartial ? (
-    <div className="rounded-3xl border border-white/12 bg-black/45 p-6 space-y-4 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
-          Series Trailer
-        </p>
-        <p className="mt-2 text-sm text-foreground/65">
-          {completedPortraits.length === characterSeeds?.length 
-            ? `All ${completedPortraits.length} character portraits ready`
-            : `${completedPortraits.length} of ${characterSeeds?.length} portraits ready`}
-        </p>
-      </div>
-      
-      <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2">
-        {characterSeeds?.map((seed) => {
-          const portraitUrl = characterPortraits[seed.id];
-          const isLoading = characterPortraitLoading[seed.id];
-  return (
-            <div 
-              key={seed.id}
-              className="relative overflow-hidden rounded-lg border border-white/10 bg-black/40"
-              title={seed.name}
-            >
-              <div className="relative h-0 w-full pb-[100%]">
-                {portraitUrl ? (
-                  <Image
-                    src={portraitUrl}
-                    alt={seed.name}
-                    fill
-                    className="object-cover"
-                    sizes="80px"
-                  />
-                ) : isLoading ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                    <Loader2 className="h-3 w-3 animate-spin text-primary/60" />
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/5 to-transparent">
-                    <span className="text-[10px] text-foreground/30">•</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
 
-      {trailerLoading ? (
-        <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-black/50 to-black/60 p-6 shadow-[0_12px_40px_rgba(229,9,20,0.3)]">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <div className="absolute inset-0 animate-ping">
-                <div className="h-full w-full rounded-full border-2 border-primary/30" />
+  // Trailer error panel with edit prompt & retry functionality
+  const trailerErrorPanel = trailerError ? (
+        <div className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-orange-500/5 p-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 mt-0.5">
+              <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <AlertCircle className="h-4 w-4 text-amber-400" />
               </div>
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground/90">Generating Trailer</p>
-              <p className="mt-1 text-xs text-foreground/60">Rendering 12s blockbuster trailer with Sora 2...</p>
-              <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/10">
-                <div className="h-full w-full animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-              </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-200">Trailer generation failed</p>
+              <p className="mt-1 text-xs text-amber-200/70 break-words leading-relaxed">{trailerError}</p>
             </div>
           </div>
-        </div>
-      ) : trailerUrl ? (
-        <div className="overflow-hidden rounded-2xl border border-white/12 bg-black/60 shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
-          <video
-            controls
-            className="h-full w-full"
-            poster={portraitGridUrl ?? undefined}
-          >
-            <source src={trailerUrl} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
-          <div className="border-t border-white/10 bg-black/40 px-4 py-2 text-center text-xs text-foreground/60">
-            12s • Sora 2 • Landscape
-          </div>
-        </div>
-      ) : null}
-
-      {trailerError ? (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
-          <p className="text-xs font-semibold text-amber-200">Trailer generation issue</p>
-          <p className="mt-1 text-xs text-amber-200/80 break-words leading-relaxed">{trailerError}</p>
           
-          {(trailerError.includes("E005") || trailerError.includes("flagged")) ? (
-            <details className="mt-3 group">
-              <summary className="cursor-pointer text-xs font-medium text-amber-200/80 hover:text-amber-200 underline decoration-dotted">
-                Edit prompt & retry →
-              </summary>
-              <div className="mt-3 space-y-2">
-                <Textarea
-                  value={editedTrailerPrompt}
-                  onChange={(e) => onSetEditedTrailerPrompt(e.target.value)}
-                  onFocus={(e) => {
-                    // Pre-fill with default prompt on first focus if empty
-                    if (!e.target.value && blueprint) {
-                      const defaultPrompt = buildDefaultTrailerPrompt();
-                      onSetEditedTrailerPrompt(defaultPrompt);
-                    }
-                  }}
-                  placeholder="Click to load default prompt with style guide, then edit as needed..."
-                  className="min-h-[200px] text-xs font-mono resize-y"
-                />
-                <p className="text-xs text-foreground/50">
-                  Includes style guide from your show bible. Edit to customize the trailer prompt.
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => {
-                      if (editedTrailerPrompt) {
-                        console.log("Regenerating trailer with custom prompt:", editedTrailerPrompt.slice(0, 100));
-                        onGenerateTrailer(undefined, editedTrailerPrompt);
-                      }
-                    }}
-                    disabled={!editedTrailerPrompt || trailerLoading}
-                    className="flex-1 rounded-full text-xs"
-                  >
-                    Retry with custom prompt
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onSetEditedTrailerPrompt("")}
-                    className="rounded-full text-xs"
-                  >
-                    Clear
-                  </Button>
-                </div>
-              </div>
-            </details>
-          ) : null}
+          {/* Always show edit prompt & retry option */}
+          <div className="border-t border-amber-500/20 pt-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Edit3 className="h-3.5 w-3.5 text-amber-300" />
+              <p className="text-xs font-medium text-amber-200">Edit prompt and try again</p>
+            </div>
+            
+            <Textarea
+              value={editedTrailerPrompt}
+              onChange={(e) => onSetEditedTrailerPrompt(e.target.value)}
+              onFocus={(e) => {
+                // Pre-fill with default prompt on first focus if empty
+                if (!e.target.value && blueprint) {
+                  const defaultPrompt = buildDefaultTrailerPrompt();
+                  onSetEditedTrailerPrompt(defaultPrompt);
+                }
+              }}
+              placeholder="Click here to load the default trailer prompt, then edit as needed..."
+              className="min-h-[180px] text-xs font-mono resize-y bg-black/30 border-amber-500/20 focus:border-amber-400/50 placeholder:text-amber-200/30"
+            />
+            
+            <p className="text-[11px] text-foreground/50 leading-relaxed">
+              The prompt includes your show&apos;s style guide. Try simplifying the description, 
+              removing specific character details, or adjusting the tone to help the AI generate successfully.
+            </p>
+            
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  if (editedTrailerPrompt) {
+                    console.log("Regenerating trailer with custom prompt:", editedTrailerPrompt.slice(0, 100));
+                    onGenerateTrailer(undefined, editedTrailerPrompt);
+                  }
+                }}
+                disabled={!editedTrailerPrompt || trailerLoading}
+                className="flex-1 rounded-full text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold"
+              >
+                {trailerLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCcw className="mr-2 h-3.5 w-3.5" />
+                    Retry with edited prompt
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onSetEditedTrailerPrompt("")}
+                disabled={trailerLoading}
+                className="rounded-full text-xs text-amber-200/70 hover:text-amber-200 hover:bg-amber-500/10"
+              >
+                Clear
+              </Button>
+            </div>
+            
+            {/* Quick retry options */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <p className="w-full text-[10px] uppercase tracking-wider text-foreground/40 font-medium">Quick retry options:</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onGenerateTrailer('sora-2')}
+                disabled={trailerLoading}
+                className="rounded-full text-[11px] h-7 px-3 border-white/10 hover:border-white/20"
+              >
+                Try Sora 2
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onGenerateTrailer('veo-3.1')}
+                disabled={trailerLoading}
+                className="rounded-full text-[11px] h-7 px-3 border-white/10 hover:border-white/20"
+              >
+                Try VEO 3.1
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onGenerateTrailer('auto')}
+                disabled={trailerLoading}
+                className="rounded-full text-[11px] h-7 px-3 border-white/10 hover:border-white/20"
+              >
+                Auto (with fallbacks)
+              </Button>
+            </div>
+          </div>
         </div>
-      ) : null}
-
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant={trailerUrl ? "outline" : "default"}
-          onClick={() => onGenerateTrailer()}
-          disabled={trailerLoading || completedPortraits.length < 4}
-          className="flex-1 justify-center rounded-full"
-        >
-          {trailerLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Rendering…
-            </>
-          ) : trailerUrl ? (
-            "Re-render trailer"
-          ) : (
-            `Generate Trailer (${completedPortraits.length} portraits ready)`
-          )}
-        </Button>
-        {trailerUrl || trailerError ? (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onClearTrailer}
-            disabled={trailerLoading}
-            className="rounded-full px-4"
-          >
-            Clear
-          </Button>
-        ) : null}
-      </div>
-    </div>
   ) : null;
-  */
 
   // Simple poster image for Master tab (no wrapper, just image)
   const simplePosterImage = libraryPosterUrl ? (
@@ -4375,7 +4445,22 @@ export default function Home() {
   const [showCompletionBanner, setShowCompletionBanner] = useState(false);
   const [showPromptInput, setShowPromptInput] = useState(false);
   const [input, setInput] = useState("");
-  const [stylizationGuardrails, setStylizationGuardrails] = useState(true);
+  
+  // Initialize from localStorage - use false as SSR default, then sync on hydration
+  const [stylizationGuardrails, setStylizationGuardrails] = useState(false);
+  const [guardrailsHydrated, setGuardrailsHydrated] = useState(false);
+  
+  // Sync guardrails from localStorage on client hydration
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(STYLIZATION_GUARDRAILS_STORAGE_KEY);
+    // If stored value is explicitly "true", set to true; otherwise default to false
+    const value = stored === "true" ? true : false;
+    setStylizationGuardrails(value);
+    setGuardrailsHydrated(true);
+    console.log("🛡️ Guardrails hydrated from localStorage:", value);
+  }, []);
+  
   const [blueprint, setBlueprint] = useState<ShowBlueprint | null>(null);
   const [usage, setUsage] = useState<ApiResponse["usage"]>();
   const [rawJson, setRawJson] = useState<string | null>(null);
@@ -4383,19 +4468,32 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [model, setModel] = useState<ModelId>("gpt-4o");
   const [activeModel, setActiveModel] = useState<ModelId>("gpt-4o");
-  const [imageModel, setImageModel] = useState<ImageModelId>("gpt-image");
-  const [videoGenModel, setVideoGenModel] = useState<VideoGenerationModelId>("sora-2");
+  
+  // Initialize image model from localStorage immediately
+  const [imageModel, setImageModel] = useState<ImageModelId>(() => {
+    if (typeof window === "undefined") return "gpt-image";
+    const stored = window.localStorage.getItem("production-flow.image-model");
+    return (stored as ImageModelId) || "gpt-image";
+  });
+  
+  // Initialize video model from localStorage immediately
+  const [videoGenModel, setVideoGenModel] = useState<VideoGenerationModelId>(() => {
+    if (typeof window === "undefined") return "sora-2";
+    const stored = window.localStorage.getItem("production-flow.video-model");
+    return (stored as VideoGenerationModelId) || "sora-2";
+  });
+  
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [isPipelinePanelOpen, setIsPipelinePanelOpen] = useState(false);
+  
+  // Initialize autopilot from localStorage immediately
+  const [autopilotMode, setAutopilotMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const stored = window.localStorage.getItem("production-flow.autopilot-mode");
+    return stored === "true";
+  });
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(STYLIZATION_GUARDRAILS_STORAGE_KEY);
-    if (stored !== null) {
-      setStylizationGuardrails(stored !== "false");
-    }
-  }, []);
-
+  // Save settings to localStorage when they change
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(
@@ -4403,6 +4501,21 @@ export default function Home() {
       stylizationGuardrails ? "true" : "false"
     );
   }, [stylizationGuardrails]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("production-flow.image-model", imageModel);
+  }, [imageModel]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("production-flow.video-model", videoGenModel);
+  }, [videoGenModel]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("production-flow.autopilot-mode", autopilotMode ? "true" : "false");
+  }, [autopilotMode]);
 
   const toggleStylizationGuardrails = () => {
     setStylizationGuardrails((prev) => !prev);
@@ -4737,7 +4850,12 @@ export default function Home() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ prompt: value, show: showData, model: chosenModel }),
+          body: JSON.stringify({ 
+            prompt: value, 
+            show: showData, 
+            model: chosenModel,
+            stylizationGuardrails, // Pass guardrails setting
+          }),
         });
 
         if (!response.ok) {
@@ -4836,7 +4954,7 @@ export default function Home() {
         setCharactersLoading(false);
       }
     },
-    []
+    [stylizationGuardrails]
   );
 
   const buildCharacter = useCallback(
@@ -5158,6 +5276,7 @@ export default function Home() {
             customPrompt: customPrompt || undefined,
             jobId,
             imageModel, // Pass selected image model
+            stylizationGuardrails, // Pass guardrails setting
           }),
         });
 
@@ -5212,7 +5331,7 @@ export default function Home() {
         portraitJobsRef.current.delete(characterId);
       }
     },
-    [blueprint, characterDocs, libraryPosterUrl, currentShowId, characterSeeds, imageModel]
+    [blueprint, characterDocs, libraryPosterUrl, currentShowId, characterSeeds, imageModel, stylizationGuardrails]
   );
 
   const handlePortraitLoaded = useCallback((characterId: string) => {
@@ -5222,8 +5341,9 @@ export default function Home() {
     }));
   }, []);
 
-  // Auto-generate portraits for built characters (only when creating new show, not loading from library)
+  // Auto-generate portraits for built characters (only when autopilot is ON and creating new show, not loading from library)
   useEffect(() => {
+    if (!autopilotMode) return; // Only auto-generate in autopilot mode
     if (!blueprint) return;
     if (!posterAvailable) return;
     if (!characterSeeds?.length) return;
@@ -5241,11 +5361,12 @@ export default function Home() {
         return; // Already auto-generated for this character in this show
       }
       
-      console.log(`🎨 Auto-generating portrait for: ${seed.name}`);
+      console.log(`🎨 [AUTOPILOT] Auto-generating portrait for: ${seed.name}`);
       autoPortraitCheckedRef.current.add(checkKey);
       void generateCharacterPortrait(seed.id);
     });
   }, [
+    autopilotMode,
     blueprint,
     posterAvailable,
     characterSeeds,
@@ -5549,6 +5670,7 @@ export default function Home() {
             aspectRatio: videoAspectRatio,
             resolution: videoResolution,
             jobId,
+            stylizationGuardrails, // Pass guardrails setting
           }),
         });
 
@@ -5619,7 +5741,7 @@ export default function Home() {
         videoStartTimesRef.current.delete(characterId);
       }
     },
-    [blueprint, characterDocs, characterPortraits, posterAvailable, videoAspectRatio, videoModelId, videoResolution, videoSeconds, currentShowId, characterSeeds]
+    [blueprint, characterDocs, characterPortraits, posterAvailable, videoAspectRatio, videoModelId, videoResolution, videoSeconds, currentShowId, characterSeeds, stylizationGuardrails]
   );
 
   // Resume portrait/video polling for active jobs
@@ -5704,6 +5826,8 @@ export default function Home() {
           body: JSON.stringify({
             prompt: trimmedPrompt || value.slice(0, 4950),
             characterGridUrl: gridUrl,
+            imageModel, // Pass selected image model
+            stylizationGuardrails, // Pass guardrails setting
             show: blueprint ? {
               show_title: blueprint.show_title,
               production_style: blueprint.production_style,
@@ -5808,7 +5932,7 @@ export default function Home() {
         }
       }
     },
-    [blueprint, posterLoading, currentShowId]
+    [blueprint, posterLoading, currentShowId, stylizationGuardrails, imageModel]
   );
 
   const generateTrailer = useCallback(async (requestedModel?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => {
@@ -5971,6 +6095,7 @@ export default function Home() {
             jobId,
             model: requestedModel || 'auto',
             customPrompt: customPrompt || undefined,
+            stylizationGuardrails, // Pass guardrails setting
           }),
         }).catch((fetchError) => {
           throw new Error(`Network error: ${fetchError.message || "Check your connection and try again"}`);
@@ -6087,12 +6212,15 @@ export default function Home() {
     startTrailerStatusPolling,
     stopTrailerStatusPolling,
     currentShowId,
+    stylizationGuardrails,
   ]);
 
   // REMOVED: Old auto-poster effect - We only use library poster now
   // The library poster auto-generates after first portrait (see generateCharacterPortrait)
 
+  // Auto-generate portrait grid when enough portraits are ready (only in autopilot mode)
   useEffect(() => {
+    if (!autopilotMode) return; // Only auto-generate in autopilot mode
     if (!blueprint) return;
     if (!characterSeeds || characterSeeds.length === 0) return;
     const portraitsData = characterSeeds
@@ -6144,6 +6272,8 @@ export default function Home() {
           updateBackgroundTask(gridTaskId, { status: 'processing' });
         }
         
+        console.log("[AUTOPILOT] Generating portrait grid with", portraitsData.length, "portraits");
+        
         const response = await fetch("/api/characters/portrait-grid", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -6161,6 +6291,7 @@ export default function Home() {
         if (result.url) {
           setPortraitGridUrl(result.url);
           setPortraitGridError(null);
+          console.log("✅ [AUTOPILOT] Portrait grid generated");
           
           // Mark as succeeded
           if (currentShowId) {
@@ -6192,16 +6323,20 @@ export default function Home() {
       }
     })();
   }, [
+    autopilotMode,
     blueprint,
     characterSeeds,
     characterPortraits,
     portraitGridUrl,
     portraitGridLoading,
+    currentShowId,
   ]);
 
 
+  // Auto-generate trailer when portrait grid is ready (only in autopilot mode)
   useEffect(() => {
     const checkConditions = {
+      autopilotMode,
       hasBlueprint: !!blueprint,
       hasGrid: !!portraitGridUrl,
       hasTrailer: !!trailerUrl,
@@ -6213,15 +6348,17 @@ export default function Home() {
     
     console.log("🎬 Trailer auto-gen check:", checkConditions);
     
+    if (!autopilotMode) return; // Only auto-generate in autopilot mode
     if (!blueprint) return;
     if (!portraitGridUrl) return;
     if (trailerUrl || trailerLoading || trailerError) return; // Don't auto-retry on error!
     if (!posterAvailable) return;
     if (trailerDigestRef.current === portraitGridUrl) return;
     
-    console.log("✅ All conditions met - auto-generating trailer");
+    console.log("✅ [AUTOPILOT] All conditions met - auto-generating trailer");
     void generateTrailer();
   }, [
+    autopilotMode,
     blueprint,
     portraitGridUrl,
     trailerUrl,
@@ -6297,7 +6434,11 @@ export default function Home() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ prompt: value, model: chosenModel }),
+          body: JSON.stringify({ 
+            prompt: value, 
+            model: chosenModel,
+            stylizationGuardrails, // Pass guardrails setting to blueprint generation
+          }),
         });
 
         if (!response.ok) {
@@ -6431,7 +6572,7 @@ export default function Home() {
         setIsLoading(false);
       }
     },
-    [generateCharacterSeeds, generatePoster, stopTrailerStatusPolling]
+    [generateCharacterSeeds, generatePoster, stopTrailerStatusPolling, stylizationGuardrails]
   );
 
   const handleSubmit = useCallback(
@@ -6791,9 +6932,10 @@ export default function Home() {
     }
   }, [currentShowId, loadShow]);
 
-  // Handle initial prompt from landing page
+  // Handle initial prompt from landing page - must wait for guardrails to hydrate
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!guardrailsHydrated) return; // Wait for guardrails to load from localStorage
     if (blueprint || isLoading) return; // Skip if show already exists or loading
     
     try {
@@ -6801,18 +6943,19 @@ export default function Home() {
       if (!initialPrompt) return;
       
       console.log("🎬 Initial prompt from landing page detected");
+      console.log("🛡️ Using guardrails setting:", stylizationGuardrails);
       window.sessionStorage.removeItem("production-flow.initial-prompt");
       
       setInput(initialPrompt);
       setShowPromptInput(true); // Show input when coming from landing page
-      // Auto-submit after a brief delay
+      // Auto-submit after a brief delay (submitPrompt now has correct guardrails value)
       setTimeout(() => {
         void submitPrompt(initialPrompt, model);
-      }, 500);
+      }, 100);
     } catch (error) {
       console.error("Failed to read initial prompt:", error);
     }
-  }, [blueprint, isLoading, model, submitPrompt]);
+  }, [blueprint, isLoading, model, submitPrompt, guardrailsHydrated, stylizationGuardrails]);
 
   const canGenerateLibraryPoster = useCallback(() => {
     console.log("🔍 Checking if can generate library poster:");
@@ -7087,6 +7230,7 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
           characterImageUrl: portraitGridUrl, // Use portrait grid as reference
           showData: blueprint, // Full blueprint with show_title
           imageModel, // Send selected image model
+          stylizationGuardrails, // Pass guardrails setting
         }),
       });
       
@@ -7324,8 +7468,9 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
     console.log("✅ Auto-gen check complete for show:", currentShowId);
   }, [blueprint, isLoadingShow, posterAvailable, libraryPosterUrl, libraryPosterLoading, portraitGridUrl, portraitGridLoading, characterPortraits, characterSeeds, currentShowId, saveCurrentShow, generateLibraryPoster]);
 
-  // Auto-generate library poster when portrait grid becomes available
+  // Auto-generate library poster when portrait grid becomes available (only in autopilot mode)
   useEffect(() => {
+    if (!autopilotMode) return; // Only auto-generate in autopilot mode
     if (!portraitGridUrl || !blueprint || !currentShowId) return;
     if (libraryPosterUrl || libraryPosterLoading) return; // Already have or generating
     
@@ -7333,7 +7478,7 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
     const canGenerate = canGenerateLibraryPoster();
     if (!canGenerate) return;
     
-    console.log("🎨 Portrait grid ready! Auto-generating library poster...");
+    console.log("🎨 [AUTOPILOT] Portrait grid ready! Auto-generating library poster...");
     console.log("   Portrait grid URL:", portraitGridUrl.slice(0, 80) + "...");
     console.log("   Show title:", blueprint.show_title);
     
@@ -7341,14 +7486,14 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
     const timer = setTimeout(async () => {
       const newUrl = await generateLibraryPoster();
       if (newUrl) {
-        console.log("✅ Library poster auto-generated:", newUrl.slice(0, 80) + "...");
+        console.log("✅ [AUTOPILOT] Library poster auto-generated:", newUrl.slice(0, 80) + "...");
         // Save the show with the new poster
         setTimeout(() => void saveCurrentShow(false), 500);
       }
     }, 1500);
     
     return () => clearTimeout(timer);
-  }, [portraitGridUrl, libraryPosterUrl, libraryPosterLoading, blueprint, currentShowId, canGenerateLibraryPoster, generateLibraryPoster, saveCurrentShow]);
+  }, [autopilotMode, portraitGridUrl, libraryPosterUrl, libraryPosterLoading, blueprint, currentShowId, canGenerateLibraryPoster, generateLibraryPoster, saveCurrentShow]);
   
   // Auto-save when character data changes
   const lastSaveRef = useRef<string>("");
@@ -7807,7 +7952,28 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
       {(showPromptInput || !blueprint) ? (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/12 bg-black/95 backdrop-blur-xl shadow-[0_-10px_40px_rgba(0,0,0,0.6)]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <div className="mx-auto w-full max-w-4xl px-4 sm:px-5 md:px-6 py-3 sm:py-4">
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="space-y-2">
+              {/* Image Model Selector - Quick Access */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-foreground/60 font-medium">Image Model:</span>
+                {IMAGE_MODEL_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setImageModel(option.id)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-full text-xs font-medium transition-all",
+                      imageModel === option.id
+                        ? "bg-primary text-white shadow-lg shadow-primary/30"
+                        : "bg-white/5 text-foreground/70 hover:bg-white/10 hover:text-foreground border border-white/10"
+                    )}
+                    title={option.description}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              
               <div
                 className={cn(
                   "flex items-center gap-2 sm:gap-3 rounded-xl sm:rounded-2xl border bg-black/70 px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] transition-all duration-200",

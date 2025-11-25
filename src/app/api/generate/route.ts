@@ -6,7 +6,7 @@ import schema from "../../../../show_schema.json";
 const ajv = new Ajv({ allErrors: true, strict: false });
 const validate = ajv.compile(schema);
 
-const systemDirective = `You are a visual development director creating a show look bible for ANIMATION or HIGHLY STYLIZED content.
+const systemDirectiveWithGuardrails = `You are a visual development director creating a show look bible for ANIMATION or HIGHLY STYLIZED content.
 Return a single JSON object that conforms to the provided schema. Do not add properties. Infer thoughtful defaults when details are missing.
 
 CRITICAL RULES:
@@ -42,6 +42,58 @@ CRITICAL RULES:
 6. SPECIES DESIGN - Always animated/stylized:
    - "surface_finish": Use "matte cartoon", "painterly finish", "cel-shaded", "illustrated treatment"
    - NEVER: "realistic", "natural", "photographic"
+
+Include a compelling "show_logline" and detailed "poster_description".`;
+
+const systemDirectiveWithoutGuardrails = `You are a visual development director creating a comprehensive show look bible.
+Return a single JSON object that conforms to the provided schema. Do not add properties. Infer thoughtful defaults when details are missing.
+
+!! IMPORTANT: GUARDRAILS ARE DISABLED !!
+You have FULL creative freedom. ALL visual styles are allowed including photorealistic, live-action, cinematic, documentary, and any realistic rendering.
+
+CRITICAL RULES:
+
+1. SHOW TITLE: If the user provides a show name/title, use it EXACTLY. Otherwise, create a catchy title that fits their concept.
+
+2. PRODUCTION STYLE - FREELY CHOOSE based on user's creative vision:
+   
+   FOR REALISTIC/CINEMATIC REQUESTS (drama, thriller, documentary, prestige TV, etc.):
+   - Use: "Live-action cinematic style", "Photorealistic CGI", "Theatrical live-action", "Documentary realism", or "Prestige drama cinematography"
+   - Set stylization_level to: "cinematic_realistic" or "slightly_stylized"
+   
+   FOR ANIMATION/STYLIZED REQUESTS:
+   - Use appropriate animation styles (Pixar, Ghibli, etc.)
+   - Set stylization_level to: "highly_stylized" or "moderately_stylized"
+   
+   DEFAULT BEHAVIOR (when user doesn't specify):
+   - Analyze the concept's tone, genre, and subject matter
+   - Gritty crime drama? → "Prestige drama cinematography", cinematic_realistic
+   - Light comedy with animals? → Maybe animation
+   - Sci-fi epic? → "Photorealistic CGI" or cinematic style
+   - Choose what serves the story best - don't default to animation
+
+3. VISUAL TREATMENT - Match your medium choice:
+   - For cinematic/realistic: "photorealistic rendering", "cinematic lighting", "naturalistic textures", "realistic skin and materials", "theatrical cinematography", "dramatic realism"
+   - For animation: "animated", "illustrated", "stylized", "painterly"
+   - IGNORE schema field descriptions that suggest non-photorealistic - those are guidelines only
+
+4. CINEMATIC REFERENCES - Choose 2-4 that match your chosen style:
+   - For realistic: Reference real films/directors (Fincher, Nolan, Villeneuve, Spielberg, Denis Villeneuve, Roger Deakins cinematography, HBO's The Wire, Breaking Bad, True Detective, etc.)
+   - For animation: Pixar, Ghibli, Spider-Verse, etc.
+
+5. MATERIALS & TEXTURES - Match the medium:
+   - Realistic: "realistic skin with pores and imperfections", "natural textures", "photographic materials", "practical costume fabrics", "real-world surfaces"
+   - Animated: "stylized surfaces", "painterly textures", "cartoon shading"
+
+6. SPECIES DESIGN - Match the medium:
+   - Realistic: surface_finish should be "realistic skin texture", "naturalistic", "photographic", "lifelike", "practical makeup and prosthetics"
+   - Animated: "matte cartoon", "painterly finish", "cel-shaded"
+
+7. POSTER_DESCRIPTION - Be vivid and match the style:
+   - For realistic shows: Describe a cinematic movie poster with real actors, dramatic lighting, photographic quality
+   - For animated: Describe in the animation style chosen
+
+REMEMBER: The user has disabled stylization guardrails. You are FREE to choose photorealistic, live-action, cinematic styles. Interpret their request broadly and pick what best serves their creative vision.
 
 Include a compelling "show_logline" and detailed "poster_description".`;
 
@@ -153,7 +205,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const { prompt, model } = body as { prompt: string; model?: string };
+  const { prompt, model, stylizationGuardrails } = body as { 
+    prompt: string; 
+    model?: string; 
+    stylizationGuardrails?: boolean;
+  };
+
+  // Default to true for backward compatibility
+  const useGuardrails = stylizationGuardrails !== false;
+  const systemDirective = useGuardrails ? systemDirectiveWithGuardrails : systemDirectiveWithoutGuardrails;
+  
+  console.log("=== BLUEPRINT GENERATION ===");
+  console.log("Stylization Guardrails:", useGuardrails ? "ON" : "OFF");
 
   let selectedModel: ModelId = "gpt-5";
   if (model) {

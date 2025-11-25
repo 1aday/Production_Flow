@@ -15,6 +15,7 @@ type TrailerBody = {
   jobId?: string;
   model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto';
   customPrompt?: string;
+  stylizationGuardrails?: boolean;
 };
 
 // Helper function to generate with Sora 2
@@ -194,11 +195,14 @@ export async function POST(request: NextRequest) {
 
   pruneTrailerStatusRecords();
 
-  const { title, logline, characterGridUrl, show, jobId: incomingJobId, model: requestedModel = 'auto', customPrompt } = body;
+  const { title, logline, characterGridUrl, show, jobId: incomingJobId, model: requestedModel = 'auto', customPrompt, stylizationGuardrails: guardrailsSetting } = body;
   const jobId =
     typeof incomingJobId === "string" && incomingJobId.trim().length > 0
       ? incomingJobId.trim()
       : undefined;
+  
+  // Get stylization guardrails setting (defaults to true for backward compatibility)
+  const stylizationGuardrails = guardrailsSetting !== false;
 
   if (!title || !logline || !characterGridUrl) {
     return NextResponse.json(
@@ -207,7 +211,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Extract production style to avoid photorealistic language
+  // Extract production style
   const productionStyle = (show as { production_style?: {
     medium?: string;
     cinematic_references?: string[];
@@ -217,15 +221,22 @@ export async function POST(request: NextRequest) {
 
   // Use custom prompt if provided, otherwise build default prompt
   const trailerPrompt = customPrompt || (() => {
-    const styleGuidance = productionStyle ? `
+    // Build style guidance - only add restrictions if guardrails are ON
+    const styleGuidance = stylizationGuardrails && productionStyle ? `
 
 VISUAL STYLE (CRITICAL - Follow exactly):
-Medium: ${productionStyle.medium || 'Stylized cinematic'}
+Medium: ${productionStyle.medium}
 References: ${(productionStyle.cinematic_references || []).join(', ')}
-Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}
-Stylization: ${productionStyle.stylization_level || 'cinematic'}
+Treatment: ${productionStyle.visual_treatment}
+Stylization: ${productionStyle.stylization_level}
 
-IMPORTANT: Match this exact visual style. Do NOT use photorealistic or realistic rendering.` : '';
+IMPORTANT: Match this exact visual style.` : `
+
+RENDERING APPROACH:
+- Photorealistic rendering is ALLOWED and ENCOURAGED if desired
+- Realistic, naturalistic, photographic styles are ALLOWED
+- Live-action appearance is ALLOWED
+- You may render in ANY style - realistic, stylized, animated, or illustrated`;
 
     // Build a blockbuster-style trailer prompt
     return `Create an iconic teaser trailer for the series "${title}".

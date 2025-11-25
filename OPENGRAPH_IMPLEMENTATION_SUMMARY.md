@@ -344,3 +344,4 @@ export async function generateMetadata({ params }): Promise<Metadata> {
 
 **Questions or Issues?** Check `OPENGRAPH_METADATA.md` for detailed information.
 
+

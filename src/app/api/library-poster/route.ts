@@ -6,9 +6,16 @@ export const maxDuration = 60;
 type RequestBody = {
   prompt: string; // Full prompt with style guide
   characterImageUrl: string;
-  imageModel?: "gpt-image" | "flux"; // Selected image model
+  imageModel?: "gpt-image" | "flux" | "nano-banana-pro"; // Selected image model
+  stylizationGuardrails?: boolean; // Whether to enforce stylization
   showData?: {
     show_title?: string;
+    production_style?: {
+      medium?: string;
+      cinematic_references?: string[];
+      visual_treatment?: string;
+      stylization_level?: string;
+    };
     visual_aesthetics?: {
       goal?: string;
       color?: {
@@ -73,10 +80,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json()) as RequestBody;
-    const { prompt, logline, characterImageUrl, imageModel, showData } = body;
+    const { prompt, logline, characterImageUrl, imageModel, stylizationGuardrails: guardrailsSetting, showData } = body;
 
     // Use prompt if provided, otherwise fall back to logline (legacy)
     const userPrompt = prompt || logline;
+    
+    // Get stylization guardrails setting (defaults to true for backward compatibility)
+    const stylizationGuardrails = guardrailsSetting !== false;
     
     // Default to GPT Image (better quality and follows prompts more accurately)
     const selectedModel = imageModel || "gpt-image";
@@ -95,6 +105,7 @@ export async function POST(request: NextRequest) {
     console.log("Has logline field (legacy):", !!logline);
     console.log("Has characterImageUrl:", !!characterImageUrl);
     console.log("characterImageUrl value:", characterImageUrl?.slice(0, 100));
+    console.log("Stylization Guardrails:", stylizationGuardrails);
     console.log("showData exists:", !!showData);
     console.log("showData type:", typeof showData);
     console.log("showData keys:", showData ? Object.keys(showData).slice(0, 20) : []);
@@ -114,6 +125,10 @@ export async function POST(request: NextRequest) {
     }
     console.log("✅ Final extracted showTitle:", showTitle);
     
+    // Extract production style
+    const productionStyle = showData?.production_style;
+    console.log("Production style exists:", !!productionStyle);
+    
     if (!characterImageUrl) {
       return NextResponse.json(
         { error: "Missing characterImageUrl - portrait grid is required for library poster" },
@@ -121,10 +136,66 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Build the final poster prompt
-    // If user sent full prompt with style guide, use it directly with additional poster guidance
-    const posterPrompt = `${userPrompt}
+    // Determine if the production style is cinematic/realistic
+    const isRealisticStyle = productionStyle?.stylization_level === 'cinematic_realistic' ||
+      productionStyle?.stylization_level === 'slightly_stylized' ||
+      productionStyle?.medium?.toLowerCase().includes('live-action') ||
+      productionStyle?.medium?.toLowerCase().includes('photorealistic') ||
+      productionStyle?.medium?.toLowerCase().includes('cinematic') ||
+      productionStyle?.medium?.toLowerCase().includes('documentary') ||
+      productionStyle?.medium?.toLowerCase().includes('prestige');
+      
+    console.log("Is realistic style:", isRealisticStyle);
 
+    // Build style guidance - only add restrictions if guardrails are ON
+    let styleGuidance = "";
+    
+    if (stylizationGuardrails && productionStyle) {
+      // Guardrails ON: Enforce the production style
+      styleGuidance = `
+
+VISUAL STYLE (CRITICAL - Match exactly):
+Medium: ${productionStyle.medium}
+References: ${(productionStyle.cinematic_references || []).join(', ')}
+Treatment: ${productionStyle.visual_treatment}
+Stylization: ${productionStyle.stylization_level}
+
+IMPORTANT: Match this exact visual style.`;
+    } else if (!stylizationGuardrails && productionStyle && isRealisticStyle) {
+      // Guardrails OFF with realistic style: PUSH for photorealistic
+      styleGuidance = `
+
+!! PHOTOREALISTIC RENDERING - CRITICAL !!
+This is a LIVE-ACTION / CINEMATIC show. Create a photorealistic movie poster.
+
+Visual Style: ${productionStyle.medium}
+References: ${(productionStyle.cinematic_references || []).join(', ')}
+Treatment: ${productionStyle.visual_treatment}
+
+RENDERING REQUIREMENTS:
+- Render as a PHOTOREALISTIC Hollywood movie poster
+- Characters should look like REAL ACTORS
+- Use cinematic, dramatic lighting (think movie poster photography)
+- Professional photography quality - this should look like a real film advertisement
+- Realistic skin textures, hair, costumes, and environments
+- High production value, theatrical release quality`;
+    } else if (!stylizationGuardrails) {
+      // Guardrails OFF: Flexible approach based on show aesthetic
+      styleGuidance = `
+
+RENDERING FREEDOM:
+- Match the show's intended aesthetic as described
+- If show is cinematic/realistic → render photorealistically
+- If show is animated/stylized → match that artistic style
+- Full creative flexibility to serve the vision`;
+    }
+    
+    // Build poster requirements based on guardrails
+    let posterRequirements = "";
+    
+    if (stylizationGuardrails) {
+      // Guardrails ON: Use theatrical/Netflix-style language
+      posterRequirements = `
 CRITICAL POSTER REQUIREMENTS:
 
 1. SHOW TITLE: The poster MUST prominently display "${showTitle}" in large, beautiful, bold typography
@@ -149,6 +220,36 @@ CRITICAL POSTER REQUIREMENTS:
    - Balance between character focus and atmospheric mood
 
 Remember: The show title "${showTitle}" MUST be clearly visible with beautiful typography!`;
+    } else {
+      // Guardrails OFF: Use neutral language
+      posterRequirements = `
+CRITICAL POSTER REQUIREMENTS:
+
+1. SHOW TITLE: The poster MUST prominently display "${showTitle}" in large, beautiful, bold typography
+   - Typography should be elegant and eye-catching
+   - Title should be one of the most prominent elements of the design
+   - Font choice should match the show's aesthetic and tone
+   - Consider professional title treatment (gradients, shadows, effects)
+
+2. PROFESSIONAL POSTER DESIGN:
+   - High-quality production poster
+   - Character-focused composition using the provided character reference images
+   - Atmospheric background that sets the tone and mood
+   - Portrait orientation 2:3 aspect ratio
+   - Professional color grading and lighting
+   - Polished, compelling poster design
+
+3. COMPOSITION:
+   - Characters from the reference image should be featured prominently
+   - Create visual hierarchy with title and characters
+   - Leave strategic space for the title typography
+   - Balance between character focus and atmospheric mood
+
+Remember: The show title "${showTitle}" MUST be clearly visible with beautiful typography!`;
+    }
+    
+    // Build the final poster prompt
+    const posterPrompt = `${userPrompt}${styleGuidance}${posterRequirements}`;
 
     console.log("\n=== LIBRARY POSTER GENERATION ===");
     console.log("✅ Show Title Being Used:", showTitle);
@@ -232,6 +333,67 @@ Remember: The show title "${showTitle}" MUST be clearly visible with beautiful t
       }
 
       result = gptResult.output;
+      console.log("   Output type:", typeof result);
+      console.log("   Output preview:", JSON.stringify(result).slice(0, 200));
+    } else if (selectedModel === "nano-banana-pro") {
+      // Use Nano Banana Pro for library poster
+      console.log("🎨 Using Nano Banana Pro for library poster");
+      
+      // Use direct API to ensure proper array handling
+      const createResponse = await fetch("https://api.replicate.com/v1/models/google/nano-banana-pro/predictions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          input: {
+            prompt: posterPrompt,
+            image_input: [characterImageUrl], // Reference image array
+            aspect_ratio: "2:3",
+            resolution: "2K",
+            output_format: "jpg",
+            safety_filter_level: "block_only_high",
+          },
+        }),
+      });
+
+      if (!createResponse.ok) {
+        const errorBody = await createResponse.text();
+        console.error("Nano Banana Pro API error:", errorBody);
+        throw new Error(`Failed to create Nano Banana Pro prediction: ${createResponse.status} - ${errorBody}`);
+      }
+
+      const prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+      console.log("✅ Nano Banana Pro prediction created:", prediction.id);
+      console.log("   Initial status:", prediction.status);
+
+      // Poll for completion
+      let nanoResult = prediction;
+      let pollCount = 0;
+      while (nanoResult.status === "starting" || nanoResult.status === "processing") {
+        pollCount++;
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${nanoResult.id}`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+        });
+        
+        nanoResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+        console.log(`   Poll ${pollCount}: ${nanoResult.status}`);
+      }
+
+      console.log(`✅ Nano Banana Pro completed after ${pollCount} polls`);
+      console.log("   Final status:", nanoResult.status);
+
+      if (nanoResult.status === "failed") {
+        console.error("❌ Nano Banana Pro generation failed:", nanoResult.error);
+        throw new Error(nanoResult.error || "Nano Banana Pro generation failed");
+      }
+
+      result = nanoResult.output;
       console.log("   Output type:", typeof result);
       console.log("   Output preview:", JSON.stringify(result).slice(0, 200));
     } else {

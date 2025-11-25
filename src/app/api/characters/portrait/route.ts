@@ -6,7 +6,8 @@ type PortraitBody = {
   character: unknown;
   customPrompt?: string;
   jobId?: string;
-  imageModel?: "gpt-image" | "flux";
+  imageModel?: "gpt-image" | "flux" | "nano-banana-pro";
+  stylizationGuardrails?: boolean;
 };
 
 const replicate = new Replicate({
@@ -85,6 +86,9 @@ export async function POST(request: Request) {
   const showJson = trimJson(body.show);
   const characterJson = trimJson(body.character);
   
+  // Get stylization guardrails setting (defaults to true for backward compatibility)
+  const stylizationGuardrails = body.stylizationGuardrails !== false;
+  
   // Extract production style for style guidance
   const productionStyle = (body.show as { production_style?: {
     medium?: string;
@@ -103,33 +107,98 @@ export async function POST(request: Request) {
   console.log("Extracted showTitle for portrait:", showTitle);
 
   const prompt = body.customPrompt || (() => {
-    // Build prominent style header
-    const styleHeader = productionStyle ? [
-      "!! VISUAL STYLE - CRITICAL - MUST FOLLOW !!",
+    // Build style header - only add restrictions if guardrails are ON
+    let styleHeader: string[] = [];
+    
+    // Determine if the production style is cinematic/realistic
+    const isRealisticStyle = productionStyle?.stylization_level === 'cinematic_realistic' ||
+      productionStyle?.stylization_level === 'slightly_stylized' ||
+      productionStyle?.medium?.toLowerCase().includes('live-action') ||
+      productionStyle?.medium?.toLowerCase().includes('photorealistic') ||
+      productionStyle?.medium?.toLowerCase().includes('cinematic') ||
+      productionStyle?.medium?.toLowerCase().includes('documentary') ||
+      productionStyle?.medium?.toLowerCase().includes('prestige');
+    
+    if (stylizationGuardrails && productionStyle) {
+      // Guardrails ON: Enforce the production style
+      styleHeader = [
+        "!! VISUAL STYLE - CRITICAL - MUST FOLLOW !!",
+        "",
+        `This is a character portrait for "${showTitle}"`,
+        `Production Medium: ${productionStyle.medium}`,
+        `Visual References: ${(productionStyle.cinematic_references || []).join(' + ')}`,
+        `Stylization Level: ${productionStyle.stylization_level}`,
+        "",
+        `Style Treatment: ${productionStyle.visual_treatment}`,
+        "",
+        "CRITICAL: Match the specified visual style exactly.",
+        "",
+        "---",
+        "",
+      ];
+    } else if (stylizationGuardrails) {
+      // Guardrails ON but no production style: Add basic stylization reminder
+      styleHeader = [
+        `Character portrait for "${showTitle}"`,
+        "Use theatrical/stylized treatment.",
+        "",
+        "---",
+        "",
+      ];
+    } else if (productionStyle && isRealisticStyle) {
+      // Guardrails OFF with realistic style: PUSH for photorealistic
+      styleHeader = [
+        `!! PHOTOREALISTIC CHARACTER PORTRAIT for "${showTitle}" !!`,
+        "",
+        "RENDERING APPROACH - MUST FOLLOW:",
+        "- Render as a PHOTOREALISTIC portrait like a professional headshot or movie still",
+        "- Use realistic human skin with natural imperfections, pores, and subtle variations",
+        "- Realistic lighting: soft key light, natural fill, cinematic quality",
+        "- This should look like a photograph of a real actor/person",
+        "- Professional costume design with real fabric textures",
+        "- Natural hair with realistic strands and movement",
+        "",
+        `Production Style: ${productionStyle.medium}`,
+        `Visual References: ${(productionStyle.cinematic_references || []).join(', ')}`,
+        "",
+        "---",
+        "",
+      ];
+    } else {
+      // Guardrails OFF: Flexible approach based on show aesthetic
+      styleHeader = [
+        `Character portrait for "${showTitle}"`,
+        "",
+        "RENDERING FREEDOM:",
+        "- Match the show's intended aesthetic as described in the guidelines",
+        "- If show is cinematic/realistic → render photorealistically",
+        "- If show is animated/stylized → match that style",
+        "- Full creative flexibility to serve the vision",
+        "",
+      ];
+    }
+
+    // Build requirements - conditional based on guardrails and style
+    const requirements = stylizationGuardrails ? [
       "",
-      `This is a character portrait for "${showTitle}"`,
-      `Production Medium: ${productionStyle.medium || 'Stylized cinematic'}`,
-      `Visual References: ${(productionStyle.cinematic_references || []).join(' + ')}`,
-      `Stylization Level: ${productionStyle.stylization_level || 'moderately stylized'}`,
+      "Portrait Requirements:",
+      "- Match the show's visual style exactly as specified above",
+      "- Focus on expressive posture, intentional wardrobe, and theatrical lighting",
+      "- Every creative choice must adhere to the show's aesthetic rules",
+    ] : isRealisticStyle ? [
       "",
-      `Style Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}`,
-      "",
-      "CRITICAL RULES:",
-      "- DO NOT use photorealistic rendering",
-      "- DO NOT create a photo-like realistic image", 
-      "- MUST match the specified visual style (animation style OR cinematic/theatrical treatment)",
-      "- Use artistic interpretation, NOT documentary realism",
-      "",
-      "---",
-      "",
+      "Portrait Requirements:",
+      "- PHOTOREALISTIC rendering - this should look like a real person",
+      "- Professional headshot or movie poster quality",
+      "- Dramatic, cinematic lighting",
+      "- Realistic costume and styling that matches character description",
+      "- Natural skin texture, realistic eyes, authentic expression",
     ] : [
-      "!! CRITICAL - DO NOT CREATE PHOTOREALISTIC IMAGE !!",
       "",
-      `Create a stylized character portrait for "${showTitle}"`,
-      "Use cinematic/theatrical treatment, NOT photorealistic rendering.",
-      "",
-      "---",
-      "",
+      "Portrait Requirements:",
+      "- Create a character portrait that matches the show's aesthetic",
+      "- Focus on expressive posture, intentional wardrobe, and professional lighting",
+      "- Serve the creative vision established in the show guidelines",
     ];
 
     return [
@@ -139,11 +208,7 @@ export async function POST(request: Request) {
       "",
       "Show Aesthetic Guidelines:",
       showJson,
-      "",
-      "Portrait Requirements:",
-      "- Match the show's visual style exactly as specified above",
-      "- Focus on expressive posture, intentional wardrobe, and theatrical lighting",
-      "- Every creative choice must adhere to the show's aesthetic rules",
+      ...requirements,
     ].join("\n");
   })();
 
@@ -170,6 +235,19 @@ export async function POST(request: Request) {
           output_format: "webp",
           output_quality: 95,
           safety_tolerance: 2,
+        },
+      });
+    } else if (selectedModel === "nano-banana-pro") {
+      // Use Nano Banana Pro for portrait
+      console.log("🎨 Using Nano Banana Pro for portrait");
+      prediction = await replicate.predictions.create({
+        model: "google/nano-banana-pro",
+        input: {
+          prompt,
+          aspect_ratio: "1:1",
+          resolution: "2K",
+          output_format: "jpg",
+          safety_filter_level: "block_only_high",
         },
       });
     } else {

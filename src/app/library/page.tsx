@@ -34,6 +34,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true);
   const [imageLoadCount, setImageLoadCount] = useState(0);
   const [copiedShowId, setCopiedShowId] = useState<string | null>(null);
+  const [tappedShow, setTappedShow] = useState<string | null>(null);
 
   const loadLibrary = async () => {
     setLoading(true);
@@ -114,6 +115,13 @@ export default function LibraryPage() {
     void loadLibrary();
   }, []);
 
+  // Close tapped show when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setTappedShow(null);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
   return (
     <div className="min-h-screen bg-black text-foreground">
       <header className="border-b border-white/12 bg-black/90">
@@ -180,18 +188,32 @@ export default function LibraryPage() {
             {shows.map((show, index) => {
               const completion = calculateShowCompletion(show);
               const badgeVariant = getCompletionBadgeVariant(completion.completionPercentage);
+              const isTapped = tappedShow === show.id;
               
               return (
               <div
                 key={show.id}
                 className="group relative overflow-hidden rounded-2xl border border-white/5 bg-black/30 shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-primary/40 hover:shadow-[0_18px_60px_rgba(229,9,20,0.35)] cursor-pointer"
                 onDoubleClick={() => loadShow(show.id)}
+                onClick={(e) => {
+                  // Don't handle clicks on buttons
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button')) {
+                    return;
+                  }
+                  
+                  // On mobile, first tap shows actions, second tap opens show
+                  if (window.innerWidth < 768) {
+                    if (!isTapped) {
+                      e.preventDefault();
+                      setTappedShow(show.id);
+                      return;
+                    }
+                  }
+                  loadShow(show.id);
+                }}
               >
-                <button
-                  type="button"
-                  onClick={() => loadShow(show.id)}
-                  className="relative block w-full"
-                >
+                <div className="relative block w-full">
                   <div className="relative h-0 w-full pb-[177.78%]">
                     {show.libraryPosterUrl || show.posterUrl ? (
                       <Image
@@ -223,10 +245,14 @@ export default function LibraryPage() {
                       </Badge>
                     </div>
                   </div>
-                </button>
+                </div>
                 
-                {/* Action buttons */}
-                <div className="absolute right-3 top-3 flex gap-2">
+                {/* Action buttons - show on hover (desktop) or tap (mobile) */}
+                <div className={`absolute right-2 sm:right-3 top-2 sm:top-3 flex gap-1.5 sm:gap-2 transition-all duration-200 ${
+                  isTapped 
+                    ? 'opacity-100' 
+                    : 'opacity-0 md:opacity-0 md:group-hover:opacity-100'
+                }`}>
                   <Button
                     type="button"
                     variant="ghost"
@@ -235,33 +261,33 @@ export default function LibraryPage() {
                       e.stopPropagation();
                       router.push(`/control-panel?show=${show.id}`);
                     }}
-                    className="h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-blue-500/80 group-hover:opacity-100"
+                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-blue-500/80 active:scale-95"
                     title="Edit prompts"
                   >
-                    <Settings className="h-4 w-4" />
+                    <Settings className="h-5 w-5 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     onClick={(e) => viewShow(show, e)}
-                    className="h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-green-500/80 group-hover:opacity-100"
+                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-green-500/80 active:scale-95"
                     title="View show page"
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-5 w-5 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     onClick={(e) => void copyShowUrl(show.id, e)}
-                    className="h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-primary/80 group-hover:opacity-100"
+                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-primary/80 active:scale-95"
                     title={copiedShowId === show.id ? "Copied!" : "Copy show URL"}
                   >
                     {copiedShowId === show.id ? (
-                      <CheckCircle2 className="h-4 w-4" />
+                      <CheckCircle2 className="h-5 w-5 sm:h-4 sm:w-4" />
                     ) : (
-                      <Copy className="h-4 w-4" />
+                      <Copy className="h-5 w-5 sm:h-4 sm:w-4" />
                     )}
                   </Button>
                   <Button
@@ -269,10 +295,10 @@ export default function LibraryPage() {
                     variant="ghost"
                     size="icon"
                     onClick={(e) => void deleteShow(show.id, e)}
-                    className="h-9 w-9 rounded-full bg-black/60 opacity-0 backdrop-blur-md transition duration-200 hover:bg-red-500/80 group-hover:opacity-100"
+                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-red-500/80 active:scale-95"
                     title="Delete show"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-5 w-5 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
                 

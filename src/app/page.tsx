@@ -3,11 +3,59 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Sparkles, ArrowRight, Play, Loader2, Library, FileText, Plus } from "lucide-react";
+import { Sparkles, ArrowRight, Play, Loader2, Library, FileText, Plus, Trash2, Zap, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
 import { getShowUrl } from "@/lib/slug";
+import { cn } from "@/lib/utils";
+
+type ImageModelId = "gpt-image" | "flux" | "nano-banana-pro";
+type VideoModelId = "sora-2" | "sora-2-pro" | "veo-3.1";
+
+const IMAGE_MODEL_OPTIONS: Array<{
+  id: ImageModelId;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "gpt-image",
+    label: "GPT Image 1",
+    description: "OpenAI's high quality",
+  },
+  {
+    id: "flux",
+    label: "FLUX 1.1 Pro",
+    description: "Fast, stylized art",
+  },
+  {
+    id: "nano-banana-pro",
+    label: "Nano Banana Pro",
+    description: "Google's 2K output",
+  },
+];
+
+const VIDEO_MODEL_OPTIONS: Array<{
+  id: VideoModelId;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "sora-2",
+    label: "Sora 2",
+    description: "Fast, good quality",
+  },
+  {
+    id: "sora-2-pro",
+    label: "Sora 2 Pro",
+    description: "High quality, slower",
+  },
+  {
+    id: "veo-3.1",
+    label: "Veo 3.1",
+    description: "Google's video model",
+  },
+];
 
 type Show = {
   id: string;
@@ -25,30 +73,67 @@ export default function LandingPage() {
   const [shows, setShows] = useState<Show[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [stylizationGuardrails, setStylizationGuardrails] = useState(true);
+  const [stylizationGuardrails, setStylizationGuardrails] = useState(false);
+  const [imageModel, setImageModel] = useState<ImageModelId>("gpt-image");
+  const [videoModel, setVideoModel] = useState<VideoModelId>("sora-2");
+  const [autopilotMode, setAutopilotMode] = useState(false);
+
+  const loadShows = async () => {
+    try {
+      const response = await fetch("/api/library");
+      if (response.ok) {
+        const data = await response.json() as { shows: Show[] };
+        setShows(data.shows.slice(0, 12)); // Top 12 shows
+      }
+    } catch (error) {
+      console.error("Failed to load shows:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadShows = async () => {
-      try {
-        const response = await fetch("/api/library");
-        if (response.ok) {
-          const data = await response.json() as { shows: Show[] };
-          setShows(data.shows.slice(0, 12)); // Top 12 shows
-        }
-      } catch (error) {
-        console.error("Failed to load shows:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     void loadShows();
   }, []);
+
+  const deleteShow = async (showId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!confirm("Delete this show from your library?")) return;
+    
+    try {
+      const response = await fetch(`/api/library/${showId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete show");
+      await loadShows();
+    } catch (error) {
+      console.error("Failed to delete show:", error);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem(STYLIZATION_GUARDRAILS_STORAGE_KEY);
     if (stored !== null) {
-      setStylizationGuardrails(stored !== "false");
+      setStylizationGuardrails(stored === "true");
+    }
+    
+    // Load image model preference
+    const storedImageModel = window.localStorage.getItem("production-flow.image-model");
+    if (storedImageModel) {
+      setImageModel(storedImageModel as ImageModelId);
+    }
+    
+    // Load video model preference
+    const storedVideoModel = window.localStorage.getItem("production-flow.video-model");
+    if (storedVideoModel) {
+      setVideoModel(storedVideoModel as VideoModelId);
+    }
+    
+    // Load autopilot preference
+    const storedAutopilot = window.localStorage.getItem("production-flow.autopilot-mode");
+    if (storedAutopilot !== null) {
+      setAutopilotMode(storedAutopilot === "true");
     }
   }, []);
 
@@ -59,6 +144,28 @@ export default function LandingPage() {
       stylizationGuardrails ? "true" : "false"
     );
   }, [stylizationGuardrails]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("production-flow.image-model", imageModel);
+  }, [imageModel]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("production-flow.video-model", videoModel);
+  }, [videoModel]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("production-flow.autopilot-mode", autopilotMode ? "true" : "false");
+  }, [autopilotMode]);
+
+  // Close tapped show when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setTappedShow(null);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
 
   const toggleStylizationGuardrails = () => {
     setStylizationGuardrails((prev) => !prev);
@@ -79,6 +186,7 @@ export default function LandingPage() {
 
   const [videoLightbox, setVideoLightbox] = useState<{ url: string; title: string } | null>(null);
   const [hoveredShow, setHoveredShow] = useState<string | null>(null);
+  const [tappedShow, setTappedShow] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-black text-foreground overflow-x-hidden w-full max-w-full">
@@ -201,23 +309,133 @@ export default function LandingPage() {
                 }}
                 placeholder="A robot family navigating suburban life..."
                 disabled={isSubmitting}
-                className="relative w-full h-20 bg-zinc-900/50 border-2 border-white/20 focus:border-primary/40 rounded-2xl px-8 text-2xl text-white placeholder:text-white/25 focus:outline-none focus:bg-zinc-900/70 transition-all duration-300 backdrop-blur-2xl font-light"
+                className="relative w-full h-14 sm:h-20 bg-zinc-900/50 border-2 border-white/20 focus:border-primary/40 rounded-xl sm:rounded-2xl px-4 sm:px-8 text-base sm:text-2xl text-white placeholder:text-white/25 focus:outline-none focus:bg-zinc-900/70 transition-all duration-300 backdrop-blur-2xl font-light"
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+            {/* Compact Settings Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Stylization Guardrails */}
               <Button
                 type="button"
                 variant="outline"
                 onClick={toggleStylizationGuardrails}
-                className={`w-full sm:w-auto rounded-full px-5 py-3 font-semibold tracking-[0.25em] text-[11px] uppercase transition-colors ${guardrailButtonClasses}`}
+                className={cn(
+                  "h-auto py-3 px-4 rounded-xl text-left transition-all",
+                  guardrailButtonClasses
+                )}
               >
-                <Sparkles className="mr-2 h-4 w-4 text-primary" />
-                Stylization Guardrails: {stylizationGuardrails ? "On" : "Off"}
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold">Stylization Guardrails</p>
+                    <p className="text-[10px] text-white/60 mt-0.5">
+                      {stylizationGuardrails ? "Stylized enforced" : "Photoreal unlocked"}
+                    </p>
+                  </div>
+                  <div className={cn(
+                    "h-1.5 w-1.5 rounded-full shrink-0",
+                    stylizationGuardrails ? "bg-primary" : "bg-white/30"
+                  )} />
+                </div>
               </Button>
-              <p className="text-xs text-white/60">
-                {stylizationGuardrails ? "Stylized outputs enforced." : "Photoreal options unlocked."}
-              </p>
+
+              {/* Autopilot Mode */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAutopilotMode(!autopilotMode)}
+                className={cn(
+                  "h-auto py-3 px-4 rounded-xl text-left transition-all",
+                  autopilotMode
+                    ? "border-primary/60 bg-primary/20 text-white hover:bg-primary/30"
+                    : "border-white/25 bg-transparent text-white/70 hover:bg-white/10"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <Zap className="h-4 w-4 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold">Autopilot Mode</p>
+                    <p className="text-[10px] text-white/60 mt-0.5">
+                      {autopilotMode ? "Auto-generate all" : "Manual control"}
+                    </p>
+                  </div>
+                  <div className={cn(
+                    "h-1.5 w-1.5 rounded-full shrink-0",
+                    autopilotMode ? "bg-primary" : "bg-white/30"
+                  )} />
+                </div>
+              </Button>
+            </div>
+
+            {/* Model Selection - Compact Grid */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-white/90">
+                  AI Models
+                </label>
+                <p className="text-xs text-white/50">Select your generation engines</p>
+              </div>
+              
+              {/* Image Model */}
+              <div className="space-y-2">
+                <p className="text-xs text-white/70 font-medium">Image Generation</p>
+                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2">
+                  {IMAGE_MODEL_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setImageModel(option.id)}
+                      className={cn(
+                        "relative rounded-lg border p-3 sm:p-2.5 text-left transition-all hover:border-white/30 min-h-[56px] sm:min-h-0",
+                        imageModel === option.id
+                          ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.2)]"
+                          : "border-white/15 bg-black/40 backdrop-blur-sm"
+                      )}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-white text-sm sm:text-xs">{option.label}</p>
+                          {imageModel === option.id && (
+                            <CheckCircle2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-primary shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-xs sm:text-[10px] text-white/60">{option.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Video Model */}
+              <div className="space-y-2">
+                <p className="text-xs text-white/70 font-medium">Video Generation</p>
+                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2">
+                  {VIDEO_MODEL_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setVideoModel(option.id)}
+                      className={cn(
+                        "relative rounded-lg border p-3 sm:p-2.5 text-left transition-all hover:border-white/30 min-h-[56px] sm:min-h-0",
+                        videoModel === option.id
+                          ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.2)]"
+                          : "border-white/15 bg-black/40 backdrop-blur-sm"
+                      )}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-white text-sm sm:text-xs">{option.label}</p>
+                          {videoModel === option.id && (
+                            <CheckCircle2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-primary shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-xs sm:text-[10px] text-white/60">{option.description}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             
             <div className="flex items-center justify-center mt-2">
@@ -225,17 +443,17 @@ export default function LandingPage() {
                 onClick={handleSubmit}
                 disabled={!input.trim() || isSubmitting}
                 size="lg"
-                className="h-16 px-12 rounded-full bg-gradient-to-r from-primary to-orange-600 hover:from-primary/90 hover:to-orange-600/90 text-white font-bold text-xl shadow-[0_0_80px_rgba(229,9,20,0.8)] hover:shadow-[0_0_100px_rgba(229,9,20,1)] hover:scale-105 transition-all duration-300 border-0"
+                className="h-12 sm:h-16 px-6 sm:px-12 rounded-full bg-gradient-to-r from-primary to-orange-600 hover:from-primary/90 hover:to-orange-600/90 text-white font-bold text-base sm:text-xl shadow-[0_0_40px_rgba(229,9,20,0.6)] sm:shadow-[0_0_80px_rgba(229,9,20,0.8)] hover:shadow-[0_0_60px_rgba(229,9,20,0.8)] sm:hover:shadow-[0_0_100px_rgba(229,9,20,1)] hover:scale-105 transition-all duration-300 border-0 w-full sm:w-auto"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="mr-3 h-6 w-6 animate-spin" />
-                    <span>Creating Magic...</span>
+                    <Loader2 className="mr-2 sm:mr-3 h-5 w-5 sm:h-6 sm:w-6 animate-spin" />
+                    <span>Creating...</span>
                   </>
                 ) : (
                   <>
                     <span>Generate Show Bible</span>
-                    <ArrowRight className="ml-3 h-6 w-6" />
+                    <ArrowRight className="ml-2 sm:ml-3 h-5 w-5 sm:h-6 sm:w-6" />
                   </>
                 )}
               </Button>
@@ -266,6 +484,8 @@ export default function LandingPage() {
                 const hasTrailer = !!show.trailerUrl;
                 
                 const isHovered = hoveredShow === show.id;
+                const isTapped = tappedShow === show.id;
+                const showActions = isHovered || isTapped;
                 
                 return (
                   <div
@@ -273,7 +493,21 @@ export default function LandingPage() {
                     className="group relative overflow-hidden rounded-lg bg-zinc-900 hover:ring-2 hover:ring-white/20 transition-all duration-200 hover:scale-105 hover:z-10 cursor-pointer"
                     onMouseEnter={() => setHoveredShow(show.id)}
                     onMouseLeave={() => setHoveredShow(null)}
-                    onClick={() => {
+                    onClick={(e) => {
+                      // Don't handle clicks on buttons
+                      const target = e.target as HTMLElement;
+                      if (target.closest('button')) {
+                        return;
+                      }
+                      
+                      // On mobile, first tap shows actions, second tap opens show
+                      if (window.innerWidth < 768) {
+                        if (!isTapped) {
+                          e.preventDefault();
+                          setTappedShow(show.id);
+                          return;
+                        }
+                      }
                       const url = getShowUrl({ id: show.id, title: show.title });
                       router.push(url);
                     }}
@@ -309,15 +543,32 @@ export default function LandingPage() {
                       {/* Gradient overlay - always visible */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
                       
-                      {/* Title - Hidden when hovered */}
-                      <div className={`absolute bottom-0 left-0 right-0 p-3 pb-16 transition-all duration-200 ${isHovered ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
+                      {/* Delete button - top right, always visible on tap/hover */}
+                      <div className={`absolute top-2 right-2 transition-all duration-200 ${showActions ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none md:opacity-0 md:group-hover:opacity-100 md:group-hover:translate-y-0 md:group-hover:pointer-events-auto'}`}>
+                        <Button
+                          onClick={(e) => void deleteShow(show.id, e)}
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 rounded-full bg-black/80 hover:bg-red-500/90 text-white backdrop-blur-md p-0"
+                          title="Delete show"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      {/* Title - Hidden when actions shown */}
+                      <div className={`absolute bottom-0 left-0 right-0 p-3 pb-16 transition-all duration-200 ${showActions ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
                         <h3 className="font-bold text-sm text-white line-clamp-2 drop-shadow-lg">
                           {title}
                         </h3>
                       </div>
                       
-                      {/* Hover Actions - Slide up from bottom */}
-                      <div className="absolute bottom-0 left-0 right-0 p-3 flex items-center gap-2 translate-y-full group-hover:translate-y-0 transition-transform duration-200">
+                      {/* Bottom Actions - Slide up from bottom on hover/tap */}
+                      <div className={`absolute bottom-0 left-0 right-0 p-3 flex items-center gap-2 transition-transform duration-200 ${
+                        showActions 
+                          ? 'translate-y-0' 
+                          : 'translate-y-full md:translate-y-full md:group-hover:translate-y-0'
+                      }`}>
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
