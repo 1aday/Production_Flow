@@ -62,12 +62,18 @@ function StoryboardSection({
   label, 
   description, 
   color, 
-  icon 
+  icon,
+  imageUrl,
+  isGenerating,
+  onGenerate,
 }: { 
   label: string; 
   description: string; 
   color: keyof typeof STORYBOARD_COLORS;
   icon: React.ReactNode;
+  imageUrl?: string;
+  isGenerating?: boolean;
+  onGenerate: () => void;
 }) {
   const colors = STORYBOARD_COLORS[color];
   
@@ -84,13 +90,44 @@ function StoryboardSection({
         </div>
       </div>
       
-      {/* Image Placeholder */}
-      <button className="group w-full aspect-[16/9] rounded-lg border-2 border-dashed border-white/10 bg-black/30 hover:border-white/20 hover:bg-black/40 transition-all flex flex-col items-center justify-center gap-2">
-        <div className="w-10 h-10 rounded-full bg-white/5 group-hover:bg-white/10 flex items-center justify-center transition-colors">
-          <Plus className="h-5 w-5 text-foreground/30 group-hover:text-foreground/50" />
+      {/* Image or Placeholder */}
+      {imageUrl ? (
+        <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden border border-white/10">
+          <Image
+            src={imageUrl}
+            alt={`${label} keyframe`}
+            fill
+            className="object-cover"
+          />
+          <button
+            onClick={onGenerate}
+            disabled={isGenerating}
+            className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-black/70 hover:bg-black/90 text-[10px] font-medium text-foreground/70 hover:text-foreground transition-colors"
+          >
+            {isGenerating ? "Regenerating..." : "Regenerate"}
+          </button>
         </div>
-        <span className="text-xs text-foreground/30 group-hover:text-foreground/50">Generate keyframe</span>
-      </button>
+      ) : (
+        <button 
+          onClick={onGenerate}
+          disabled={isGenerating}
+          className="group w-full aspect-[16/9] rounded-lg border-2 border-dashed border-white/10 bg-black/30 hover:border-white/20 hover:bg-black/40 transition-all flex flex-col items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="h-6 w-6 text-foreground/50 animate-spin" />
+              <span className="text-xs text-foreground/50">Generating...</span>
+            </>
+          ) : (
+            <>
+              <div className="w-10 h-10 rounded-full bg-white/5 group-hover:bg-white/10 flex items-center justify-center transition-colors">
+                <Plus className="h-5 w-5 text-foreground/30 group-hover:text-foreground/50" />
+              </div>
+              <span className="text-xs text-foreground/30 group-hover:text-foreground/50">Generate Still</span>
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }
@@ -113,6 +150,11 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
   const [episodeStatuses] = useState<Record<number, EpisodeStatus>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  
+  // Stills generation state: { [episodeNumber]: { [sectionLabel]: imageUrl } }
+  const [generatedStills, setGeneratedStills] = useState<Record<number, Record<string, string>>>({});
+  const [generatingStills, setGeneratingStills] = useState<Record<string, boolean>>({});
+  const [portraitGridUrl, setPortraitGridUrl] = useState<string | undefined>();
 
   useEffect(() => {
     async function fetchShow() {
@@ -132,6 +174,10 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
             episodes: data.show.episodes,
             characterSeeds: data.show.characterSeeds,
           });
+          // Also get portrait grid for image generation
+          if (data.assets?.portraitGrid) {
+            setPortraitGridUrl(data.assets.portraitGrid);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch show:", error);
@@ -160,8 +206,54 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     };
   };
 
+  // Generate a still for a section
+  const generateStill = async (sectionLabel: string, sectionDescription: string) => {
+    if (!currentEpisode || !showData) return;
+    
+    const key = `${currentEpisode.episode_number}-${sectionLabel}`;
+    setGeneratingStills(prev => ({ ...prev, [key]: true }));
+    
+    try {
+      const response = await fetch('/api/episodes/stills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          showId,
+          episodeNumber: currentEpisode.episode_number,
+          sectionLabel,
+          sectionDescription,
+          episodeTitle: currentEpisode.title,
+          episodeLogline: currentEpisode.logline,
+          showTitle: showData.showTitle || showData.title,
+          genre: showData.genre,
+          characterGridUrl: portraitGridUrl,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.imageUrl) {
+          setGeneratedStills(prev => ({
+            ...prev,
+            [currentEpisode.episode_number]: {
+              ...(prev[currentEpisode.episode_number] || {}),
+              [sectionLabel]: data.imageUrl,
+            },
+          }));
+        }
+      } else {
+        console.error('Failed to generate still');
+      }
+    } catch (error) {
+      console.error('Error generating still:', error);
+    } finally {
+      setGeneratingStills(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
   const currentEpisode = showData?.episodes?.[selectedEpisode];
   const posterUrl = showData?.libraryPosterUrl || showData?.posterUrl;
+  const currentStills = currentEpisode ? generatedStills[currentEpisode.episode_number] || {} : {};
 
   if (loading) {
     return (
@@ -457,36 +549,54 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       description={currentEpisode.cold_open_hook}
                       color="amber"
                       icon={<Zap className="h-4 w-4" />}
+                      imageUrl={currentStills["TEASER"]}
+                      isGenerating={generatingStills[`${currentEpisode.episode_number}-TEASER`]}
+                      onGenerate={() => generateStill("TEASER", currentEpisode.cold_open_hook)}
                     />
                     <StoryboardSection
                       label="ACT 1"
                       description={currentEpisode.a_plot}
                       color="blue"
                       icon={<Play className="h-4 w-4" />}
+                      imageUrl={currentStills["ACT 1"]}
+                      isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 1`]}
+                      onGenerate={() => generateStill("ACT 1", currentEpisode.a_plot)}
                     />
                     <StoryboardSection
                       label="ACT 2"
                       description={currentEpisode.b_plot || "Complications arise..."}
                       color="emerald"
                       icon={<Target className="h-4 w-4" />}
+                      imageUrl={currentStills["ACT 2"]}
+                      isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 2`]}
+                      onGenerate={() => generateStill("ACT 2", currentEpisode.b_plot || "Complications arise...")}
                     />
                     <StoryboardSection
                       label="ACT 3"
                       description="Crisis point and confrontation"
                       color="rose"
                       icon={<Zap className="h-4 w-4" />}
+                      imageUrl={currentStills["ACT 3"]}
+                      isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 3`]}
+                      onGenerate={() => generateStill("ACT 3", "Crisis point and confrontation")}
                     />
                     <StoryboardSection
                       label="ACT 4"
                       description={currentEpisode.cliffhanger_or_button}
                       color="violet"
                       icon={<Sparkles className="h-4 w-4" />}
+                      imageUrl={currentStills["ACT 4"]}
+                      isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 4`]}
+                      onGenerate={() => generateStill("ACT 4", currentEpisode.cliffhanger_or_button)}
                     />
                     <StoryboardSection
                       label="TAG"
                       description="Final comedic or emotional beat"
                       color="slate"
                       icon={<Film className="h-4 w-4" />}
+                      imageUrl={currentStills["TAG"]}
+                      isGenerating={generatingStills[`${currentEpisode.episode_number}-TAG`]}
+                      onGenerate={() => generateStill("TAG", "Final comedic or emotional beat")}
                     />
                   </div>
                 </>
