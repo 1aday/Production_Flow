@@ -228,6 +228,33 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     };
   };
 
+  // Define the section order and get previous scene for continuity
+  const getSectionContext = (sectionLabel: string) => {
+    if (!currentEpisode) return { previousScene: undefined };
+    
+    const sections = [
+      { label: "TEASER", description: currentEpisode.cold_open_hook },
+      { label: "ACT 1", description: currentEpisode.a_plot },
+      { label: "ACT 2", description: currentEpisode.b_plot || "Complications arise..." },
+      { label: "ACT 3", description: "Crisis point and confrontation" },
+      { label: "ACT 4", description: currentEpisode.cliffhanger_or_button },
+      { label: "TAG", description: "Final comedic or emotional beat" },
+    ];
+    
+    const currentIndex = sections.findIndex(s => s.label === sectionLabel);
+    const previousScene = currentIndex > 0 ? sections[currentIndex - 1].description : undefined;
+    
+    return { previousScene };
+  };
+
+  // Get character names from characterSeeds
+  const getCharacterNames = (): string[] => {
+    if (!showData?.characterSeeds) return [];
+    return showData.characterSeeds
+      .map((char: { name?: string }) => char.name)
+      .filter((name: string | undefined): name is string => !!name);
+  };
+
   // Generate a still for a section
   const generateStill = async (sectionLabel: string, sectionDescription: string) => {
     if (!currentEpisode || !showData) return;
@@ -235,8 +262,13 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     const key = `${currentEpisode.episode_number}-${sectionLabel}`;
     setGeneratingStills(prev => ({ ...prev, [key]: true }));
     
+    const { previousScene } = getSectionContext(sectionLabel);
+    const characterNames = getCharacterNames();
+    
     console.log("🎬 Generating still for:", sectionLabel);
     console.log("   Portrait Grid URL:", portraitGridUrl || "NOT AVAILABLE");
+    console.log("   Characters:", characterNames.join(", ") || "NONE");
+    console.log("   Previous Scene:", previousScene || "FIRST SCENE");
     
     try {
       const response = await fetch('/api/episodes/stills', {
@@ -252,17 +284,21 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
           showTitle: showData.showTitle || showData.title,
           genre: showData.genre,
           characterGridUrl: portraitGridUrl,
+          characterNames,
+          previousScene,
         }),
       });
       
       if (response.ok) {
         const data = await response.json();
         if (data.imageUrl) {
+          // Add cache-busting parameter to force browser to load new image
+          const cacheBustedUrl = `${data.imageUrl}?t=${Date.now()}`;
           setGeneratedStills(prev => ({
             ...prev,
             [currentEpisode.episode_number]: {
               ...(prev[currentEpisode.episode_number] || {}),
-              [sectionLabel]: data.imageUrl,
+              [sectionLabel]: cacheBustedUrl,
             },
           }));
         }
@@ -279,6 +315,32 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
   const currentEpisode = showData?.episodes?.[selectedEpisode];
   const posterUrl = showData?.libraryPosterUrl || showData?.posterUrl;
   const currentStills = currentEpisode ? generatedStills[currentEpisode.episode_number] || {} : {};
+
+  // Generate all scenes for current episode
+  const generateAllScenes = async () => {
+    if (!currentEpisode || !showData) return;
+    
+    const sections = [
+      { label: "TEASER", description: currentEpisode.cold_open_hook },
+      { label: "ACT 1", description: currentEpisode.a_plot },
+      { label: "ACT 2", description: currentEpisode.b_plot || "Complications arise..." },
+      { label: "ACT 3", description: "Crisis point and confrontation" },
+      { label: "ACT 4", description: currentEpisode.cliffhanger_or_button },
+      { label: "TAG", description: "Final comedic or emotional beat" },
+    ];
+    
+    // Generate all in parallel
+    await Promise.all(
+      sections.map(({ label, description }) => generateStill(label, description))
+    );
+  };
+
+  // Check if any scene is currently generating
+  const isAnyGenerating = currentEpisode 
+    ? Object.keys(generatingStills).some(key => 
+        key.startsWith(`${currentEpisode.episode_number}-`) && generatingStills[key]
+      )
+    : false;
 
   if (loading) {
     return (
@@ -565,6 +627,29 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                   {/* Episode Logline - Compact */}
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                     <p className="text-sm text-foreground/70 leading-relaxed">{currentEpisode.logline}</p>
+                  </div>
+
+                  {/* Generate All Button */}
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-medium text-foreground/70">Storyboard Scenes</h2>
+                    <Button
+                      onClick={generateAllScenes}
+                      disabled={isAnyGenerating}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      {isAnyGenerating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          Generate All Scenes
+                        </>
+                      )}
+                    </Button>
                   </div>
 
                   {/* Storyboard Sections - 2 Column Grid */}

@@ -12,6 +12,9 @@ type StillsRequest = {
   genre?: string;
   visualStyle?: string;
   characterGridUrl?: string;
+  characterNames?: string[];
+  previousScene?: string; // For narrative continuity
+  setting?: string; // Where the scene takes place
 };
 
 // Helper to upload image to Supabase Storage
@@ -127,6 +130,9 @@ export async function POST(request: NextRequest) {
       genre,
       visualStyle,
       characterGridUrl,
+      characterNames,
+      previousScene,
+      setting,
     } = body;
 
     if (!sectionDescription || !episodeTitle) {
@@ -136,18 +142,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build the prompt for the still - simple and direct
+    // Build character string
+    const characterString = characterNames?.length 
+      ? `Characters in this scene: ${characterNames.join(", ")}. Show these characters clearly, depicting their actions and emotions.`
+      : "";
+
+    // Build narrative continuity note
+    const continuityNote = previousScene 
+      ? `This scene follows: "${previousScene}". Maintain visual and narrative continuity from the previous scene.`
+      : "";
+
+    // Build setting description
+    const settingNote = setting 
+      ? `Setting: ${setting}.`
+      : "";
+
+    // Build the prompt for the still - detailed and narrative-driven
     const prompt = characterGridUrl 
-      ? `Create this scene: ${sectionDescription}
+      ? `Create a detailed scene for "${sectionLabel}" of episode "${episodeTitle}":
 
-Use the character reference sheet provided to select and accurately depict the correct characters for this scene. Match their appearance, clothing style, and features exactly from the reference.
+SCENE DESCRIPTION: ${sectionDescription}
 
-${genre ? `Genre: ${genre}` : ""}
-Cinematic TV production still, dramatic lighting, high production value, 16:9 widescreen composition.`
-      : `Create this scene: ${sectionDescription}
+${characterString}
 
-${genre ? `Genre: ${genre}` : ""}
-Cinematic TV production still, dramatic lighting, high production value, 16:9 widescreen composition.`;
+${settingNote}
+
+${continuityNote}
+
+Use the character reference sheet provided to accurately depict the correct characters. Match their appearance, clothing, and features exactly from the reference. Show clear facial expressions and body language that convey the emotion of this moment.
+
+Genre: ${genre || "drama"}
+Style: Cinematic TV production still, dramatic lighting, rich color palette, high production value, 16:9 widescreen composition. Show the environment and setting clearly.`
+      : `Create a detailed scene for "${sectionLabel}" of episode "${episodeTitle}":
+
+SCENE DESCRIPTION: ${sectionDescription}
+
+${characterString}
+
+${settingNote}
+
+${continuityNote}
+
+Show clear facial expressions and body language that convey the emotion of this moment.
+
+Genre: ${genre || "drama"}
+Style: Cinematic TV production still, dramatic lighting, rich color palette, high production value, 16:9 widescreen composition. Show the environment and setting clearly.`;
 
     console.log("\n========================================");
     console.log("=== STILLS GENERATION - NANO BANANA PRO ===");
