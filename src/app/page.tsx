@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Sparkles, ArrowRight, Play, Loader2, Library, FileText, Plus, Trash2, Zap, CheckCircle2 } from "lucide-react";
+import { Sparkles, ArrowRight, Play, Loader2, Trash2, Zap, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Navbar } from "@/components/Navbar";
 import { STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
 import { getShowUrl } from "@/lib/slug";
 import { cn } from "@/lib/utils";
@@ -190,52 +191,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-black text-foreground overflow-x-hidden w-full max-w-full">
-      {/* Navigation Header - Transparent over hero */}
-      <header className="fixed top-0 left-0 right-0 z-40 bg-gradient-to-b from-black/60 via-black/30 to-transparent backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 sm:px-6 py-6 sm:py-8">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <span className="text-base sm:text-lg font-semibold uppercase tracking-[0.28em] sm:tracking-[0.32em] text-primary drop-shadow-lg">
-              Production Flow
-            </span>
-            <span className="hidden sm:inline text-xs text-white/70 drop-shadow">AI Show Bible Generator</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => router.push("/console")}
-              className="gap-2 rounded-full backdrop-blur-md bg-white/5 hover:bg-white/10 border border-white/20"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">New Show</span>
-            </Button>
-            
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/prompts")}
-              className="gap-2 rounded-full backdrop-blur-md bg-white/5 hover:bg-white/10 border border-white/10"
-              title="Edit AI prompt templates"
-            >
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Prompts</span>
-            </Button>
-            
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push("/library")}
-              className="gap-2 rounded-full backdrop-blur-md bg-white/5 hover:bg-white/10 border border-white/10"
-            >
-              <Library className="h-4 w-4" />
-              <span className="hidden sm:inline">Library</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+      {/* Navigation Header */}
+      <Navbar variant="transparent" />
       
       {/* Video Lightbox - Netflix style */}
       {videoLightbox ? (

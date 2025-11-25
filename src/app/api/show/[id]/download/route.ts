@@ -5,6 +5,11 @@ import { extractShowId } from "@/lib/slug";
 
 export const maxDuration = 60;
 
+interface CharacterSeed {
+  id: string;
+  name?: string;
+}
+
 // Helper to fetch file as buffer
 async function fetchFileAsBuffer(url: string): Promise<Buffer> {
   const response = await fetch(url);
@@ -80,7 +85,7 @@ export async function GET(
     if (show.character_docs && Object.keys(show.character_docs).length > 0) {
       const dossiersFolder = showFolder.folder("02-character-dossiers");
       Object.entries(show.character_docs).forEach(([charId, doc]) => {
-        const character = show.character_seeds?.find((s: any) => s.id === charId);
+        const character = show.character_seeds?.find((s: CharacterSeed) => s.id === charId);
         const charName = character?.name || charId;
         const fileName = `${showPrefix}_${sanitizeFilename(charName)}_dossier.json`;
         dossiersFolder?.file(fileName, JSON.stringify(doc, null, 2));
@@ -95,7 +100,7 @@ export async function GET(
       const portraitPromises = Object.entries(show.character_portraits).map(async ([charId, url]) => {
         if (url && typeof url === 'string') {
           try {
-            const character = show.character_seeds?.find((s: any) => s.id === charId);
+            const character = show.character_seeds?.find((s: CharacterSeed) => s.id === charId);
             const charName = character?.name || charId;
             const ext = url.includes('.webp') ? 'webp' : (url.includes('.png') ? 'png' : 'jpg');
             const fileName = `${showPrefix}_${sanitizeFilename(charName)}_portrait.${ext}`;
@@ -117,7 +122,7 @@ export async function GET(
       const videoPromises = Object.entries(show.character_videos).map(async ([charId, videos]) => {
         if (Array.isArray(videos) && videos.length > 0) {
           try {
-            const character = show.character_seeds?.find((s: any) => s.id === charId);
+            const character = show.character_seeds?.find((s: CharacterSeed) => s.id === charId);
             const charName = character?.name || charId;
             
             // Download each video for this character

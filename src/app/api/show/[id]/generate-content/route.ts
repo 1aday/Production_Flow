@@ -10,6 +10,7 @@ const openai = new OpenAI({
 /**
  * POST /api/show/[id]/generate-content
  * Uses OpenAI to generate structured, beautiful content for the show page
+ * CACHES the result in the database to avoid regenerating on every load
  */
 export async function POST(
   request: NextRequest,
@@ -18,6 +19,10 @@ export async function POST(
   try {
     const { id: slugOrId } = await context.params;
     const showId = extractShowId(slugOrId);
+    
+    // Check if force regenerate is requested
+    const { searchParams } = new URL(request.url);
+    const forceRegenerate = searchParams.get('force') === 'true';
     
     const supabase = createServerSupabaseClient();
     
@@ -35,6 +40,16 @@ export async function POST(
       );
     }
     
+    // Return cached content if it exists and not forcing regeneration
+    if (show.generated_content && !forceRegenerate) {
+      console.log("📦 Returning cached generated content for show:", showId);
+      return NextResponse.json({
+        content: show.generated_content,
+        cached: true,
+      });
+    }
+    
+    console.log("🤖 Generating new content for show:", showId);
     const showData = show;
     
     // Generate structured content using OpenAI
@@ -92,10 +107,22 @@ Make it engaging, professional, and shareable. Focus on what makes this show uni
                 },
               },
               character_highlights: {
-                type: "object",
-                description: "Character ID mapped to 2-3 sentence highlights",
-                additionalProperties: {
-                  type: "string",
+                type: "array",
+                description: "Array of character highlights with ID and description",
+                items: {
+                  type: "object",
+                  required: ["character_id", "highlight"],
+                  properties: {
+                    character_id: {
+                      type: "string",
+                      description: "The character's ID (kebab-case)",
+                    },
+                    highlight: {
+                      type: "string",
+                      description: "2-3 sentence highlight about this character",
+                    },
+                  },
+                  additionalProperties: false,
                 },
               },
               visual_identity: {
@@ -146,8 +173,22 @@ Make it engaging, professional, and shareable. Focus on what makes this show uni
     
     const content = JSON.parse(completion.choices[0].message.content || "{}");
     
+    // Cache the generated content in the database
+    const { error: updateError } = await supabase
+      .from('shows')
+      .update({ generated_content: content })
+      .eq('id', showId);
+    
+    if (updateError) {
+      console.warn("Failed to cache generated content:", updateError);
+      // Continue anyway - we can still return the content
+    } else {
+      console.log("✅ Cached generated content for show:", showId);
+    }
+    
     return NextResponse.json({
       content,
+      cached: false,
       tokens_used: completion.usage?.total_tokens || 0,
     });
   } catch (error) {

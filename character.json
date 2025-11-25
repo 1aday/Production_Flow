@@ -1,31 +1,30 @@
 {
-    "$schema": "https://example.com/schemas/character.v3.schema.json",
+    "$schema": "https://example.com/schemas/character.v4.schema.json",
     "character": "<CHARACTER_ID>",
-    "inherits": "show_schema.json goes here",
+    "show_id": "<SHOW_ID_REFERENCE>",
+    "style_snapshot": {
+      "medium": "<production_style.medium from show>",
+      "stylization_level": "<production_style.stylization_level from show>",
+      "key_references": ["<2-3 cinematic references from show>"]
+    },
   
     "metadata": {
-      "role": "<e.g., Protagonist | Supporting>",
+      "name": "<Character's display name>",
+      "role": "<e.g., Protagonist | Supporting | Antagonist>",
       "function": "<story function in one line>",
       "tags": ["human", "dialogue"]
-    },
-    "state": {
-      "baseline": "stable human",
-      "transformation_policy": {
-        "allowed": [],
-        "disallowed": ["snap_down","gradual_up","oscillate"],
-        "frequency_caps": { "snap_per_ep": 0, "gradual_per_ep": 0 }
-      }
     },
   
     "biometrics": {
       "species": {
         "type": "human",
-        "subtype": "live_action",
+        "subtype": "animated",
         "scale_ratio": 1.0,
         "visual_markers": "baseline human presentation",
-        "materiality": "organic flesh-and-blood performer",
+        "materiality": "stylized animated character",
         "physiology": "standard human anatomy"
       },
+      "gender_identity": "<male | female | non_binary | other>",
       "age_years": { "value": 38, "approximate": false },
       "ethnicity": "—",
       "skin_color": { "hex": "#CDAA8D", "description": "warm light-tan" },
@@ -46,6 +45,8 @@
       "weight": { "value": 78, "unit": "kg", "notes": "" },
       "build": { "body_type": "lean", "notes": "" },
   
+      "distinctive_features": "<One sentence describing scars, tattoos, prosthetics, unusual traits>",
+  
       "voice": {
         "descriptors": ["warm","measured","wry"],
         "pitch_range": "mid",
@@ -57,12 +58,6 @@
         "style": "General North American",
         "strength": "light",
         "code_switching": "neutralizes in formal settings"
-      },
-  
-      "tics": {
-        "motor": ["pen tap"],
-        "verbal": ["soft 'hmm'"],
-        "frequency": "occasional"
       }
     },
   
@@ -70,70 +65,46 @@
       "silhouette": "upright, relaxed shoulders",
       "palette": { "anchors": ["#1E2A36","#5E6B73","#C9C3B8"], "notes": "deep neutrals + warm accents" },
       "surface": {
-        "materials": "natural human skin",
+        "materials": "stylized skin treatment",
         "finish": "matte",
-        "texture_rules": "retain pore detail; control shine",
-        "prohibitions": ["beauty-blur","over-sharpening"]
+        "texture_rules": "match show's art style"
       },
-      "eyes": { "type": "human natural", "catchlight_shape": "round", "behaviors": ["clean key catchlight"] },
-      "face_system": { "modularity": "n/a", "mouths_phonemes": [], "mouths_gag": [], "eyelids": [] },
+      "eyes": { "type": "expressive animated", "catchlight_shape": "round", "behaviors": ["clean key catchlight"] },
       "wardrobe": {
         "silhouette_rules": "smart-casual mentor",
         "items": ["charcoal jacket","ecru open-collar shirt"],
         "accessories": ["simple watch"],
-        "avoid": ["loud branding"]
-      }
+        "avoid": ["loud branding"],
+        "summary": "<One sentence summary for quick reference>"
+      },
+      "signature_colors": ["#1E2A36", "#C9C3B8"]
     },
   
-    "rigging_and_build": {
-      "armature": "n/a",
-      "swap_systems": [],
-      "durability_notes": "n/a",
-      "scale_notes": "real-world scale"
+    "portrait_guidance": {
+      "focal_point": "<face | bust | full_body>",
+      "emotional_default": "<neutral | smiling | serious | playful | determined>",
+      "pose_preference": "<slight lean-in | confident stance | relaxed seated>",
+      "background_hint": "<studio neutral | environmental | abstract>"
     },
   
     "performance": {
       "pose_defaults": "slight lean-in; attentive",
       "expression_set": ["half-smile","thoughtful listen","decisive nod"],
       "gestural_loops": ["index card square-up"],
-      "animation_cadence": { "animate_fps": 24, "shutter_angle": 180, "hold_style": "natural live-action" }
+      "animation_cadence": { "animate_fps": 24, "hold_style": "stylized" }
     },
   
     "scene_presence": {
-      "camera_override": { "lenses": ["50mm","65mm","85mm"], "framing": "chest-up", "movement": "slow push 6–10s", "dof": "T2.8–T4" },
-      "lighting_override": { "key": "soft window/book-light", "fill": "15–20% bounce", "edge": "subtle hair rim", "notes": "protect skin tone" },
-      "composition_override": { "symmetry_bias": "balanced thirds", "leading_lines": "table/board to eyes", "foreground": "OOF mug" },
-      "set_nook": { "location": "work table", "materials": ["wood","paper notes"], "props": ["notebook"], "signage": [] }
+      "camera_override": { "lenses": ["50mm","85mm"], "framing": "chest-up", "movement": "slow push", "dof": "shallow" },
+      "lighting_override": { "key": "soft diffused", "fill": "15–20% bounce", "edge": "subtle rim" },
+      "composition_override": { "symmetry_bias": "balanced thirds", "leading_lines": "to eyes", "foreground": "subtle depth" }
     },
   
     "behavior_and_rules": {
-      "do": ["natural texture","purposeful props"],
-      "do_not": ["neon/sci-fi motifs","over-bloom"],
-      "interaction_readiness": {
-        "with_humans": "standard eyelines",
-        "with_puppets": "seat/lean to puppet eye plane",
-        "with_props": "believable, tactile handoffs"
-      }
+      "do": ["match show style","purposeful props"],
+      "do_not": ["break established aesthetic","over-detail"]
     },
   
-    "sound": {
-      "ambience": "quiet room tone",
-      "fx": ["paper shuffle","pen tap"],
-      "dialog_policy": "dialog forward",
-      "music_tone": "subtle warm bed if needed"
-    },
-  
-    "validation_hooks": {
-      "assertions": ["camera_override.lenses contains '65mm'"],
-      "human_QC": ["catchlight direction consistent","no beauty-blur","skin IRE in safe range"]
-    },
-  
-    "delivery": {
-      "stills": ["hero_portrait_clean","hero_portrait_teaching"],
-      "motion_button": "6–8s: listen → nod → small smile",
-      "exports": ["TIFF 16-bit","PNG","EXR"],
-      "slate": "<CHARACTER_ID>_PORTRAIT_v1"
-    },
     "showcase_scene_prompt": "10-second solo scene prompt capturing this character's hallmark voice, action, and attitude."
   }
   

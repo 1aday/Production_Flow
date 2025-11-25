@@ -57,6 +57,9 @@ export async function GET(
       videoAspectRatio: show.video_aspect_ratio,
       videoResolution: show.video_resolution,
       trailerModel: show.trailer_model,
+      // Episode format and loglines
+      showFormat: show.show_format,
+      episodes: show.episodes,
     };
     
     return NextResponse.json({ show: transformedShow });

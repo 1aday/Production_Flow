@@ -125,35 +125,35 @@
     width: 100%;
     max-width: 100%;
   }
-  
+
   /* Premium Typography System */
   h1, h2, h3, h4, h5, h6 {
     @apply font-display font-bold tracking-tight;
   }
-  
+
   h1 {
     @apply text-5xl sm:text-6xl md:text-7xl leading-[1.1] font-black;
     letter-spacing: -0.025em;
   }
-  
+
   h2 {
     @apply text-3xl sm:text-4xl md:text-5xl leading-tight font-bold;
     letter-spacing: -0.02em;
   }
-  
+
   h3 {
     @apply text-2xl sm:text-3xl leading-snug font-semibold;
     letter-spacing: -0.015em;
   }
-  
+
   p {
     @apply leading-relaxed;
   }
-  
+
   .text-display {
     @apply font-display;
   }
-  
+
   .text-mono {
     @apply font-mono;
   }
@@ -163,7 +163,7 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -372,18 +372,18 @@
       /* Larger tap targets for mobile controls */
       min-height: 200px;
     }
-    
+
     /* Make video controls more prominent on mobile */
     video[controls]::-webkit-media-controls-panel {
       background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.7), transparent);
       backdrop-filter: blur(8px);
     }
-    
+
     /* Larger play button on mobile */
     video[controls]::-webkit-media-controls-play-button {
       transform: scale(1.3);
     }
-    
+
     /* Better scrubber visibility on mobile */
     video[controls]::-webkit-media-controls-timeline {
       height: 6px;

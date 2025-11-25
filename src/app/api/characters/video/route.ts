@@ -1,4 +1,13 @@
 import { NextResponse } from "next/server";
+import { 
+  extractSlimShowContext, 
+  extractSlimCharacterContext, 
+  buildStylePrompt,
+  buildCharacterPrompt,
+  isRealisticStyle as checkRealisticStyle,
+  type FullShowBlueprint,
+  type FullCharacterDocument,
+} from "@/lib/prompt-extraction";
 
 export const maxDuration = 60; // Reduced to 60s since we return immediately
 
@@ -252,6 +261,12 @@ export async function POST(request: Request) {
     );
   }
 
+  // Extract slim contexts for efficient prompts
+  const slimShow = extractSlimShowContext(body.show as FullShowBlueprint);
+  const slimCharacter = extractSlimCharacterContext(body.character as FullCharacterDocument);
+  const isRealistic = checkRealisticStyle(slimShow);
+  
+  // Legacy: still support full JSON as fallback for complex cases
   const showJson = trimJson(body.show);
   const characterJson = trimJson(body.character);
 
@@ -277,10 +292,7 @@ export async function POST(request: Request) {
       ? extractString((body.show as Record<string, unknown>).show_logline)
       : "";
 
-  const characterName =
-    typeof body.character === "object" && body.character !== null
-      ? extractString((body.character as Record<string, unknown>).character)
-      : "";
+  const characterName = slimCharacter.name || "Unknown";
 
   const jobId =
     typeof body.jobId === "string" && body.jobId.trim().length > 0
@@ -296,34 +308,31 @@ export async function POST(request: Request) {
   // Get stylization guardrails setting (defaults to true for backward compatibility)
   const stylizationGuardrails = body.stylizationGuardrails !== false;
 
-  // Extract production style
-  const productionStyle = (body.show as { production_style?: {
-    medium?: string;
-    cinematic_references?: string[];
-    visual_treatment?: string;
-  } }).production_style;
-
-  // Build style guidance - only add restrictions if guardrails are ON
-  const styleGuidance = stylizationGuardrails && productionStyle ? [
+  // Build style guidance using slim extraction
+  const styleGuidance = stylizationGuardrails && slimShow.style.medium ? [
     "",
     "VISUAL STYLE (CRITICAL - Match exactly):",
-    `Medium: ${productionStyle.medium}`,
-    `References: ${(productionStyle.cinematic_references || []).join(', ')}`,
-    `Treatment: ${productionStyle.visual_treatment}`,
+    buildStylePrompt(slimShow, false),
+    "",
+  ] : isRealistic ? [
+    "",
+    "PHOTOREALISTIC RENDERING:",
+    "- Render as photorealistic/live-action video",
+    "- Characters should look like real actors",
+    "- Cinematic lighting and professional cinematography",
+    buildStylePrompt(slimShow, false),
     "",
   ] : [
     "",
     "RENDERING APPROACH:",
-    "- Photorealistic rendering is ALLOWED and ENCOURAGED if desired",
-    "- Realistic, naturalistic, photographic styles are ALLOWED",
-    "- Live-action appearance is ALLOWED",
-    "- You may render in ANY style - realistic, stylized, animated, or illustrated",
+    "- Match the show's aesthetic (animated, stylized, or realistic)",
+    "- Full creative flexibility to serve the vision",
     "",
   ];
 
   const prompt = [
     `Produce a ${seconds}-second, ${describeAspectRatio(aspectRatio)} cinematic showcase featuring ONLY the specified character.`,
-    "Anchor every creative choice in the show blueprint's visual rules and the character dossier.",
+    "Anchor every creative choice in the show's visual style and the character's established look.",
     resolution
       ? `Render using ${resolution === "high" ? "high (1024p)" : "standard (720p)"} fidelity while keeping likeness stable.`
       : null,
@@ -332,16 +341,16 @@ export async function POST(request: Request) {
     "Series logline:",
     showLogline || "N/A",
     "",
-    "Character identifier:",
-    characterName || "Unknown",
+    "Character Summary:",
+    buildCharacterPrompt(slimCharacter),
     "",
     "Showcase scene prompt:",
     showcasePrompt,
     "",
-    "Character dossier JSON:",
+    "Full Character Details (reference):",
     characterJson,
     "",
-    "Show blueprint JSON:",
+    "Show Guidelines (reference):",
     showJson,
   ]
     .filter((line): line is string => Boolean(line))

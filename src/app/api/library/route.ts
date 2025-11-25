@@ -22,7 +22,7 @@ export async function GET() {
     
     const { data: shows, error } = await supabase
       .from('shows')
-      .select('id, title, created_at, updated_at, model, poster_url, library_poster_url, portrait_grid_url, trailer_url, blueprint, character_seeds, character_docs, character_portraits, character_videos')
+      .select('id, title, created_at, updated_at, model, poster_url, library_poster_url, portrait_grid_url, trailer_url, blueprint, character_seeds, character_docs, character_portraits, character_videos, show_format, episodes')
       .order('updated_at', { ascending: false })
       .limit(50); // Limit for performance
     
@@ -93,6 +93,9 @@ export async function POST(request: NextRequest) {
       videoAspectRatio,
       videoResolution,
       trailerModel,
+      // Episode format and loglines
+      showFormat,
+      episodes,
     } = body;
     
     if (!id) {
@@ -197,6 +200,10 @@ export async function POST(request: NextRequest) {
       video_seconds: videoSeconds || 8,
       video_aspect_ratio: videoAspectRatio || 'landscape',
       video_resolution: videoResolution || 'standard',
+      
+      // Episode format and loglines
+      show_format: showFormat || null,
+      episodes: episodes || [],
     };
     
     // Upsert to Supabase

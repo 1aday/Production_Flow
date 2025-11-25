@@ -34,7 +34,7 @@ type TasksByShow = {
 
 export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelProps) {
   const [tasksByShow, setTasksByShow] = useState<TasksByShow>({});
-  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [, setCurrentTime] = useState(0);
 
   useEffect(() => {
     const updateTasks = async () => {
@@ -63,7 +63,8 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
             try {
               const response = await fetch(`/api/library/${showId}`);
               if (response.ok) {
-                const data = await response.json() as { show: any };
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const data = await response.json() as { show: Record<string, any> };
                 grouped[showId].showData = {
                   blueprint: data.show.blueprint,
                   characterSeeds: data.show.characterSeeds,

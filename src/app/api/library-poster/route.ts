@@ -88,8 +88,8 @@ export async function POST(request: NextRequest) {
     // Get stylization guardrails setting (defaults to true for backward compatibility)
     const stylizationGuardrails = guardrailsSetting !== false;
     
-    // Default to GPT Image (better quality and follows prompts more accurately)
-    const selectedModel = imageModel || "gpt-image";
+    // Default to Nano Banana Pro (fast and good quality)
+    const selectedModel = imageModel || "nano-banana-pro";
 
     if (!userPrompt || !characterImageUrl) {
       return NextResponse.json(
@@ -119,8 +119,8 @@ export async function POST(request: NextRequest) {
       
       // Try different field names
       showTitle = (showData.show_title || 
-                   (showData as any).title || 
-                   (showData as any).showTitle || 
+                   (showData as unknown as Record<string, string>).title || 
+                   (showData as unknown as Record<string, string>).showTitle || 
                    "Untitled Show");
     }
     console.log("✅ Final extracted showTitle:", showTitle);

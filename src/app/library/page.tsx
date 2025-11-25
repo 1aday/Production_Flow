@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Library, Loader2, Trash2, ArrowLeft, Copy, CheckCircle2, Clock, Settings, Eye } from "lucide-react";
+import { Library, Loader2, Trash2, Copy, CheckCircle2, Clock, Settings, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
+import { Navbar } from "@/components/Navbar";
+// Note: LIBRARY_LOAD_STORAGE_KEY no longer needed - we use URL-based routing now
 import { calculateShowCompletion, getCompletionBadgeVariant } from "@/lib/show-completion";
 import { getShowUrl } from "@/lib/slug";
 
@@ -81,15 +82,14 @@ export default function LibraryPage() {
     }
   };
 
-  const loadShow = (showId: string) => {
-    if (typeof window !== "undefined") {
-      try {
-        window.sessionStorage.setItem(LIBRARY_LOAD_STORAGE_KEY, showId);
-      } catch (error) {
-        console.error("Failed to stash pending show ID", error);
-      }
-    }
-    router.push("/console");
+  const loadShow = (show: LibraryShow) => {
+    // Navigate directly to the console with the show ID in the URL
+    const consoleUrl = getShowUrl({ 
+      id: show.id, 
+      title: show.title, 
+      showTitle: show.showTitle 
+    }).replace('/show/', '/console/');
+    router.push(consoleUrl);
   };
 
   const copyShowUrl = async (showId: string, event: React.MouseEvent) => {
@@ -124,39 +124,19 @@ export default function LibraryPage() {
 
   return (
     <div className="min-h-screen bg-black text-foreground">
-      <header className="border-b border-white/12 bg-black/90">
-        <div className="mx-auto flex w-full max-w-[1800px] flex-wrap items-center justify-between gap-4 px-6 py-5">
-          <div className="flex items-center gap-4">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/")}
-              className="rounded-full"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-3">
-              <span className="text-lg font-semibold uppercase tracking-[0.32em] text-primary">
-                Show Library
-              </span>
-              <Badge variant="outline" className="text-[11px]">
-                {shows.length} {shows.length === 1 ? "show" : "shows"}
-              </Badge>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/")}
-            className="rounded-full"
-          >
-            Create New Show
-          </Button>
-        </div>
-      </header>
+      <Navbar variant="solid" />
 
-      <main className="mx-auto w-full max-w-[1800px] px-4 sm:px-6 py-8 sm:py-12">
+      <main className="mx-auto w-full max-w-[1800px] px-4 sm:px-6 py-8 sm:py-12 pt-24">
+        {/* Page Header */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <Library className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold">Show Library</h1>
+            <Badge variant="outline" className="text-[11px]">
+              {shows.length} {shows.length === 1 ? "show" : "shows"}
+            </Badge>
+          </div>
+        </div>
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-4 py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -194,7 +174,7 @@ export default function LibraryPage() {
               <div
                 key={show.id}
                 className="group relative overflow-hidden rounded-2xl border border-white/5 bg-black/30 shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-primary/40 hover:shadow-[0_18px_60px_rgba(229,9,20,0.35)] cursor-pointer"
-                onDoubleClick={() => loadShow(show.id)}
+                onDoubleClick={() => loadShow(show)}
                 onClick={(e) => {
                   // Don't handle clicks on buttons
                   const target = e.target as HTMLElement;
@@ -210,7 +190,7 @@ export default function LibraryPage() {
                       return;
                     }
                   }
-                  loadShow(show.id);
+                  loadShow(show);
                 }}
               >
                 <div className="relative block w-full">

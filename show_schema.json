@@ -22,6 +22,35 @@
         "minLength": 120,
         "description": "Detailed description of an iconic poster for this show, summarising composition, characters and their appearance, palette, lighting, and scene elements."
       },
+      "genre": {
+        "type": "string",
+        "enum": ["comedy", "drama", "thriller", "horror", "sci_fi", "fantasy", "action", "adventure", "mystery", "romance", "documentary", "animation", "family", "crime"],
+        "description": "Primary genre of the show. Helps determine tone for trailers and marketing."
+      },
+      "mood_keywords": {
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 6,
+        "items": { "type": "string" },
+        "description": "3-6 mood/atmosphere words that capture the show's emotional tone (e.g., 'tense', 'whimsical', 'dark', 'hopeful', 'mysterious')."
+      },
+      "tagline": {
+        "type": "string",
+        "maxLength": 80,
+        "description": "Short, punchy marketing tagline for posters (e.g., 'In space, no one can hear you scream'). Different from logline - this is for marketing impact."
+      },
+      "target_audience": {
+        "type": "string",
+        "enum": ["kids", "family", "teen", "young_adult", "adult", "mature"],
+        "description": "Primary target audience. Influences tone, complexity, and content."
+      },
+      "primary_palette": {
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 5,
+        "items": { "type": "string", "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" },
+        "description": "3-5 primary hex colors that define the show's visual identity. Used for quick style reference."
+      },
       "production_style": {
         "type": "object",
         "additionalProperties": false,

@@ -1,5 +1,14 @@
 import { NextResponse } from "next/server";
 import Replicate from "replicate";
+import { 
+  extractSlimShowContext, 
+  extractSlimCharacterContext, 
+  buildStylePrompt, 
+  buildCharacterPrompt,
+  isRealisticStyle as checkRealisticStyle,
+  type FullShowBlueprint,
+  type FullCharacterDocument,
+} from "@/lib/prompt-extraction";
 
 type PortraitBody = {
   show: unknown;
@@ -8,6 +17,13 @@ type PortraitBody = {
   jobId?: string;
   imageModel?: "gpt-image" | "flux" | "nano-banana-pro";
   stylizationGuardrails?: boolean;
+  // Optional seed data for extra context
+  seed?: {
+    gender?: string;
+    age_range?: string;
+    species_hint?: string;
+    key_visual_trait?: string;
+  };
 };
 
 const replicate = new Replicate({
@@ -83,53 +99,34 @@ export async function POST(request: Request) {
     );
   }
 
-  const showJson = trimJson(body.show);
-  const characterJson = trimJson(body.character);
-  
   // Get stylization guardrails setting (defaults to true for backward compatibility)
   const stylizationGuardrails = body.stylizationGuardrails !== false;
   
-  // Extract production style for style guidance
-  const productionStyle = (body.show as { production_style?: {
-    medium?: string;
-    cinematic_references?: string[];
-    visual_treatment?: string;
-    stylization_level?: string;
-  } }).production_style;
+  // Extract slim contexts for efficient prompts
+  const slimShow = extractSlimShowContext(body.show as FullShowBlueprint);
+  const slimCharacter = extractSlimCharacterContext(body.character as FullCharacterDocument, body.seed);
+  const isRealistic = checkRealisticStyle(slimShow);
+  
+  // Legacy: still support full JSON as fallback for complex cases
+  const showJson = trimJson(body.show);
+  const characterJson = trimJson(body.character);
 
   console.log("=== PORTRAIT REQUEST DEBUG ===");
-  console.log("body.show exists:", !!body.show);
-  if (body.show) {
-    console.log("body.show.show_title:", (body.show as { show_title?: string }).show_title);
-  }
-  
-  const showTitle = (body.show as { show_title?: string }).show_title || "the show";
-  console.log("Extracted showTitle for portrait:", showTitle);
+  console.log("Show title:", slimShow.show_title);
+  console.log("Style:", slimShow.style.medium);
+  console.log("Is realistic:", isRealistic);
+  console.log("Character:", slimCharacter.name);
 
   const prompt = body.customPrompt || (() => {
-    // Build style header - only add restrictions if guardrails are ON
+    // Build style header using slim extraction
     let styleHeader: string[] = [];
     
-    // Determine if the production style is cinematic/realistic
-    const isRealisticStyle = productionStyle?.stylization_level === 'cinematic_realistic' ||
-      productionStyle?.stylization_level === 'slightly_stylized' ||
-      productionStyle?.medium?.toLowerCase().includes('live-action') ||
-      productionStyle?.medium?.toLowerCase().includes('photorealistic') ||
-      productionStyle?.medium?.toLowerCase().includes('cinematic') ||
-      productionStyle?.medium?.toLowerCase().includes('documentary') ||
-      productionStyle?.medium?.toLowerCase().includes('prestige');
-    
-    if (stylizationGuardrails && productionStyle) {
+    if (stylizationGuardrails && slimShow.style.medium) {
       // Guardrails ON: Enforce the production style
       styleHeader = [
         "!! VISUAL STYLE - CRITICAL - MUST FOLLOW !!",
         "",
-        `This is a character portrait for "${showTitle}"`,
-        `Production Medium: ${productionStyle.medium}`,
-        `Visual References: ${(productionStyle.cinematic_references || []).join(' + ')}`,
-        `Stylization Level: ${productionStyle.stylization_level}`,
-        "",
-        `Style Treatment: ${productionStyle.visual_treatment}`,
+        buildStylePrompt(slimShow, true),
         "",
         "CRITICAL: Match the specified visual style exactly.",
         "",
@@ -139,16 +136,16 @@ export async function POST(request: Request) {
     } else if (stylizationGuardrails) {
       // Guardrails ON but no production style: Add basic stylization reminder
       styleHeader = [
-        `Character portrait for "${showTitle}"`,
+        `Character portrait for "${slimShow.show_title}"`,
         "Use theatrical/stylized treatment.",
         "",
         "---",
         "",
       ];
-    } else if (productionStyle && isRealisticStyle) {
+    } else if (isRealistic) {
       // Guardrails OFF with realistic style: PUSH for photorealistic
       styleHeader = [
-        `!! PHOTOREALISTIC CHARACTER PORTRAIT for "${showTitle}" !!`,
+        `!! PHOTOREALISTIC CHARACTER PORTRAIT for "${slimShow.show_title}" !!`,
         "",
         "RENDERING APPROACH - MUST FOLLOW:",
         "- Render as a PHOTOREALISTIC portrait like a professional headshot or movie still",
@@ -158,8 +155,7 @@ export async function POST(request: Request) {
         "- Professional costume design with real fabric textures",
         "- Natural hair with realistic strands and movement",
         "",
-        `Production Style: ${productionStyle.medium}`,
-        `Visual References: ${(productionStyle.cinematic_references || []).join(', ')}`,
+        buildStylePrompt(slimShow, false),
         "",
         "---",
         "",
@@ -167,7 +163,7 @@ export async function POST(request: Request) {
     } else {
       // Guardrails OFF: Flexible approach based on show aesthetic
       styleHeader = [
-        `Character portrait for "${showTitle}"`,
+        `Character portrait for "${slimShow.show_title}"`,
         "",
         "RENDERING FREEDOM:",
         "- Match the show's intended aesthetic as described in the guidelines",
@@ -185,7 +181,7 @@ export async function POST(request: Request) {
       "- Match the show's visual style exactly as specified above",
       "- Focus on expressive posture, intentional wardrobe, and theatrical lighting",
       "- Every creative choice must adhere to the show's aesthetic rules",
-    ] : isRealisticStyle ? [
+    ] : isRealistic ? [
       "",
       "Portrait Requirements:",
       "- PHOTOREALISTIC rendering - this should look like a real person",
@@ -201,9 +197,13 @@ export async function POST(request: Request) {
       "- Serve the creative vision established in the show guidelines",
     ];
 
+    // Use slim character prompt + full JSON as detailed reference
     return [
       ...styleHeader,
-      "Character Details:",
+      "Character Summary:",
+      buildCharacterPrompt(slimCharacter),
+      "",
+      "Full Character Details (reference):",
       characterJson,
       "",
       "Show Aesthetic Guidelines:",
@@ -214,8 +214,8 @@ export async function POST(request: Request) {
 
   try {
     console.log("🎨 Creating portrait prediction...");
-    console.log("Show title:", showTitle);
-    console.log("Production style:", productionStyle?.medium || "not specified");
+    console.log("Show title:", slimShow.show_title);
+    console.log("Production style:", slimShow.style.medium || "not specified");
     console.log("Selected image model:", selectedModel);
     console.log("Prompt preview (first 300 chars):", prompt.slice(0, 300) + "...");
     if (body.customPrompt) {

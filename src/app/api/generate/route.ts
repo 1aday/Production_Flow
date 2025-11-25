@@ -13,7 +13,14 @@ CRITICAL RULES:
 
 1. SHOW TITLE: If the user provides a show name/title, use it EXACTLY. Otherwise, create a catchy title.
 
-2. PRODUCTION STYLE - ABSOLUTELY CRITICAL:
+2. GENRE & METADATA (REQUIRED - fill these for better downstream generation):
+   - "genre": Pick the PRIMARY genre from the enum (comedy, drama, thriller, horror, sci_fi, fantasy, action, adventure, mystery, romance, documentary, animation, family, crime)
+   - "mood_keywords": 3-6 words capturing emotional tone (e.g., ["tense", "dark", "mysterious"] or ["whimsical", "heartfelt", "colorful"])
+   - "tagline": Short punchy marketing line (max 80 chars) - NOT the logline, this is for posters (e.g., "In space, no one can hear you scream")
+   - "target_audience": Who is this for? (kids, family, teen, young_adult, adult, mature)
+   - "primary_palette": 3-5 hex colors that define the show's look (e.g., ["#1A1A2E", "#16213E", "#E94560"])
+
+3. PRODUCTION STYLE - ABSOLUTELY CRITICAL:
    You MUST choose ONE specific animation/illustration style from the schema enum. Choose what best fits the show:
    
    FOR COMEDY/SITCOM → "Pixar-style 3D animation" or "Aardman claymation" or "Cartoon Network 2D style"
@@ -25,21 +32,21 @@ CRITICAL RULES:
    
    NEVER EVER choose anything with "live-action" - this leads to photorealistic results that get flagged!
 
-3. VISUAL TREATMENT must emphasize NON-PHOTOGRAPHIC qualities:
+4. VISUAL TREATMENT must emphasize NON-PHOTOGRAPHIC qualities:
    - Use words: "animated", "illustrated", "hand-crafted", "stylized", "cartoon", "painterly", "graphic"
    - Describe: "exaggerated proportions", "bold outlines", "visible brush strokes", "tactile textures"
    - NEVER use: "realistic", "naturalistic", "photographic", "documentary"
 
-4. CINEMATIC REFERENCES - Choose 2-4 from animation/stylized films:
+5. CINEMATIC REFERENCES - Choose 2-4 from animation/stylized films:
    Animation: Pixar films, Studio Ghibli, Wallace & Gromit, Spider-Verse, Laika, Aardman, Disney, Dreamworks
    Stylized: Wes Anderson films, Fantastic Mr Fox, Isle of Dogs, Grand Budapest Hotel
    Illustrated: Arcane, Love Death + Robots, Klaus, The Triplets of Belleville
 
-5. MATERIALS & TEXTURES - Use animation terminology:
+6. MATERIALS & TEXTURES - Use animation terminology:
    WRONG: "realistic skin", "natural textures", "photographic finish"
    RIGHT: "stylized skin tones", "painterly textures", "animated surface treatment", "illustrated finish", "cartoon shading"
 
-6. SPECIES DESIGN - Always animated/stylized:
+7. SPECIES DESIGN - Always animated/stylized:
    - "surface_finish": Use "matte cartoon", "painterly finish", "cel-shaded", "illustrated treatment"
    - NEVER: "realistic", "natural", "photographic"
 
@@ -55,7 +62,14 @@ CRITICAL RULES:
 
 1. SHOW TITLE: If the user provides a show name/title, use it EXACTLY. Otherwise, create a catchy title that fits their concept.
 
-2. PRODUCTION STYLE - FREELY CHOOSE based on user's creative vision:
+2. GENRE & METADATA (REQUIRED - fill these for better downstream generation):
+   - "genre": Pick the PRIMARY genre from the enum (comedy, drama, thriller, horror, sci_fi, fantasy, action, adventure, mystery, romance, documentary, animation, family, crime)
+   - "mood_keywords": 3-6 words capturing emotional tone (e.g., ["gritty", "tense", "realistic"] or ["epic", "sweeping", "dramatic"])
+   - "tagline": Short punchy marketing line (max 80 chars) - NOT the logline, this is for posters (e.g., "The truth has a price")
+   - "target_audience": Who is this for? (kids, family, teen, young_adult, adult, mature)
+   - "primary_palette": 3-5 hex colors that define the show's look (e.g., ["#2C3E50", "#34495E", "#E74C3C"])
+
+3. PRODUCTION STYLE - FREELY CHOOSE based on user's creative vision:
    
    FOR REALISTIC/CINEMATIC REQUESTS (drama, thriller, documentary, prestige TV, etc.):
    - Use: "Live-action cinematic style", "Photorealistic CGI", "Theatrical live-action", "Documentary realism", or "Prestige drama cinematography"
@@ -72,24 +86,24 @@ CRITICAL RULES:
    - Sci-fi epic? → "Photorealistic CGI" or cinematic style
    - Choose what serves the story best - don't default to animation
 
-3. VISUAL TREATMENT - Match your medium choice:
+4. VISUAL TREATMENT - Match your medium choice:
    - For cinematic/realistic: "photorealistic rendering", "cinematic lighting", "naturalistic textures", "realistic skin and materials", "theatrical cinematography", "dramatic realism"
    - For animation: "animated", "illustrated", "stylized", "painterly"
    - IGNORE schema field descriptions that suggest non-photorealistic - those are guidelines only
 
-4. CINEMATIC REFERENCES - Choose 2-4 that match your chosen style:
+5. CINEMATIC REFERENCES - Choose 2-4 that match your chosen style:
    - For realistic: Reference real films/directors (Fincher, Nolan, Villeneuve, Spielberg, Denis Villeneuve, Roger Deakins cinematography, HBO's The Wire, Breaking Bad, True Detective, etc.)
    - For animation: Pixar, Ghibli, Spider-Verse, etc.
 
-5. MATERIALS & TEXTURES - Match the medium:
+6. MATERIALS & TEXTURES - Match the medium:
    - Realistic: "realistic skin with pores and imperfections", "natural textures", "photographic materials", "practical costume fabrics", "real-world surfaces"
    - Animated: "stylized surfaces", "painterly textures", "cartoon shading"
 
-6. SPECIES DESIGN - Match the medium:
+7. SPECIES DESIGN - Match the medium:
    - Realistic: surface_finish should be "realistic skin texture", "naturalistic", "photographic", "lifelike", "practical makeup and prosthetics"
    - Animated: "matte cartoon", "painterly finish", "cel-shaded"
 
-7. POSTER_DESCRIPTION - Be vivid and match the style:
+8. POSTER_DESCRIPTION - Be vivid and match the style:
    - For realistic shows: Describe a cinematic movie poster with real actors, dramatic lighting, photographic quality
    - For animated: Describe in the animation style chosen
 

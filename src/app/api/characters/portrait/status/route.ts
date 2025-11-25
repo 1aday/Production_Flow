@@ -75,7 +75,19 @@ export async function GET(request: NextRequest) {
       status: string; 
       error?: string; 
       output?: unknown;
+      logs?: string;
     };
+    
+    console.log(`   Prediction status: ${prediction.status}`);
+    if (prediction.error) {
+      console.log(`   Prediction error: ${prediction.error}`);
+    }
+    if (prediction.status === "failed" && !prediction.error && prediction.logs) {
+      // Try to extract error from logs
+      console.log(`   Checking logs for error info...`);
+      const logLines = prediction.logs.split('\n').slice(-5);
+      console.log(`   Last log lines:`, logLines.join(' | '));
+    }
     
     let outputUrl: string | undefined;
     
@@ -93,9 +105,27 @@ export async function GET(request: NextRequest) {
       }
     }
     
+    // Build error detail - try multiple sources
+    let errorDetail = prediction.error;
+    if (!errorDetail && prediction.status === "failed") {
+      // Try to get error from logs
+      if (prediction.logs) {
+        const logLines = prediction.logs.split('\n').filter(l => l.trim());
+        const errorLine = logLines.find(l => l.toLowerCase().includes('error') || l.toLowerCase().includes('failed'));
+        if (errorLine) {
+          errorDetail = errorLine.trim();
+        } else if (logLines.length > 0) {
+          errorDetail = `Generation failed. Last log: ${logLines[logLines.length - 1].slice(0, 200)}`;
+        }
+      }
+      if (!errorDetail) {
+        errorDetail = "Generation failed with no error message. This may be due to content moderation.";
+      }
+    }
+    
     return NextResponse.json({
       status: prediction.status,
-      detail: prediction.error || undefined,
+      detail: errorDetail,
       outputUrl,
     });
   } catch (error) {

@@ -40,8 +40,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { calculateShowCompletion } from "@/lib/show-completion";
-import { LIBRARY_LOAD_STORAGE_KEY } from "@/lib/constants";
 import { sanitizeText, getDisplayName } from "@/lib/text-utils";
+import { getShowUrl } from "@/lib/slug";
+import { ShowFormatVisualizer, type ShowFormat } from "@/components/ShowFormatVisualizer";
+import { EpisodeCards, type Episode } from "@/components/EpisodeCards";
+import { Navbar } from "@/components/Navbar";
 
 type ShowAssets = {
   portraits: string[];
@@ -56,7 +59,7 @@ type ShowAssets = {
 type GeneratedContent = {
   hero_tagline: string;
   expanded_description: string[];
-  character_highlights: Record<string, string>;
+  character_highlights: Array<{ character_id: string; highlight: string }>;
   visual_identity: string;
   unique_features: string[];
   behind_the_scenes: string;
@@ -155,14 +158,19 @@ type CharacterDoc = {
   showcase_scene_prompt?: string;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Blueprint = Record<string, any>;
+
 type ShowData = {
   id: string;
   title: string;
   showTitle?: string;
-  blueprint: any;
+  blueprint: Blueprint;
   videoAspectRatio?: "portrait" | "landscape";
   characterSeeds?: CharacterSeed[];
   characterDocs?: Record<string, CharacterDoc>;
+  showFormat?: ShowFormat;
+  episodes?: Episode[];
 };
 
 export default function ShowPageClient({ showId }: { showId: string }) {
@@ -271,14 +279,24 @@ export default function ShowPageClient({ showId }: { showId: string }) {
       });
       setCompletionStatus(completion);
 
-      setGeneratingContent(true);
-      const contentResponse = await fetch(`/api/show/${showId}/generate-content`, {
-        method: "POST",
-      });
-
-      if (contentResponse.ok) {
-        const contentData = await contentResponse.json();
-        setGeneratedContent(contentData.content);
+      // Check if we already have generated content from the database
+      if (data.show.generatedContent) {
+        console.log("📦 Using cached generated content");
+        setGeneratedContent(data.show.generatedContent);
+      } else {
+        // Generate content in background - don't block page load
+        setGeneratingContent(true);
+        fetch(`/api/show/${showId}/generate-content`, {
+          method: "POST",
+        })
+          .then(res => res.ok ? res.json() : null)
+          .then(contentData => {
+            if (contentData?.content) {
+              setGeneratedContent(contentData.content);
+            }
+          })
+          .catch(err => console.warn("Failed to generate content:", err))
+          .finally(() => setGeneratingContent(false));
       }
     } catch (error) {
       console.error("Error loading show:", error);
@@ -286,7 +304,6 @@ export default function ShowPageClient({ showId }: { showId: string }) {
       alert(`Failed to load show: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
-      setGeneratingContent(false);
     }
   }, [showId, router]);
 
@@ -371,17 +388,25 @@ export default function ShowPageClient({ showId }: { showId: string }) {
   };
 
   const continueProduction = () => {
-    // Store the show ID in sessionStorage so console page can load it
-    sessionStorage.setItem(LIBRARY_LOAD_STORAGE_KEY, showId);
-    router.push("/console");
+    // Navigate directly to the console with the show ID in the URL
+    const consoleUrl = getShowUrl({
+      id: showId,
+      title: showData?.title,
+      showTitle: showData?.showTitle,
+      blueprint: showData?.blueprint,
+    }).replace('/show/', '/console/');
+    router.push(consoleUrl);
   };
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-foreground/60">Loading show...</p>
+      <div className="min-h-screen bg-black">
+        <Navbar variant="solid" />
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-foreground/60">Loading show...</p>
+          </div>
         </div>
       </div>
     );
@@ -389,8 +414,11 @@ export default function ShowPageClient({ showId }: { showId: string }) {
 
   if (!showData || !assets) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
-        <p className="text-foreground/60">Show not found</p>
+      <div className="min-h-screen bg-black">
+        <Navbar variant="solid" />
+        <div className="flex min-h-screen items-center justify-center">
+          <p className="text-foreground/60">Show not found</p>
+        </div>
       </div>
     );
   }
@@ -417,45 +445,37 @@ export default function ShowPageClient({ showId }: { showId: string }) {
 
   return (
     <div className="show-page min-h-screen bg-black text-foreground w-full overflow-x-hidden relative" style={{ margin: 0, padding: 0 }}>
-      {/* Fixed Header */}
-      <div className="fixed top-0 z-50 border-b border-white/10 bg-black/95 backdrop-blur-xl safe-area-inset-top" style={{ left: 0, right: 0 }}>
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-2.5 sm:px-6 sm:py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push("/library")}
-            className="rounded-full font-semibold text-xs sm:text-sm min-h-[44px] min-w-[44px] touch-manipulation"
-          >
-            <ArrowLeft className="h-4 w-4 sm:h-4 sm:w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Back to Library</span>
-            <span className="sm:hidden ml-1">Back</span>
-          </Button>
+      {/* Navbar */}
+      <Navbar variant="solid" />
 
+      {/* Show-specific action bar */}
+      <div className="fixed top-[72px] left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
+        <div className="mx-auto flex max-w-7xl items-center justify-end px-4 py-2 sm:px-6">
           <div className="flex gap-1.5 sm:gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={downloadShow}
-              className="rounded-full text-xs sm:text-sm min-h-[44px] min-w-[44px] touch-manipulation px-3 sm:px-4"
+              className="rounded-full text-xs sm:text-sm h-9 touch-manipulation px-3 sm:px-4"
             >
-              <Download className="h-4 w-4 sm:h-4 sm:w-4 sm:mr-2" />
+              <Download className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Download</span>
             </Button>
             <Button
               variant="default"
               size="sm"
               onClick={copyShareUrl}
-              className="rounded-full text-xs sm:text-sm min-h-[44px] min-w-[44px] touch-manipulation px-3 sm:px-4"
+              className="rounded-full text-xs sm:text-sm h-9 touch-manipulation px-3 sm:px-4"
             >
               {copied ? (
                 <>
-                  <CheckCircle2 className="h-4 w-4 sm:h-4 sm:w-4 sm:mr-2" />
+                  <CheckCircle2 className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Copied!</span>
                   <span className="sm:hidden">✓</span>
                 </>
               ) : (
                 <>
-                  <Share2 className="h-4 w-4 sm:h-4 sm:w-4 sm:mr-2" />
+                  <Share2 className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Share</span>
                 </>
               )}
@@ -464,8 +484,8 @@ export default function ShowPageClient({ showId }: { showId: string }) {
         </div>
       </div>
 
-      {/* Spacer for fixed header */}
-      <div className="h-[52px] sm:h-[68px]" />
+      {/* Spacer for fixed header + action bar */}
+      <div className="h-[120px] sm:h-[120px]" />
 
       {/* Incomplete Show Banner */}
       {completionStatus && !completionStatus.isFullyComplete && (
@@ -767,6 +787,32 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           </section>
         )}
 
+        {/* Series Format & Episodes */}
+        {(showData?.showFormat || (showData?.episodes && showData.episodes.length > 0)) && (
+          <section className="space-y-6 sm:space-y-8 w-full">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Film className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
+              <h2 className="font-serif text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold leading-tight">Series Format & Season One</h2>
+            </div>
+
+            {/* Episode Format Overview - Interactive */}
+            {showData?.showFormat && (
+              <ShowFormatVisualizer 
+                format={showData.showFormat} 
+                showTitle={showData?.showTitle || showData?.blueprint?.show_title || "Show"} 
+              />
+            )}
+
+            {/* Episode List */}
+            {showData?.episodes && showData.episodes.length > 0 && (
+              <EpisodeCards 
+                episodes={showData.episodes} 
+                characterSeeds={showData.characterSeeds?.map(s => ({ id: s.id, name: s.name }))} 
+              />
+            )}
+          </section>
+        )}
+
         {/* Lookbook & Key Visuals */}
         {(assets.portraitGrid || previewPortraits.length > 0) && (
           <section className="space-y-4 sm:space-y-6 lg:space-y-8 w-full">
@@ -927,13 +973,16 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                         )}
 
                         {/* AI Highlight */}
-                        {generatedContent?.character_highlights?.[character.id] && (
-                          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 sm:p-4">
-                            <p className="text-xs sm:text-sm leading-relaxed text-foreground/80 italic">
-                              {generatedContent.character_highlights[character.id]}
-                            </p>
-                          </div>
-                        )}
+                        {(() => {
+                          const highlight = generatedContent?.character_highlights?.find(h => h.character_id === character.id);
+                          return highlight ? (
+                            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 sm:p-4">
+                              <p className="text-xs sm:text-sm leading-relaxed text-foreground/80 italic">
+                                {highlight.highlight}
+                              </p>
+                            </div>
+                          ) : null;
+                        })()}
 
                         {/* Expand Button */}
                         <Button
@@ -1337,7 +1386,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
             </div>
 
             <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-              {visualAesthetics.species_design.types.map((type: any, idx: number) => (
+              {visualAesthetics.species_design.types.map((type: Blueprint, idx: number) => (
                 <div
                   key={idx}
                   className="space-y-3 sm:space-y-4 rounded-xl sm:rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-4 sm:p-5 lg:p-6"
@@ -1609,7 +1658,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
             </div>
 
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {visualAesthetics.sets_and_prop_visuals.primary_sets.map((set: any, i: number) => (
+              {visualAesthetics.sets_and_prop_visuals.primary_sets.map((set: string, i: number) => (
                 <div
                   key={i}
                   className="flex items-center gap-2.5 sm:gap-3 rounded-lg sm:rounded-xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-3 sm:p-4"
@@ -1789,7 +1838,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
             </div>
 
             <div className="space-y-3 sm:space-y-4">
-              {generatedContent.episode_concepts.map((episode: any, i: number) => (
+              {generatedContent.episode_concepts.map((episode: Blueprint, i: number) => (
                 <div
                   key={i}
                   className="rounded-xl sm:rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-4 sm:p-5 lg:p-6"

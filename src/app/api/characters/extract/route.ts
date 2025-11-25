@@ -16,6 +16,11 @@ type CharacterSeed = {
   summary: string;
   role?: string;
   vibe?: string;
+  // New fields for better portrait generation
+  gender?: string;
+  age_range?: string;
+  species_hint?: string;
+  key_visual_trait?: string;
 };
 
 const MAX_SEEDS = 10;
@@ -33,13 +38,32 @@ const structuredSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "name", "summary", "role", "vibe"],
+        required: ["id", "name", "summary", "role", "vibe", "gender", "age_range", "species_hint", "key_visual_trait"],
         properties: {
           id: { type: "string", description: "kebab-case identifier" },
           name: { type: "string" },
-          summary: { type: "string" },
-          role: { type: ["string", "null"] },
-          vibe: { type: ["string", "null"] },
+          summary: { type: "string", description: "Brief character description (max 280 chars)" },
+          role: { type: ["string", "null"], description: "Character role: Protagonist, Supporting, Antagonist, etc." },
+          vibe: { type: ["string", "null"], description: "Personality/energy descriptor" },
+          gender: { 
+            type: ["string", "null"], 
+            enum: ["male", "female", "non_binary", "other", null],
+            description: "Character's gender presentation for visual generation" 
+          },
+          age_range: { 
+            type: ["string", "null"], 
+            enum: ["child", "teen", "young_adult", "adult", "middle_aged", "elderly", null],
+            description: "Approximate age range for visual generation" 
+          },
+          species_hint: { 
+            type: ["string", "null"], 
+            enum: ["human", "humanoid", "creature", "robot", "animal", "other", null],
+            description: "Species type for visual generation" 
+          },
+          key_visual_trait: { 
+            type: ["string", "null"], 
+            description: "Most distinctive physical feature (e.g., 'red curly hair', 'cybernetic arm', 'glowing eyes')" 
+          },
         },
       },
     },
@@ -49,11 +73,18 @@ const structuredSchema = {
 const systemPromptStylized = `You are a casting researcher and story analyst.
 Given a show concept, list up to ten distinct characters that appear or should appear.
 If no explicit characters are provided, invent ten that would anchor the story.
-For each character provide:
-- an "id" in kebab-case,
-- the "name",
-- a short "summary" (<= 280 characters),
-- a "role" (use null if unknown) and a "vibe" descriptor (use null if unknown).
+
+For each character provide ALL of the following:
+- "id": kebab-case identifier (unique, derived from name)
+- "name": Character's full name
+- "summary": Brief description (<= 280 characters)
+- "role": Character role (Protagonist, Supporting, Antagonist, Mentor, Comic Relief, etc.) or null
+- "vibe": Personality/energy descriptor (e.g., "mysterious and brooding", "cheerful optimist") or null
+- "gender": One of: "male", "female", "non_binary", "other", or null
+- "age_range": One of: "child", "teen", "young_adult", "adult", "middle_aged", "elderly", or null
+- "species_hint": One of: "human", "humanoid", "creature", "robot", "animal", "other", or null
+- "key_visual_trait": Most distinctive physical feature (e.g., "bright red hair", "mechanical arm", "scar across face") or null
+
 Use concise language and ensure identifiers are unique.
 
 IMPORTANT: Avoid using "realistic" or "photorealistic" in summaries or vibes. Use terms like "cinematic", "theatrical", "stylized" instead.`;
@@ -61,13 +92,19 @@ IMPORTANT: Avoid using "realistic" or "photorealistic" in summaries or vibes. Us
 const systemPromptRealistic = `You are a casting researcher and story analyst.
 Given a show concept, list up to ten distinct characters that appear or should appear.
 If no explicit characters are provided, invent ten that would anchor the story.
-For each character provide:
-- an "id" in kebab-case,
-- the "name",
-- a short "summary" (<= 280 characters),
-- a "role" (use null if unknown) and a "vibe" descriptor (use null if unknown).
-Use concise language and ensure identifiers are unique.
 
+For each character provide ALL of the following:
+- "id": kebab-case identifier (unique, derived from name)
+- "name": Character's full name
+- "summary": Brief description (<= 280 characters)
+- "role": Character role (Protagonist, Supporting, Antagonist, Mentor, Comic Relief, etc.) or null
+- "vibe": Personality/energy descriptor (e.g., "mysterious and brooding", "cheerful optimist") or null
+- "gender": One of: "male", "female", "non_binary", "other", or null
+- "age_range": One of: "child", "teen", "young_adult", "adult", "middle_aged", "elderly", or null
+- "species_hint": One of: "human", "humanoid", "creature", "robot", "animal", "other", or null
+- "key_visual_trait": Most distinctive physical feature (e.g., "bright red hair", "mechanical arm", "scar across face") or null
+
+Use concise language and ensure identifiers are unique.
 Use descriptive terms appropriate to the show's style - whether animated, stylized, realistic, or any other aesthetic.`;
 
 const trimJSON = (input: unknown): string | undefined => {
@@ -109,6 +146,12 @@ const normalizeSeeds = (items: unknown): CharacterSeed[] => {
     const providedId =
       typeof record.id === "string" && record.id.trim() ? record.id : undefined;
 
+    // New fields
+    const gender = typeof record.gender === "string" ? record.gender : undefined;
+    const age_range = typeof record.age_range === "string" ? record.age_range : undefined;
+    const species_hint = typeof record.species_hint === "string" ? record.species_hint : undefined;
+    const key_visual_trait = typeof record.key_visual_trait === "string" ? record.key_visual_trait : undefined;
+
     const baseId = slugify(providedId || name);
     let uniqueId = baseId || `character-${index + 1}`;
     if (!uniqueId) {
@@ -120,7 +163,17 @@ const normalizeSeeds = (items: unknown): CharacterSeed[] => {
     }
     seen.add(uniqueId);
 
-    return { id: uniqueId, name, summary, role, vibe };
+    return { 
+      id: uniqueId, 
+      name, 
+      summary, 
+      role, 
+      vibe,
+      gender,
+      age_range,
+      species_hint,
+      key_visual_trait,
+    };
   });
 };
 

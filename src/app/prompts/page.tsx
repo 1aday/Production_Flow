@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, RotateCcw, Settings, Loader2, Sparkles, User, Image as ImageIcon, Video, Film, Clapperboard } from "lucide-react";
+import { Save, RotateCcw, Loader2, Sparkles, User, Image as ImageIcon, Video, Film, Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Navbar } from "@/components/Navbar";
 
 type PromptTemplates = {
   id: string;
@@ -22,7 +22,6 @@ type PromptTemplates = {
 };
 
 export default function PromptsPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [templates, setTemplates] = useState<PromptTemplates | null>(null);
@@ -103,10 +102,13 @@ export default function PromptsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-foreground">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <p className="text-foreground/70">Loading prompt templates...</p>
+      <div className="min-h-screen bg-black text-foreground">
+        <Navbar variant="solid" />
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+            <p className="text-foreground/70">Loading prompt templates...</p>
+          </div>
         </div>
       </div>
     );
@@ -115,14 +117,11 @@ export default function PromptsPage() {
   if (error || !templates) {
     return (
       <div className="min-h-screen bg-black text-foreground">
-        <div className="max-w-4xl mx-auto px-6 py-12">
+        <Navbar variant="solid" />
+        <div className="max-w-4xl mx-auto px-6 py-12 pt-24">
           <div className="space-y-4 text-center">
             <p className="text-red-400 font-semibold">Failed to load prompt templates</p>
             <p className="text-sm text-foreground/60">{error || "Database error"}</p>
-            <Button onClick={() => router.push("/")}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
-            </Button>
           </div>
         </div>
       </div>
@@ -131,27 +130,17 @@ export default function PromptsPage() {
 
   return (
     <div className="min-h-screen bg-black text-foreground">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-white/12 bg-black/95 backdrop-blur-md">
+      {/* Navbar */}
+      <Navbar variant="solid" />
+      
+      {/* Page Header */}
+      <div className="pt-20 border-b border-white/10">
         <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-4 px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/")}
-              className="rounded-full"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <div>
-                <h1 className="text-lg font-semibold uppercase tracking-[0.32em] text-primary">
-                  AI Prompts
-                </h1>
-                <p className="text-xs text-foreground/50">Global templates for all shows</p>
-              </div>
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <div>
+              <h1 className="text-lg font-semibold">AI Prompts</h1>
+              <p className="text-xs text-foreground/50">Global templates for all shows</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -187,7 +176,7 @@ export default function PromptsPage() {
             </Button>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6 pb-32">
         {/* Info Banner */}

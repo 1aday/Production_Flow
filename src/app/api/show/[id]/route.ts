@@ -52,6 +52,9 @@ export async function GET(
         show.video_aspect_ratio ??
         show.blueprint?.video_aspect_ratio ??
         show.blueprint?.videoAspectRatio,
+      // Episode format and loglines
+      showFormat: show.show_format,
+      episodes: show.episodes,
     };
     
     // Gather assets from the show data

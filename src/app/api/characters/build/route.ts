@@ -4,6 +4,7 @@ import { promises as fs } from "fs";
 import path from "path";
 
 import { CHARACTER_DOCUMENT_SCHEMA } from "@/lib/character-schema";
+import { createStyleSnapshot, type FullShowBlueprint } from "@/lib/prompt-extraction";
 
 type ModelId = "gpt-5" | "gpt-4o";
 
@@ -273,10 +274,18 @@ Instructions:
       );
     }
 
+    // Create style snapshot (slim version) for quick reference
+    const styleSnapshot = createStyleSnapshot(body.show as FullShowBlueprint);
+    
     const characterDoc = {
       ...(parsed as Record<string, unknown>),
       character: body.seed.id,
-      inherits: showBlueprintString,
+      // New: slim style snapshot for quick reference
+      style_snapshot: styleSnapshot,
+      // Legacy: keep inherits for backwards compatibility, but limit size
+      inherits: showBlueprintString.length > 5000 
+        ? showBlueprintString.slice(0, 5000) + "..."
+        : showBlueprintString,
     };
 
     return NextResponse.json({ character: characterDoc }, { status: 200 });
