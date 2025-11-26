@@ -102,10 +102,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     
     const ogImageUrl = `${baseUrl}/api/og?${ogParams.toString()}`;
     
-    // WhatsApp-compatible dimensions (1.91:1 aspect ratio)
+    // WhatsApp-compatible: 1200x630, WEBP format required
     const imageWidth = 1200;
     const imageHeight = 630;
-    const imageType = "image/png";
+    const imageType = "image/webp";
 
     // Create keywords for better discoverability
     const keywords = [

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Library, Loader2, Trash2, Copy, CheckCircle2, Clock, Settings, Eye } from "lucide-react";
+import { Library, Loader2, Trash2, Copy, CheckCircle2, Clock, Settings, Eye, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Navbar } from "@/components/Navbar";
@@ -233,6 +233,19 @@ export default function LibraryPage() {
                     ? 'opacity-100' 
                     : 'opacity-0 md:opacity-0 md:group-hover:opacity-100'
                 }`}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      loadShow(show);
+                    }}
+                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-purple-500/80 active:scale-95"
+                    title="Open in Console"
+                  >
+                    <Terminal className="h-5 w-5 sm:h-4 sm:w-4" />
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"

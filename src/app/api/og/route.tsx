@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const genre = searchParams.get('genre') || '';
     const logline = searchParams.get('logline') || '';
 
-    // Canvas dimensions - 1200x630 for social media compatibility
+    // Canvas dimensions - 1200x630 for WhatsApp (requires WEBP format)
     const WIDTH = 1200;
     const HEIGHT = 630;
 
@@ -57,10 +57,10 @@ export async function GET(request: NextRequest) {
           // Resize poster
           const resizedPoster = await sharp(posterBuffer)
             .resize(scaledWidth, scaledHeight, { fit: 'inside' })
-            .png()
+            .png() // Keep as PNG for compositing
             .toBuffer();
           
-          // Create the final image - poster centered on dark background
+          // Create the final image - poster centered on dark background, output as WEBP for WhatsApp
           const finalImage = await sharp({
             create: {
               width: WIDTH,
@@ -76,14 +76,14 @@ export async function GET(request: NextRequest) {
                 top: posterY,
               },
             ])
-            .png()
+            .webp({ quality: 90 })
             .toBuffer();
           
-          console.log('OG: Poster centered, size:', finalImage.length, 'bytes');
+          console.log('OG: Poster centered (WEBP), size:', finalImage.length, 'bytes');
           
           return new NextResponse(new Uint8Array(finalImage), {
             headers: {
-              'Content-Type': 'image/png',
+              'Content-Type': 'image/webp',
               'Cache-Control': 'public, max-age=31536000, immutable',
             },
           });
@@ -94,115 +94,82 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // No poster or poster failed - generate text-only fallback
-    console.log('OG: No poster, generating text fallback for:', title);
+    // No poster or poster failed - generate text-only fallback as WEBP
+    console.log('OG: No poster, generating text fallback (WEBP) for:', title);
     
-    const { ImageResponse } = await import('next/og');
+    const displayTitle = title.length > 50 ? title.substring(0, 47) + '...' : title;
+    const displayLogline = logline.length > 120 ? logline.substring(0, 117) + '...' : logline;
     
-    return new ImageResponse(
-      (
-        <div
-          style={{
-            height: '100%',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#0a0a0a',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              position: 'absolute',
-              top: 40,
-              left: 60,
-              fontSize: 24,
-              fontWeight: 700,
-              color: '#ffffff',
-            }}
-          >
-            AS YOU WISH
-          </div>
-          
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 60,
-              maxWidth: '90%',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                fontSize: 72,
-                fontWeight: 800,
-                color: '#ffffff',
-                textAlign: 'center',
-                marginBottom: 30,
-                lineHeight: 1.1,
-              }}
-            >
-              {title}
-            </div>
-            
-            {genre && (
-              <div
-                style={{
-                  display: 'flex',
-                  backgroundColor: '#222222',
-                  padding: '12px 28px',
-                  borderRadius: 30,
-                  fontSize: 24,
-                  fontWeight: 600,
-                  color: '#ffffff',
-                  marginBottom: 30,
-                }}
-              >
-                {genre.toUpperCase()}
-              </div>
-            )}
-            
-            {logline && (
-              <div
-                style={{
-                  display: 'flex',
-                  fontSize: 28,
-                  color: '#aaaaaa',
-                  textAlign: 'center',
-                  lineHeight: 1.4,
-                }}
-              >
-                {logline.length > 150 ? logline.substring(0, 147) + '...' : logline}
-              </div>
-            )}
-          </div>
-          
-          <div
-            style={{
-              display: 'flex',
-              position: 'absolute',
-              bottom: 40,
-              right: 60,
-              fontSize: 18,
-              color: '#666666',
-            }}
-          >
-            AI Show Bible Generator
-          </div>
-        </div>
-      ),
-      {
+    // Create SVG text overlay
+    const svgText = `
+      <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+        <style>
+          .brand { fill: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-weight: 700; font-size: 24px; }
+          .title { fill: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-weight: 800; font-size: 64px; }
+          .genre { fill: #ffffff; font-family: system-ui, -apple-system, sans-serif; font-weight: 600; font-size: 22px; }
+          .logline { fill: #aaaaaa; font-family: system-ui, -apple-system, sans-serif; font-weight: 400; font-size: 24px; }
+          .tagline { fill: #666666; font-family: system-ui, -apple-system, sans-serif; font-weight: 400; font-size: 18px; }
+        </style>
+        
+        <!-- Brand -->
+        <text x="60" y="60" class="brand">AS YOU WISH</text>
+        
+        <!-- Title (centered) -->
+        <text x="${WIDTH / 2}" y="${HEIGHT / 2 - 30}" text-anchor="middle" class="title">${escapeXml(displayTitle)}</text>
+        
+        <!-- Genre pill -->
+        ${genre ? `
+          <rect x="${WIDTH / 2 - 80}" y="${HEIGHT / 2 + 10}" width="160" height="36" rx="18" fill="#333333"/>
+          <text x="${WIDTH / 2}" y="${HEIGHT / 2 + 35}" text-anchor="middle" class="genre">${escapeXml(genre.toUpperCase())}</text>
+        ` : ''}
+        
+        <!-- Logline -->
+        ${displayLogline ? `
+          <text x="${WIDTH / 2}" y="${HEIGHT / 2 + 90}" text-anchor="middle" class="logline">${escapeXml(displayLogline)}</text>
+        ` : ''}
+        
+        <!-- Tagline -->
+        <text x="${WIDTH - 60}" y="${HEIGHT - 40}" text-anchor="end" class="tagline">AI Show Bible Generator</text>
+      </svg>
+    `;
+    
+    // Create WEBP image with text
+    const fallbackImage = await sharp({
+      create: {
         width: WIDTH,
         height: HEIGHT,
-      }
-    );
+        channels: 4,
+        background: { r: 10, g: 10, b: 10, alpha: 1 },
+      },
+    })
+      .composite([
+        {
+          input: Buffer.from(svgText),
+          left: 0,
+          top: 0,
+        },
+      ])
+      .webp({ quality: 90 })
+      .toBuffer();
+    
+    return new NextResponse(new Uint8Array(fallbackImage), {
+      headers: {
+        'Content-Type': 'image/webp',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
+    });
   } catch (error) {
     console.error('OG: Error:', error);
     return new NextResponse('Failed to generate image', { status: 500 });
   }
+}
+
+// Helper to escape XML special characters
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }

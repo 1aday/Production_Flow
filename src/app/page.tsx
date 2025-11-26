@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Sparkles, ArrowRight, Play, Loader2, Trash2, Zap, CheckCircle2 } from "lucide-react";
+import { Sparkles, ArrowRight, Play, Loader2, Trash2, Zap, CheckCircle2, ChevronDown, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/Navbar";
 import { STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
@@ -171,10 +171,6 @@ export default function LandingPage() {
     setStylizationGuardrails((prev) => !prev);
   };
 
-  const guardrailButtonClasses = stylizationGuardrails
-    ? "border-primary/60 bg-primary/20 text-white hover:bg-primary/30"
-    : "border-white/25 bg-transparent text-white/70 hover:bg-white/10";
-
   const handleSubmit = async () => {
     if (!input.trim()) return;
     
@@ -187,6 +183,7 @@ export default function LandingPage() {
   const [videoLightbox, setVideoLightbox] = useState<{ url: string; title: string } | null>(null);
   const [hoveredShow, setHoveredShow] = useState<string | null>(null);
   const [tappedShow, setTappedShow] = useState<string | null>(null);
+  const [settingsExpanded, setSettingsExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea based on content
@@ -297,127 +294,136 @@ export default function LandingPage() {
               />
             </div>
 
-            {/* Compact Settings Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Stylization Guardrails */}
-              <Button
+            {/* Collapsible Settings Panel */}
+            <div className="rounded-xl border border-white/15 bg-black/40 backdrop-blur-sm overflow-hidden">
+              {/* Settings Header - Always Visible */}
+              <button
                 type="button"
-                variant="outline"
-                onClick={toggleStylizationGuardrails}
-                className={cn(
-                  "h-auto py-3 px-4 rounded-xl text-left transition-all",
-                  guardrailButtonClasses
-                )}
+                onClick={() => setSettingsExpanded(!settingsExpanded)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <Sparkles className="h-4 w-4 text-primary shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold">Stylization Guardrails</p>
-                    <p className="text-[10px] text-white/60 mt-0.5">
-                      {stylizationGuardrails ? "Stylized enforced" : "Photoreal unlocked"}
-                    </p>
-                  </div>
-                  <div className={cn(
-                    "h-1.5 w-1.5 rounded-full shrink-0",
-                    stylizationGuardrails ? "bg-primary" : "bg-white/30"
+                  <Settings2 className="h-4 w-4 text-white/60" />
+                  <span className="text-sm font-medium text-white/90">Settings</span>
+                </div>
+                
+                {/* Compact Summary when collapsed */}
+                <div className="flex items-center gap-2">
+                  {!settingsExpanded && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-white/50">
+                      <span className="px-1.5 py-0.5 rounded bg-white/10">
+                        {IMAGE_MODEL_OPTIONS.find(m => m.id === imageModel)?.label}
+                      </span>
+                      <span className="text-white/30">•</span>
+                      <span className="px-1.5 py-0.5 rounded bg-white/10">
+                        {VIDEO_MODEL_OPTIONS.find(m => m.id === videoModel)?.label}
+                      </span>
+                      {autopilotMode && (
+                        <>
+                          <span className="text-white/30">•</span>
+                          <span className="px-1.5 py-0.5 rounded bg-primary/20 text-primary">
+                            <Zap className="h-3 w-3 inline" />
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <ChevronDown className={cn(
+                    "h-4 w-4 text-white/40 transition-transform duration-200",
+                    settingsExpanded && "rotate-180"
                   )} />
                 </div>
-              </Button>
+              </button>
 
-              {/* Autopilot Mode */}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setAutopilotMode(!autopilotMode)}
-                className={cn(
-                  "h-auto py-3 px-4 rounded-xl text-left transition-all",
-                  autopilotMode
-                    ? "border-primary/60 bg-primary/20 text-white hover:bg-primary/30"
-                    : "border-white/25 bg-transparent text-white/70 hover:bg-white/10"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Zap className="h-4 w-4 text-primary shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold">Autopilot Mode</p>
-                    <p className="text-[10px] text-white/60 mt-0.5">
-                      {autopilotMode ? "Auto-generate all" : "Manual control"}
-                    </p>
+              {/* Expandable Content */}
+              <div className={cn(
+                "grid transition-all duration-300 ease-out",
+                settingsExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              )}>
+                <div className="overflow-hidden">
+                  <div className="px-4 pb-4 space-y-4 border-t border-white/10 pt-4">
+                    {/* Quick Toggles */}
+                    <div className="flex flex-wrap gap-2">
+                      {/* Autopilot Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setAutopilotMode(!autopilotMode)}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all",
+                          autopilotMode
+                            ? "border-primary/60 bg-primary/15 text-white"
+                            : "border-white/20 bg-transparent text-white/60 hover:bg-white/5"
+                        )}
+                      >
+                        <Zap className={cn("h-3.5 w-3.5", autopilotMode ? "text-primary" : "text-white/40")} />
+                        Autopilot
+                        {autopilotMode && <CheckCircle2 className="h-3 w-3 text-primary" />}
+                      </button>
+
+                      {/* Guardrails Toggle */}
+                      <button
+                        type="button"
+                        onClick={toggleStylizationGuardrails}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all",
+                          stylizationGuardrails
+                            ? "border-primary/60 bg-primary/15 text-white"
+                            : "border-white/20 bg-transparent text-white/60 hover:bg-white/5"
+                        )}
+                      >
+                        <Sparkles className={cn("h-3.5 w-3.5", stylizationGuardrails ? "text-primary" : "text-white/40")} />
+                        Stylization
+                        {stylizationGuardrails && <CheckCircle2 className="h-3 w-3 text-primary" />}
+                      </button>
+                    </div>
+
+                    {/* Model Selection - Horizontal Scrollable */}
+                    <div className="space-y-3">
+                      {/* Image Model */}
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Image Model</p>
+                        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+                          {IMAGE_MODEL_OPTIONS.map((option) => (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => setImageModel(option.id)}
+                              className={cn(
+                                "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all whitespace-nowrap",
+                                imageModel === option.id
+                                  ? "border-primary bg-primary/15 text-white font-medium"
+                                  : "border-white/15 bg-transparent text-white/60 hover:bg-white/5 hover:border-white/25"
+                              )}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Video Model */}
+                      <div className="space-y-1.5">
+                        <p className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Video Model</p>
+                        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+                          {VIDEO_MODEL_OPTIONS.map((option) => (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => setVideoModel(option.id)}
+                              className={cn(
+                                "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all whitespace-nowrap",
+                                videoModel === option.id
+                                  ? "border-primary bg-primary/15 text-white font-medium"
+                                  : "border-white/15 bg-transparent text-white/60 hover:bg-white/5 hover:border-white/25"
+                              )}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className={cn(
-                    "h-1.5 w-1.5 rounded-full shrink-0",
-                    autopilotMode ? "bg-primary" : "bg-white/30"
-                  )} />
-                </div>
-              </Button>
-            </div>
-
-            {/* Model Selection - Compact Grid */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-white/90">
-                  AI Models
-                </label>
-                <p className="text-xs text-white/50">Select your generation engines</p>
-              </div>
-              
-              {/* Image Model */}
-              <div className="space-y-2">
-                <p className="text-xs text-white/70 font-medium">Image Generation</p>
-                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2">
-                  {IMAGE_MODEL_OPTIONS.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setImageModel(option.id)}
-                      className={cn(
-                        "relative rounded-lg border p-3 sm:p-2.5 text-left transition-all hover:border-white/30 min-h-[56px] sm:min-h-0",
-                        imageModel === option.id
-                          ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.2)]"
-                          : "border-white/15 bg-black/40 backdrop-blur-sm"
-                      )}
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-semibold text-white text-sm sm:text-xs">{option.label}</p>
-                          {imageModel === option.id && (
-                            <CheckCircle2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-primary shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-xs sm:text-[10px] text-white/60">{option.description}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Video Model */}
-              <div className="space-y-2">
-                <p className="text-xs text-white/70 font-medium">Video Generation</p>
-                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2">
-                  {VIDEO_MODEL_OPTIONS.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setVideoModel(option.id)}
-                      className={cn(
-                        "relative rounded-lg border p-3 sm:p-2.5 text-left transition-all hover:border-white/30 min-h-[56px] sm:min-h-0",
-                        videoModel === option.id
-                          ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(229,9,20,0.2)]"
-                          : "border-white/15 bg-black/40 backdrop-blur-sm"
-                      )}
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-semibold text-white text-sm sm:text-xs">{option.label}</p>
-                          {videoModel === option.id && (
-                            <CheckCircle2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-primary shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-xs sm:text-[10px] text-white/60">{option.description}</p>
-                      </div>
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>

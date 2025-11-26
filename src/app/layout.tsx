@@ -62,7 +62,7 @@ export const metadata: Metadata = {
         width: 1200,
         height: 630,
         alt: "As You Wish - AI Show Bible Generator",
-        type: "image/png",
+        type: "image/webp",
       },
     ],
   },
