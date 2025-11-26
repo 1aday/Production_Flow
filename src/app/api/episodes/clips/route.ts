@@ -63,7 +63,9 @@ export async function POST(request: NextRequest) {
     ? `CONTINUITY: This follows from "${previousScene.slice(0, 100)}..."` 
     : "";
 
-  const prompt = `Animate this scene from a ${genre || "dramatic"} TV series.
+  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
+  
+  const prompt = SAFETY_PREFIX + `Animate this scene from a ${genre || "dramatic"} TV series.
 
 SCENE: ${sectionLabel} - ${sectionDescription}
 

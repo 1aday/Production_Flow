@@ -69,8 +69,13 @@ const VIDEO_MODELS: Record<VideoModelId, VideoModelConfig> = {
       // VEO 3.1 uses reference_images instead of input_reference
       // and different parameter names
       const veoAspectRatio = aspectRatio === "portrait" ? "9:16" : "16:9";
+      // VEO 3.1 API has a known bug where it ignores aspect_ratio parameter
+      // Adding explicit orientation to prompt as workaround
+      const orientationPrefix = aspectRatio === "portrait" 
+        ? "CRITICAL: Generate this as a VERTICAL 9:16 PORTRAIT video for mobile viewing. Frame all shots in portrait/vertical orientation. "
+        : "";
       return {
-        prompt,
+        prompt: orientationPrefix + prompt,
         duration: seconds,
         aspect_ratio: veoAspectRatio,
         resolution: resolution ?? "1080p",
