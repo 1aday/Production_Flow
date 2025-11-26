@@ -75,9 +75,9 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stylizationGuardrails, setStylizationGuardrails] = useState(false);
-  const [imageModel, setImageModel] = useState<ImageModelId>("gpt-image");
-  const [videoModel, setVideoModel] = useState<VideoModelId>("sora-2");
-  const [autopilotMode, setAutopilotMode] = useState(false);
+  const [imageModel, setImageModel] = useState<ImageModelId>("nano-banana-pro");
+  const [videoModel, setVideoModel] = useState<VideoModelId>("veo-3.1");
+  const [autopilotMode, setAutopilotMode] = useState(true); // Default ON
 
   const loadShows = async () => {
     try {

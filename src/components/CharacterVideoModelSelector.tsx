@@ -58,7 +58,7 @@ export function CharacterVideoModelSelector({
   disabled = false,
 }: CharacterVideoModelSelectorProps) {
   const [selectedModel, setSelectedModel] = useState<VideoModelId>(
-    currentModel || 'openai/sora-2-pro'
+    currentModel || 'google/veo-3.1'
   );
   const [isExpanded, setIsExpanded] = useState(false);
 

@@ -125,7 +125,7 @@ export async function POST(request: Request) {
     );
   }
   
-  const selectedModel = body.imageModel || "gpt-image"; // Default to GPT Image
+  const selectedModel = body.imageModel || "nano-banana-pro"; // Default to Nano Banana Pro
 
   if (!body || typeof body !== "object") {
     return NextResponse.json(

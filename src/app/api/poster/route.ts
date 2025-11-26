@@ -223,12 +223,12 @@ export async function POST(request: Request) {
   console.log("=== POSTER GENERATION ===");
   console.log("Show Title:", showTitle);
   console.log("Has character grid:", !!body.characterGridUrl);
-  console.log("Image Model:", body.imageModel || "gpt-image (default)");
+  console.log("Image Model:", body.imageModel || "nano-banana-pro (default)");
   if (productionStyle) {
     console.log("Production Style:", productionStyle.medium);
   }
 
-  const selectedModel = body.imageModel || "gpt-image"; // Default to GPT Image
+  const selectedModel = body.imageModel || "nano-banana-pro"; // Default to Nano Banana Pro
 
   try {
     let result;

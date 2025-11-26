@@ -58,7 +58,7 @@ export function TrailerModelSelector({
   disabled = false,
 }: TrailerModelSelectorProps) {
   const [selectedModel, setSelectedModel] = useState<VideoModel>(
-    (currentModel as VideoModel) || 'sora-2-pro'
+    (currentModel as VideoModel) || 'veo-3.1'
   );
   const [isExpanded, setIsExpanded] = useState(false);
 

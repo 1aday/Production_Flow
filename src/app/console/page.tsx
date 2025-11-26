@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle, Sparkles, Users, Film, PlayCircle, Boxes, Clapperboard } from "lucide-react";
+import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle, Sparkles, Users, Film, PlayCircle, Boxes, Clapperboard, Zap } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -442,7 +442,7 @@ const LOADING_MESSAGES = [
   "Scoring delivery exports and validation hooks",
 ] as const;
 
-type VideoModelId = "openai/sora-2" | "openai/sora-2-pro";
+type VideoModelId = "openai/sora-2" | "openai/sora-2-pro" | "google/veo-3.1";
 type VideoAspectRatio = "portrait" | "landscape";
 type VideoDuration = 4 | 8 | 12;
 type VideoResolution = "standard" | "high";
@@ -457,6 +457,13 @@ type VideoModelOption = {
 };
 
 const VIDEO_MODEL_OPTIONS: readonly VideoModelOption[] = [
+  {
+    id: "google/veo-3.1",
+    label: "VEO 3.1",
+    description: "Google's fast model, great consistency.",
+    seconds: [4, 8],
+    aspectRatios: ["portrait", "landscape"],
+  },
   {
     id: "openai/sora-2",
     label: "Sora 2",
@@ -1219,17 +1226,26 @@ function ResultView({
   trailerElapsed,
   editedTrailerPrompt,
   onSetEditedTrailerPrompt,
+  trailerFindText,
+  setTrailerFindText,
+  trailerReplaceText,
+  setTrailerReplaceText,
+  trailerRetryModel,
+  setTrailerRetryModel,
   onGenerateTrailer,
   onRegenerateGrid,
   onRegeneratePoster,
   editedLibraryPosterPrompt,
   setEditedLibraryPosterPrompt,
   onClearTrailer,
+  onClearTrailerError,
   onOpenLightbox,
   trailerModel,
   buildDefaultLibraryPosterPrompt,
   stylizationGuardrails,
   toggleStylizationGuardrails,
+  autopilotMode,
+  setAutopilotMode,
   // Episode format and loglines
   showFormat,
   showFormatLoading,
@@ -1298,6 +1314,12 @@ function ResultView({
   trailerElapsed: number;
   editedTrailerPrompt: string;
   onSetEditedTrailerPrompt: (value: string) => void;
+  trailerFindText: string;
+  setTrailerFindText: (value: string) => void;
+  trailerReplaceText: string;
+  setTrailerReplaceText: (value: string) => void;
+  trailerRetryModel: "sora-2" | "sora-2-pro" | "veo-3.1";
+  setTrailerRetryModel: (value: "sora-2" | "sora-2-pro" | "veo-3.1") => void;
   onGenerateTrailer: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => void;
   buildDefaultTrailerPrompt: () => string;
   buildDefaultLibraryPosterPrompt: () => string;
@@ -1306,10 +1328,13 @@ function ResultView({
   editedLibraryPosterPrompt: string;
   setEditedLibraryPosterPrompt: (value: string) => void;
   onClearTrailer: () => void;
+  onClearTrailerError?: () => void;
   onOpenLightbox: (url: string) => void;
   trailerModel: string | null;
   stylizationGuardrails: boolean;
   toggleStylizationGuardrails: () => void;
+  autopilotMode: boolean;
+  setAutopilotMode: (value: boolean) => void;
   // Episode format and loglines
   showFormat: ShowFormat | null;
   showFormatLoading: boolean;
@@ -1334,19 +1359,25 @@ function ResultView({
   const portraitCopyTimeoutRef = useRef<Record<string, number>>({});
   const trailerStatusLower = trailerStatus?.toLowerCase() ?? "";
   const trailerStatusIsVeo = trailerStatusLower.includes("veo");
+  const trailerStatusIsSora2Pro = trailerStatusLower.includes("sora2pro");
   const trailerStatusIsFinalFallback = trailerStatusLower.includes("final-fallback");
   const trailerStatusIsStarting = trailerStatusLower.includes("starting");
   const trailerStatusIsProcessing = trailerStatusLower.includes("processing");
   const trailerStatusIsSucceeded = trailerStatusLower.startsWith("succeeded");
+  
+  // Determine the model name for display
+  const currentModelDisplayName = trailerStatusIsVeo ? "VEO 3.1" : 
+                                   trailerStatusIsSora2Pro ? "Sora 2 Pro" : "Sora 2";
+  
   const trailerStatusBadgeLabel = (() => {
     if (trailerStatusIsFinalFallback) {
       return trailerStatusIsStarting ? "Starting Final Fallback" : "Processing Final Fallback";
     }
     if (trailerStatusIsStarting) {
-      return trailerStatusIsVeo ? "Starting VEO fallback" : "Starting";
+      return `Starting (${currentModelDisplayName})`;
     }
     if (trailerStatusIsProcessing) {
-      return trailerStatusIsVeo ? "Processing (VEO)" : "Processing";
+      return `Processing (${currentModelDisplayName})`;
     }
     if (trailerStatusIsSucceeded) {
       return "Complete";
@@ -1366,17 +1397,13 @@ function ResultView({
         : "Processing with Sora 2 (no character grid)";
     }
     if (trailerStatusIsStarting) {
-      return trailerStatusIsVeo
-        ? "Running VEO 3.1 fallback"
-        : "Running Sora 2";
+      return `Running ${currentModelDisplayName}`;
     }
     if (trailerStatusIsProcessing) {
-      return trailerStatusIsVeo
-        ? "Processing with VEO 3.1"
-        : "Processing with Sora 2";
+      return `Processing with ${currentModelDisplayName}`;
     }
     if (trailerStatusIsSucceeded) {
-      return trailerStatusIsVeo ? "Complete (VEO 3.1)" : "Complete (Sora 2)";
+      return `Complete (${currentModelDisplayName})`;
     }
     if (trailerStatus === "failed") {
       return "Failed — please review the error below";
@@ -1769,26 +1796,165 @@ function ResultView({
           </div>
         )}
         {trailerError ? (
-          <p className="text-xs text-red-300">{trailerError}</p>
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-amber-200">Trailer generation failed</p>
+              <p className="mt-1 text-xs text-amber-200/80 break-words leading-relaxed">{trailerError}</p>
+            </div>
+            
+            {/* Edit Prompt Section - Always visible on error */}
+            <div className="space-y-3 pt-2 border-t border-amber-500/20">
+              <p className="text-xs font-medium text-amber-200/90">Edit prompt & retry:</p>
+              
+              {/* Find & Replace */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex-1">
+                  <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-1">Find</label>
+                  <input
+                    type="text"
+                    value={trailerFindText}
+                    onChange={(e) => setTrailerFindText(e.target.value)}
+                    placeholder="Text to find..."
+                    className="w-full rounded-lg border border-white/20 bg-black/60 px-3 py-2 text-xs text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-1">Replace with</label>
+                  <input
+                    type="text"
+                    value={trailerReplaceText}
+                    onChange={(e) => setTrailerReplaceText(e.target.value)}
+                    placeholder="Replacement text..."
+                    className="w-full rounded-lg border border-white/20 bg-black/60 px-3 py-2 text-xs text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (trailerFindText) {
+                        // Auto-load prompt if not yet loaded
+                        const promptToUse = editedTrailerPrompt || (buildDefaultTrailerPrompt ? buildDefaultTrailerPrompt() : "");
+                        if (promptToUse) {
+                          // Case-insensitive replace using RegExp
+                          const regex = new RegExp(trailerFindText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                          onSetEditedTrailerPrompt(promptToUse.replace(regex, trailerReplaceText));
+                          setTrailerFindText("");
+                          setTrailerReplaceText("");
+                        }
+                      }
+                    }}
+                    disabled={!trailerFindText}
+                    className="rounded-lg text-xs h-[34px] whitespace-nowrap"
+                  >
+                    Replace All
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Prompt Editor */}
+              <Textarea
+                value={editedTrailerPrompt}
+                onChange={(e) => onSetEditedTrailerPrompt(e.target.value)}
+                onFocus={(e) => {
+                  if (!e.target.value && blueprint) {
+                    const defaultPrompt = buildDefaultTrailerPrompt();
+                    onSetEditedTrailerPrompt(defaultPrompt);
+                  }
+                }}
+                placeholder="Click to load default prompt, then edit as needed..."
+                className="min-h-[180px] text-xs font-mono resize-y bg-black/40 border-white/15"
+              />
+              
+              {/* Model Selector */}
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-2">Select model for retry:</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: "veo-3.1", label: "VEO 3.1", desc: "Fast, reliable" },
+                    { id: "sora-2", label: "Sora 2", desc: "High quality" },
+                    { id: "sora-2-pro", label: "Sora 2 Pro", desc: "Best quality" },
+                  ].map((model) => (
+                    <button
+                      key={model.id}
+                      type="button"
+                      onClick={() => setTrailerRetryModel(model.id as "sora-2" | "sora-2-pro" | "veo-3.1")}
+                      className={`p-2 rounded-lg border text-left transition-all ${
+                        trailerRetryModel === model.id
+                          ? "border-primary/50 bg-primary/15"
+                          : "border-white/15 bg-black/30 hover:border-white/25"
+                      }`}
+                    >
+                      <p className={`text-xs font-medium ${trailerRetryModel === model.id ? "text-foreground" : "text-foreground/80"}`}>
+                        {model.label}
+                      </p>
+                      <p className="text-[10px] text-foreground/50">{model.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-1">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (editedTrailerPrompt) {
+                      onGenerateTrailer(trailerRetryModel, editedTrailerPrompt);
+                    } else {
+                      onGenerateTrailer(trailerRetryModel);
+                    }
+                  }}
+                  disabled={trailerLoading}
+                  className="flex-1 rounded-full text-sm"
+                >
+                  {trailerLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Retrying...
+                    </>
+                  ) : (
+                    `Retry with ${trailerRetryModel === "veo-3.1" ? "VEO 3.1" : trailerRetryModel === "sora-2-pro" ? "Sora 2 Pro" : "Sora 2"}`
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    onSetEditedTrailerPrompt("");
+                    setTrailerFindText("");
+                    setTrailerReplaceText("");
+                  }}
+                  className="rounded-full text-sm"
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+          </div>
         ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => onGenerateTrailer()}
-          disabled={!portraitGridUrl || trailerLoading}
-          className="w-full justify-center rounded-full text-sm"
-        >
-          {trailerLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Rendering trailer…
-            </>
-          ) : trailerUrl ? (
-            "Re-render trailer"
-          ) : (
-            "Generate trailer"
-          )}
-        </Button>
+        {!trailerError && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onGenerateTrailer()}
+            disabled={!portraitGridUrl || trailerLoading}
+            className="w-full justify-center rounded-full text-sm"
+          >
+            {trailerLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Rendering trailer…
+              </>
+            ) : trailerUrl ? (
+              "Re-render trailer"
+            ) : (
+              "Generate trailer"
+            )}
+          </Button>
+        )}
       </div>
     </CollapsibleSection>
   );
@@ -3118,6 +3284,139 @@ function ResultView({
                 </div>
               </div>
             </div>
+          ) : trailerError ? (
+            <div className="bg-gradient-to-br from-amber-900/20 via-black/70 to-black/80 px-6 py-10">
+              <div className="space-y-6 max-w-3xl mx-auto">
+                {/* Error Header */}
+                <div className="text-center">
+                  <div className="inline-flex items-center gap-3 rounded-full border border-amber-500/40 bg-amber-500/15 px-5 py-2 mb-4">
+                    <div className="h-2 w-2 rounded-full bg-amber-400" />
+                    <span className="text-xs font-semibold uppercase tracking-[0.26em] text-amber-300">
+                      Generation Failed
+                    </span>
+                  </div>
+                  <p className="text-lg font-semibold text-amber-200">Trailer generation failed</p>
+                  <p className="mt-2 text-sm text-amber-200/70 max-w-lg mx-auto">{trailerError}</p>
+                </div>
+                
+                {/* Find & Replace Section */}
+                <div className="rounded-xl border border-white/10 bg-black/40 p-5 space-y-4">
+                  <p className="text-sm font-semibold text-foreground/80">Edit prompt & retry:</p>
+                  
+                  {/* Find/Replace Inputs */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1 space-y-1">
+                      <label className="text-xs text-foreground/50">Find</label>
+                      <input
+                        type="text"
+                        placeholder="Text to find..."
+                        value={trailerFindText}
+                        onChange={(e) => setTrailerFindText(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-sm text-foreground placeholder:text-foreground/30 focus:border-primary/50 focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <label className="text-xs text-foreground/50">Replace with</label>
+                      <input
+                        type="text"
+                        placeholder="Replacement text..."
+                        value={trailerReplaceText}
+                        onChange={(e) => setTrailerReplaceText(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-sm text-foreground placeholder:text-foreground/30 focus:border-primary/50 focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!trailerFindText}
+                        onClick={() => {
+                          if (trailerFindText) {
+                            // Auto-load prompt if not yet loaded
+                            const promptToUse = editedTrailerPrompt || (buildDefaultTrailerPrompt ? buildDefaultTrailerPrompt() : "");
+                            if (promptToUse) {
+                              // Case-insensitive replace using RegExp
+                              const regex = new RegExp(trailerFindText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                              onSetEditedTrailerPrompt(promptToUse.replace(regex, trailerReplaceText));
+                              setTrailerFindText("");
+                              setTrailerReplaceText("");
+                            }
+                          }
+                        }}
+                        className="whitespace-nowrap"
+                      >
+                        Replace All
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Prompt Editor */}
+                  <textarea
+                    value={editedTrailerPrompt}
+                    onChange={(e) => onSetEditedTrailerPrompt(e.target.value)}
+                    onFocus={(e) => {
+                      if (!e.target.value && buildDefaultTrailerPrompt) {
+                        const defaultPrompt = buildDefaultTrailerPrompt();
+                        onSetEditedTrailerPrompt(defaultPrompt);
+                      }
+                    }}
+                    placeholder="Click to load default prompt, then edit as needed..."
+                    className="w-full min-h-[150px] rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-sm text-foreground placeholder:text-foreground/30 focus:border-primary/50 focus:outline-none font-mono"
+                  />
+                  
+                  {/* Model Selection */}
+                  <div className="space-y-2">
+                    <p className="text-xs text-foreground/50">Select model for retry:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { id: "veo-3.1" as const, name: "VEO 3.1", desc: "Fast, reliable" },
+                        { id: "sora-2" as const, name: "Sora 2", desc: "High quality" },
+                        { id: "sora-2-pro" as const, name: "Sora 2 Pro", desc: "Best quality" },
+                      ].map((model) => (
+                        <button
+                          key={model.id}
+                          type="button"
+                          onClick={() => setTrailerRetryModel(model.id)}
+                          className={`px-4 py-2 rounded-lg border text-left transition-all ${
+                            trailerRetryModel === model.id
+                              ? "border-primary/50 bg-primary/15 text-foreground"
+                              : "border-white/10 bg-black/30 text-foreground/60 hover:border-white/20"
+                          }`}
+                        >
+                          <p className="text-sm font-medium">{model.name}</p>
+                          <p className="text-xs text-foreground/40">{model.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        onClearTrailerError?.();
+                        onGenerateTrailer(trailerRetryModel, editedTrailerPrompt || undefined);
+                      }}
+                      className="flex-1"
+                    >
+                      Retry with {trailerRetryModel === "veo-3.1" ? "VEO 3.1" : trailerRetryModel === "sora-2-pro" ? "Sora 2 Pro" : "Sora 2"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        onClearTrailerError?.();
+                        onSetEditedTrailerPrompt("");
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : canGenerateTrailerFromPartial ? (
             <div className="bg-gradient-to-br from-white/5 via-black/50 to-black/60 px-8 py-16">
               <div className="text-center space-y-8 max-w-3xl mx-auto">
@@ -4290,6 +4589,10 @@ function ResultView({
     ? "border-primary/50 bg-primary/15 text-foreground hover:bg-primary/25"
     : "border-white/25 bg-transparent text-foreground/70 hover:bg-white/10";
 
+  const autopilotToggleBaseClasses = autopilotMode
+    ? "border-primary/50 bg-primary/15 text-foreground hover:bg-primary/25"
+    : "border-white/25 bg-transparent text-foreground/70 hover:bg-white/10";
+
   const scrollTabs = (direction: "left" | "right") => {
     const container = tabNavRef.current;
     if (!container) return;
@@ -4394,27 +4697,55 @@ function ResultView({
               </div>
               <div className="hidden sm:flex w-full items-center justify-between gap-3">
                 <RawJsonPeek key={rawJson ?? "no-json"} rawJson={rawJson} currentShowId={currentShowId} />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={toggleStylizationGuardrails}
-                  className={cn(
-                    "rounded-full px-4 py-2 text-xs font-semibold tracking-[0.2em] uppercase transition-colors",
-                    guardrailToggleBaseClasses
-                  )}
-                  title="Toggle stylization guardrails"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  Stylization Guardrails: {stylizationGuardrails ? "On" : "Off"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAutopilotMode(!autopilotMode)}
+                    className={cn(
+                      "rounded-full px-4 py-2 text-xs font-semibold tracking-[0.2em] uppercase transition-colors",
+                      autopilotToggleBaseClasses
+                    )}
+                    title="Auto-generate portraits, poster, and trailer"
+                  >
+                    <Zap className="h-3.5 w-3.5 text-primary" />
+                    Autopilot: {autopilotMode ? "On" : "Off"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={toggleStylizationGuardrails}
+                    className={cn(
+                      "rounded-full px-4 py-2 text-xs font-semibold tracking-[0.2em] uppercase transition-colors",
+                      guardrailToggleBaseClasses
+                    )}
+                    title="Toggle stylization guardrails"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    Guardrails: {stylizationGuardrails ? "On" : "Off"}
+                  </Button>
+                </div>
               </div>
-              <div className="sm:hidden w-full">
+              <div className="sm:hidden w-full flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAutopilotMode(!autopilotMode)}
+                  className={cn(
+                    "flex-1 rounded-full px-3 py-2 text-[10px] font-semibold tracking-[0.12em] uppercase transition-colors",
+                    autopilotToggleBaseClasses
+                  )}
+                  title="Auto-generate all media"
+                >
+                  <Zap className="h-3 w-3 text-primary flex-shrink-0" />
+                  <span className="truncate">Auto: {autopilotMode ? "On" : "Off"}</span>
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={toggleStylizationGuardrails}
                   className={cn(
-                    "w-full rounded-full px-3 py-2 text-[10px] font-semibold tracking-[0.12em] uppercase transition-colors",
+                    "flex-1 rounded-full px-3 py-2 text-[10px] font-semibold tracking-[0.12em] uppercase transition-colors",
                     guardrailToggleBaseClasses
                   )}
                   title="Toggle stylization guardrails"
@@ -4498,7 +4829,8 @@ export function Console({ initialShowId }: ConsoleProps) {
   const [showCompletionBanner, setShowCompletionBanner] = useState(false);
   const [showPromptInput, setShowPromptInput] = useState(false);
   const [input, setInput] = useState("");
-  const [stylizationGuardrails, setStylizationGuardrails] = useState(true);
+  const [stylizationGuardrails, setStylizationGuardrails] = useState(false); // Default matches home page
+  const [autopilotMode, setAutopilotMode] = useState(true); // Auto-generate all media - Default ON
   const [blueprint, setBlueprint] = useState<ShowBlueprint | null>(null);
   const [usage, setUsage] = useState<ApiResponse["usage"]>();
   const [rawJson, setRawJson] = useState<string | null>(null);
@@ -4506,8 +4838,8 @@ export function Console({ initialShowId }: ConsoleProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [model, setModel] = useState<ModelId>("gpt-4o");
   const [activeModel, setActiveModel] = useState<ModelId>("gpt-4o");
-  const [imageModel, setImageModel] = useState<ImageModelId>("gpt-image");
-  const [videoGenModel, setVideoGenModel] = useState<VideoGenerationModelId>("sora-2");
+  const [imageModel, setImageModel] = useState<ImageModelId>("nano-banana-pro");
+  const [videoGenModel, setVideoGenModel] = useState<VideoGenerationModelId>("veo-3.1");
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [isPipelinePanelOpen, setIsPipelinePanelOpen] = useState(false);
 
@@ -4516,6 +4848,12 @@ export function Console({ initialShowId }: ConsoleProps) {
     const stored = window.localStorage.getItem(STYLIZATION_GUARDRAILS_STORAGE_KEY);
     if (stored !== null) {
       setStylizationGuardrails(stored !== "false");
+    }
+    
+    // Load autopilot mode preference from home page settings
+    const storedAutopilot = window.localStorage.getItem("production-flow.autopilot-mode");
+    if (storedAutopilot !== null) {
+      setAutopilotMode(storedAutopilot === "true");
     }
     
     // Load image model preference from home page settings
@@ -4542,11 +4880,36 @@ export function Console({ initialShowId }: ConsoleProps) {
     );
   }, [stylizationGuardrails]);
 
+  // Persist autopilot mode changes to localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("production-flow.autopilot-mode", autopilotMode ? "true" : "false");
+  }, [autopilotMode]);
+
   // Persist image model changes to localStorage
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("production-flow.image-model", imageModel);
   }, [imageModel]);
+
+  // Sync trailer retry model with user's video model preference
+  useEffect(() => {
+    setTrailerRetryModel(videoGenModel);
+  }, [videoGenModel]);
+
+  // Sync character video model with user's video model preference from home page
+  useEffect(() => {
+    // Map trailer model (sora-2, veo-3.1) to character video model (openai/sora-2, google/veo-3.1)
+    const modelMap: Record<string, VideoModelId> = {
+      "sora-2": "openai/sora-2",
+      "sora-2-pro": "openai/sora-2-pro",
+      "veo-3.1": "google/veo-3.1",
+    };
+    const mappedModel = modelMap[videoGenModel];
+    if (mappedModel) {
+      setVideoModelId(mappedModel);
+    }
+  }, [videoGenModel]);
 
   const toggleStylizationGuardrails = () => {
     setStylizationGuardrails((prev) => !prev);
@@ -4595,6 +4958,9 @@ export function Console({ initialShowId }: ConsoleProps) {
   const [editedTrailerPrompt, setEditedTrailerPrompt] = useState<string>("");
   const [trailerModel, setTrailerModel] = useState<string | null>(null);
   const [trailerModelPreference, setTrailerModelPreference] = useState<"sora-2" | "veo-3.1">("sora-2");
+  const [trailerFindText, setTrailerFindText] = useState<string>("");
+  const [trailerReplaceText, setTrailerReplaceText] = useState<string>("");
+  const [trailerRetryModel, setTrailerRetryModel] = useState<"sora-2" | "sora-2-pro" | "veo-3.1">(videoGenModel);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   
   // Episode format and loglines
@@ -4606,10 +4972,11 @@ export function Console({ initialShowId }: ConsoleProps) {
   
   const portraitJobsRef = useRef<Map<string, string>>(new Map()); // characterId -> jobId
   const portraitPollsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
+  const portraitRetryCountRef = useRef<Map<string, number>>(new Map()); // characterId -> retry count (max 2 retries)
   const videoJobsRef = useRef<Map<string, string>>(new Map()); // characterId -> jobId
   const videoPollsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const videoStartTimesRef = useRef<Map<string, number>>(new Map()); // characterId -> start timestamp
-  const [videoModelId, setVideoModelId] = useState<VideoModelId>(VIDEO_MODEL_OPTIONS[0].id);
+  const [videoModelId, setVideoModelId] = useState<VideoModelId>("google/veo-3.1"); // Default to VEO 3.1
   const [videoSeconds, setVideoSeconds] = useState<VideoDuration>(8);
   const [videoAspectRatio, setVideoAspectRatio] = useState<VideoAspectRatio>("portrait");
   const [videoResolution, setVideoResolution] = useState<VideoResolution>("standard");
@@ -4698,9 +5065,24 @@ export function Console({ initialShowId }: ConsoleProps) {
           outputUrl?: string | null;
           model?: string | null;
         };
-        console.log("📊 Trailer status poll:", data.status);
+        console.log("📊 Trailer status poll:", data.status, "model:", data.model);
         if (typeof data.status === "string") {
-          setTrailerStatus(data.status);
+          // Preserve model info in status for display purposes
+          let statusWithModel = data.status;
+          if (data.model) {
+            const modelSuffix = data.model.includes("veo") ? "-veo" : 
+                               data.model.includes("sora-2-pro") ? "-sora2pro" : "-sora2";
+            // Only add suffix if not already present and status is starting/processing
+            if ((data.status === "starting" || data.status === "processing") && 
+                !data.status.includes("-")) {
+              statusWithModel = data.status + modelSuffix;
+            }
+          }
+          setTrailerStatus(statusWithModel);
+          // Also update the trailerModel state
+          if (data.model) {
+            setTrailerModel(data.model);
+          }
         }
         
         // If succeeded, set the trailer URL and model
@@ -5128,6 +5510,9 @@ export function Console({ initialShowId }: ConsoleProps) {
       // Store job ID for this character
       portraitJobsRef.current.set(characterId, jobId);
       
+      // Reset retry count for fresh generation
+      portraitRetryCountRef.current.delete(characterId);
+      
       console.log(`🎨 Generating portrait for ${characterId} in show: ${targetShowId}`);
       
       // Create background task to track this generation
@@ -5259,10 +5644,94 @@ export function Console({ initialShowId }: ConsoleProps) {
               console.error(`❌ Portrait ${characterId} failed:`, data.detail);
               
               let errorMessage = data.detail || "Failed to generate portrait.";
+              const isContentFilterError = errorMessage.includes("E005") || errorMessage.includes("flagged as sensitive") || errorMessage.includes("content filter");
+              const isRateLimitError = errorMessage.includes("429") || errorMessage.includes("rate limit") || errorMessage.includes("too many requests");
+              const isRetryableError = isContentFilterError || isRateLimitError;
               
-              if (errorMessage.includes("E005") || errorMessage.includes("flagged as sensitive")) {
-                errorMessage = "Portrait was flagged by content filters. Try editing the character description or regenerating with a custom prompt.";
+              // Check if we should retry for content filter or rate limit errors
+              const currentRetryCount = portraitRetryCountRef.current.get(characterId) || 0;
+              const MAX_RETRIES = 4;
+              
+              if (isRetryableError && currentRetryCount < MAX_RETRIES) {
+                // Retry the generation
+                const retryNumber = currentRetryCount + 1;
+                portraitRetryCountRef.current.set(characterId, retryNumber);
+                const errorType = isRateLimitError ? "Rate limit (429)" : "Content filter";
+                console.log(`🔄 ${errorType} - retrying portrait (attempt ${retryNumber + 1}/${MAX_RETRIES + 1}) for ${characterId}`);
+                
+                // Stop current polling
+                const interval = portraitPollsRef.current.get(characterId);
+                if (interval) {
+                  clearInterval(interval);
+                  portraitPollsRef.current.delete(characterId);
+                }
+                portraitJobsRef.current.delete(characterId);
+                
+                // Update background task to show retry
+                if (currentShowId) {
+                  updateBackgroundTask(replicateJobId, { 
+                    status: 'processing', 
+                    metadata: { retryAttempt: retryNumber }
+                  });
+                }
+                
+                // Retry after delay (longer for rate limits)
+                const retryDelay = isRateLimitError ? 3000 + (retryNumber * 2000) : 1500;
+                console.log(`⏳ Waiting ${retryDelay}ms before retry...`);
+                
+                setTimeout(async () => {
+                  try {
+                    console.log(`🎨 Retrying portrait for ${characterId} (attempt ${retryNumber + 1})`);
+                    
+                    const retryResponse = await fetch("/api/characters/portrait", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        show: blueprint,
+                        character: doc,
+                        customPrompt: customPrompt || undefined,
+                        imageModel,
+                      }),
+                    });
+                    
+                    if (!retryResponse.ok) {
+                      throw new Error(`Retry failed: ${retryResponse.status}`);
+                    }
+                    
+                    const retryResult = await retryResponse.json() as { jobId?: string };
+                    if (retryResult.jobId) {
+                      console.log(`✅ Retry started with new job ID: ${retryResult.jobId}`);
+                      portraitJobsRef.current.set(characterId, retryResult.jobId);
+                      startPolling(retryResult.jobId);
+                    } else {
+                      throw new Error("No job ID returned from retry");
+                    }
+                  } catch (retryError) {
+                    console.error(`❌ Retry ${retryNumber} failed:`, retryError);
+                    const retryErrorMsg = isRateLimitError 
+                      ? `Portrait generation failed after ${retryNumber + 1} attempts due to rate limiting. Please wait a moment and try again.`
+                      : `Portrait generation failed after ${retryNumber + 1} attempts. Content was flagged by filters.`;
+                    setCharacterPortraitErrors((prev) => ({
+                      ...prev,
+                      [characterId]: retryErrorMsg,
+                    }));
+                    setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+                    portraitRetryCountRef.current.delete(characterId);
+                  }
+                }, retryDelay);
+                
+                return; // Don't set error state yet, we're retrying
               }
+              
+              // All retries exhausted or non-retryable error
+              if (isContentFilterError) {
+                errorMessage = `Portrait was flagged by content filters after ${currentRetryCount + 1} attempts. Try editing the character description or regenerating with a custom prompt.`;
+              } else if (isRateLimitError) {
+                errorMessage = `Portrait generation rate limited after ${currentRetryCount + 1} attempts. Please wait a few minutes and try again.`;
+              }
+              
+              // Clear retry count on final failure
+              portraitRetryCountRef.current.delete(characterId);
               
               setCharacterPortraitErrors((prev) => ({
                 ...prev,
@@ -5378,6 +5847,7 @@ export function Console({ initialShowId }: ConsoleProps) {
 
   // Auto-generate portraits for built characters (only when creating new show, not loading from library)
   useEffect(() => {
+    if (!autopilotMode) return; // Only auto-generate when autopilot is ON
     if (!blueprint) return;
     if (!posterAvailable) return;
     if (!characterSeeds?.length) return;
@@ -5400,6 +5870,7 @@ export function Console({ initialShowId }: ConsoleProps) {
       void generateCharacterPortrait(seed.id);
     });
   }, [
+    autopilotMode,
     blueprint,
     posterAvailable,
     characterSeeds,
@@ -5891,7 +6362,9 @@ export function Console({ initialShowId }: ConsoleProps) {
       try {
         let attempts = 0;
         let result: { url?: string } | null = null;
-        while (attempts < 3) {
+        const MAX_POSTER_ATTEMPTS = 5; // 1 initial + 4 retries
+        
+        while (attempts < MAX_POSTER_ATTEMPTS) {
           attempts += 1;
           try {
             result = await attemptPoster();
@@ -5901,15 +6374,21 @@ export function Console({ initialShowId }: ConsoleProps) {
               innerError instanceof Error
                 ? innerError.message
                 : "Unable to generate poster.";
-            console.warn(`Poster attempt ${attempts} failed:`, message);
-            if (
-              /sensitive/i.test(message) ||
-              /flagged/i.test(message) ||
-              /E005/i.test(message)
-            ) {
-              if (attempts >= 3) {
+            
+            const isContentFilter = /sensitive/i.test(message) || /flagged/i.test(message) || /E005/i.test(message);
+            const isRateLimit = /429/i.test(message) || /rate.?limit/i.test(message) || /too many requests/i.test(message);
+            const isRetryable = isContentFilter || isRateLimit;
+            
+            console.warn(`Poster attempt ${attempts}/${MAX_POSTER_ATTEMPTS} failed:`, message);
+            
+            if (isRetryable) {
+              if (attempts >= MAX_POSTER_ATTEMPTS) {
                 throw innerError;
               }
+              // Add delay before retry (longer for rate limits)
+              const retryDelay = isRateLimit ? 3000 + (attempts * 2000) : 1500;
+              console.log(`🔄 ${isRateLimit ? 'Rate limited' : 'Content filtered'} - retrying in ${retryDelay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
               continue;
             }
             throw innerError;
@@ -5966,8 +6445,10 @@ export function Console({ initialShowId }: ConsoleProps) {
   );
 
   const generateTrailer = useCallback(async (requestedModel?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => {
+    // Use user's selected model from settings as default, not 'auto'
+    const modelToUse = requestedModel || videoGenModel || 'veo-3.1';
     console.log("🎬 generateTrailer called");
-    console.log("   Requested model:", requestedModel || 'auto');
+    console.log("   Requested model:", requestedModel || `using user setting: ${videoGenModel}`);
     console.log("   Has blueprint:", !!blueprint);
     console.log("   Has portraitGridUrl:", !!portraitGridUrl);
     console.log("   characterSeeds length:", characterSeeds?.length || 0);
@@ -6072,7 +6553,11 @@ export function Console({ initialShowId }: ConsoleProps) {
     const startTime = Date.now();
     setTrailerLoading(true);
     setTrailerError(null);
-    setTrailerStatus("starting");
+    // Include model in status so UI shows correct model name
+    const statusWithModel = modelToUse.includes("veo") ? "starting-veo" : 
+                            modelToUse.includes("sora-2-pro") ? "starting-sora2pro" : "starting-sora2";
+    setTrailerStatus(statusWithModel);
+    setTrailerModel(modelToUse); // Track which model we're using
     setTrailerStartTime(startTime);
     setTrailerElapsed(0);
     
@@ -6123,7 +6608,7 @@ export function Console({ initialShowId }: ConsoleProps) {
             characterGridUrl: gridUrl,
             show: cleanBlueprint,
             jobId,
-            model: requestedModel || 'auto',
+            model: modelToUse,
             customPrompt: customPrompt || undefined,
           }),
         }).catch((fetchError) => {
@@ -6241,12 +6726,14 @@ export function Console({ initialShowId }: ConsoleProps) {
     startTrailerStatusPolling,
     stopTrailerStatusPolling,
     currentShowId,
+    videoGenModel,
   ]);
 
   // REMOVED: Old auto-poster effect - We only use library poster now
   // The library poster auto-generates after first portrait (see generateCharacterPortrait)
 
   useEffect(() => {
+    if (!autopilotMode) return; // Only auto-generate when autopilot is ON
     if (!blueprint) return;
     if (!characterSeeds || characterSeeds.length === 0) return;
     const portraitsData = characterSeeds
@@ -6346,6 +6833,7 @@ export function Console({ initialShowId }: ConsoleProps) {
       }
     })();
   }, [
+    autopilotMode,
     blueprint,
     characterSeeds,
     characterPortraits,
@@ -6355,6 +6843,8 @@ export function Console({ initialShowId }: ConsoleProps) {
 
 
   useEffect(() => {
+    if (!autopilotMode) return; // Only auto-generate when autopilot is ON
+    
     const checkConditions = {
       hasBlueprint: !!blueprint,
       hasGrid: !!portraitGridUrl,
@@ -6376,6 +6866,7 @@ export function Console({ initialShowId }: ConsoleProps) {
     console.log("✅ All conditions met - auto-generating trailer");
     void generateTrailer();
   }, [
+    autopilotMode,
     blueprint,
     portraitGridUrl,
     trailerUrl,
@@ -6471,6 +6962,11 @@ export function Console({ initialShowId }: ConsoleProps) {
 
           if (body?.messages) {
             console.error("Schema validation errors:", body.messages);
+            // Format validation errors for user-friendly display
+            const errorDetails = body.messages
+              .map(m => `${m.instancePath || 'root'}: ${m.message || 'invalid'}`)
+              .join('; ');
+            throw new Error(`Schema validation failed: ${errorDetails}. Please try again - the AI model generated an invalid response.`);
           } else if (body?.details) {
             console.error("Model output details:", body.details);
           }
@@ -7132,18 +7628,14 @@ export function Console({ initialShowId }: ConsoleProps) {
     const styleGuidance = productionStyle
       ? `
 
-VISUAL STYLE (CRITICAL - Follow exactly):
+VISUAL STYLE:
 Medium: ${productionStyle.medium || 'Stylized cinematic'}
 References: ${(productionStyle.cinematic_references || []).join(', ')}
 Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}
 Stylization: ${productionStyle.stylization_level || 'cinematic'}
-
-${guardrailMessage}`
+${guardrailMessage ? `\n${guardrailMessage}` : ''}`
       : guardrailMessage
-        ? `
-
-VISUAL STYLE GUARDRAIL:
-${guardrailMessage}`
+        ? `\n${guardrailMessage}`
         : '';
 
     return `Create an iconic teaser trailer for the series "${showTitle}".
@@ -7177,44 +7669,11 @@ TRAILER REQUIREMENTS:
    ✗ NEVER be explanatory or expository
    ✗ NEVER use boring, flat narration
    ✗ NEVER sound like a documentary narrator
-   
-   EXAMPLE GOOD TRAILER VOICEOVER STYLE:
-   "Some secrets... [pause] ...refuse to stay buried."
-   "In a world on the edge... one choice... will change everything."
-   "They thought they knew the truth. They were wrong."
-   
-   The narrator should sound like a PROFESSIONAL TRAILER VOICE ACTOR - commanding, magnetic, impossible to ignore.
 
 3. Study the character grid reference image to understand the cast, weaving them into the narrative
 4. Create a well-paced, exciting montage that captures the show's core vibe and genre
 5. Showcase the MOST INTERESTING and ICONIC moments that would make viewers want to watch
-6. Build anticipation and intrigue through dynamic editing, compelling visuals, and punchy narration
-
-PACING & STRUCTURE:
-- Open with the title card (2-3 seconds) with impactful music
-- Voiceover opens with a HOOK - short, powerful, mysterious (NOT "In a world where..." unless it's perfect for the tone)
-- Quick cuts showcasing key characters and moments, each PUNCTUATED by sharp voiceover phrases
-- Build energy and TENSION throughout - narration should ESCALATE, not plateau
-- Include 2-3 memorable "money shots" with power-word voiceover hits
-- Voiceover rhythm: SHORT bursts that let visuals breathe, then hit HARD on the next beat
-- FINAL LINE must be a KILLER moment that leaves you wanting more - one perfect sentence that defines everything
-
-TONE & GENRE GUIDANCE:
-- If COMEDY: Visual humor, perfect timing, absurd situations. Voiceover: DRY, WITTY, self-aware - the voice is IN on the joke.
-- If ACTION: Dynamic movement, EXPLOSIVE tension, life-or-death stakes. Voiceover: INTENSE, gravelly, every word is WAR.
-- If HORROR: Creeping dread, shadows, the unseen. Voiceover: WHISPERED menace, bone-chilling calm, what's NOT said is scarier.
-- If DRAMA: Raw emotion, character conflict, human stakes. Voiceover: POWERFUL vulnerability, real and heartfelt, tears or triumph.
-- If ADVENTURE: Epic scope, wonder, impossible journeys. Voiceover: GRAND, awe-filled, makes you believe in magic.
-
-VISUAL APPROACH:
-- Use dynamic camera movements and impactful compositions
-- Vary shot sizes: wide establishing shots, dramatic close-ups, mid-shots for action
-- Match the show's visual style and production medium exactly (see above)
-- Create a sense of scale and production value
-- Every frame should feel intentional and exciting
-- Sync visuals with voiceover for maximum impact
-
-The character grid shows your cast - use them throughout but focus on MOMENTS and ATMOSPHERE matched with compelling narration.`;
+6. Build anticipation and intrigue through dynamic editing, compelling visuals, and punchy narration`;
   }, [blueprint, stylizationGuardrails]);
 
   const generateLibraryPoster = useCallback(async (customPrompt?: string) => {
@@ -7281,40 +7740,69 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
       console.log("   Image model:", imageModel);
       console.log("   Show title from blueprint:", blueprint.show_title);
       
-      const response = await fetch("/api/library-poster", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: promptToUse, // Send full prompt with style guide
-          characterImageUrl: portraitGridUrl, // Use portrait grid as reference
-          showData: blueprint, // Full blueprint with show_title
-          imageModel, // Send selected image model
-        }),
-      });
+      // Retry logic for library poster
+      const MAX_LIBRARY_POSTER_ATTEMPTS = 5;
+      let lastError: Error | null = null;
+      let result: { url?: string } | null = null;
       
-      console.log("📥 Library poster API response status:", response.status);
+      for (let attempt = 1; attempt <= MAX_LIBRARY_POSTER_ATTEMPTS; attempt++) {
+        try {
+          console.log(`📤 Library poster attempt ${attempt}/${MAX_LIBRARY_POSTER_ATTEMPTS}...`);
+          
+          const response = await fetch("/api/library-poster", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: promptToUse,
+              characterImageUrl: portraitGridUrl,
+              showData: blueprint,
+              imageModel,
+            }),
+          });
+          
+          console.log("📥 Library poster API response status:", response.status);
 
-      if (!response.ok) {
-        // Check if response is HTML (error page) or JSON
-        const contentType = response.headers.get("content-type");
-        if (contentType?.includes("text/html")) {
-          throw new Error(`Library poster generation failed with server error (${response.status}). Please try again.`);
+          if (!response.ok) {
+            const contentType = response.headers.get("content-type");
+            if (contentType?.includes("text/html")) {
+              throw new Error(`Library poster generation failed with server error (${response.status}). Please try again.`);
+            }
+            
+            const body = (await response.json().catch(() => null)) as { error?: string } | null;
+            throw new Error(body?.error ?? "Failed to generate library poster");
+          }
+
+          const contentType = response.headers.get("content-type");
+          if (!contentType?.includes("application/json")) {
+            throw new Error("Library poster generation returned unexpected response format.");
+          }
+
+          result = (await response.json()) as { url?: string };
+          if (result?.url) {
+            break; // Success!
+          }
+        } catch (attemptError) {
+          lastError = attemptError instanceof Error ? attemptError : new Error("Unknown error");
+          const msg = lastError.message;
+          
+          const isContentFilter = /sensitive/i.test(msg) || /flagged/i.test(msg) || /E005/i.test(msg);
+          const isRateLimit = /429/i.test(msg) || /rate.?limit/i.test(msg) || /too many requests/i.test(msg);
+          const isRetryable = isContentFilter || isRateLimit;
+          
+          console.warn(`Library poster attempt ${attempt}/${MAX_LIBRARY_POSTER_ATTEMPTS} failed:`, msg);
+          
+          if (isRetryable && attempt < MAX_LIBRARY_POSTER_ATTEMPTS) {
+            const retryDelay = isRateLimit ? 3000 + (attempt * 2000) : 1500;
+            console.log(`🔄 ${isRateLimit ? 'Rate limited' : 'Content filtered'} - retrying in ${retryDelay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            continue;
+          }
+          
+          throw lastError;
         }
-        
-        const body = (await response.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(body?.error ?? "Failed to generate library poster");
       }
-
-      // Check if successful response is JSON
-      const contentType = response.headers.get("content-type");
-      if (!contentType?.includes("application/json")) {
-        throw new Error("Library poster generation returned unexpected response format.");
-      }
-
-      const result = (await response.json()) as { url?: string };
-      if (result.url) {
+      
+      if (result?.url) {
         setLibraryPosterUrl(result.url);
         
         // Update background task as succeeded
@@ -7491,6 +7979,7 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
 
   // Auto-generate missing assets after loading a show (ONE TIME PER SHOW)
   useEffect(() => {
+    if (!autopilotMode) return; // Only auto-generate when autopilot is ON
     if (!blueprint) return;
     if (isLoadingShow) return; // Wait until show is fully loaded
     if (!posterAvailable) return;
@@ -7531,10 +8020,11 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
     // Mark this show as checked
     autoGenCheckedShowIdRef.current = currentShowId;
     console.log("✅ Auto-gen check complete for show:", currentShowId);
-  }, [blueprint, isLoadingShow, posterAvailable, libraryPosterUrl, libraryPosterLoading, portraitGridUrl, portraitGridLoading, characterPortraits, characterSeeds, currentShowId, saveCurrentShow, generateLibraryPoster]);
+  }, [autopilotMode, blueprint, isLoadingShow, posterAvailable, libraryPosterUrl, libraryPosterLoading, portraitGridUrl, portraitGridLoading, characterPortraits, characterSeeds, currentShowId, saveCurrentShow, generateLibraryPoster]);
 
   // Auto-generate library poster when portrait grid becomes available
   useEffect(() => {
+    if (!autopilotMode) return; // Only auto-generate when autopilot is ON
     if (!portraitGridUrl || !blueprint || !currentShowId) return;
     if (libraryPosterUrl || libraryPosterLoading) return; // Already have or generating
     
@@ -7557,7 +8047,7 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
     }, 1500);
     
     return () => clearTimeout(timer);
-  }, [portraitGridUrl, libraryPosterUrl, libraryPosterLoading, blueprint, currentShowId, canGenerateLibraryPoster, generateLibraryPoster, saveCurrentShow]);
+  }, [autopilotMode, portraitGridUrl, libraryPosterUrl, libraryPosterLoading, blueprint, currentShowId, canGenerateLibraryPoster, generateLibraryPoster, saveCurrentShow]);
   
   // Generate Show Format
   const generateShowFormat = useCallback(async () => {
@@ -7651,6 +8141,9 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
           trailer: trailerUrl ?? null,
           showFormat: showFormat ? 'yes' : null,
           episodeCount: episodes.length,
+          // Include custom prompts in save hash so they trigger saves
+          customTrailerPrompt: editedTrailerPrompt || null,
+          customPosterPrompt: editedPosterPrompt || null,
         });
         
         if (saveHash !== lastSaveRef.current) {
@@ -7671,6 +8164,8 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
     trailerUrl,
     showFormat,
     episodes,
+    editedTrailerPrompt,
+    editedPosterPrompt,
     saveCurrentShow,
   ]);
 
@@ -7855,10 +8350,10 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
       {/* Main Navigation */}
       <Navbar variant="solid" />
       
-      {/* Console Toolbar */}
-      <div className="fixed top-[72px] left-0 right-0 z-40 border-b border-white/10 bg-black/80 backdrop-blur-xl">
+      {/* Console Toolbar - hidden on mobile, shows on sm+ */}
+      <div className="hidden sm:block fixed top-[72px] sm:top-[88px] left-0 right-0 z-40 border-b border-white/10 bg-black/80 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-2 px-4 sm:px-6 py-2">
-          <span className="text-xs text-foreground/50 hidden sm:inline">Console Workspace</span>
+          <span className="text-xs text-foreground/50">Console Workspace</span>
           <div className="flex items-center gap-1 sm:gap-2">
             {blueprint ? (
               <Button
@@ -7914,7 +8409,7 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
         </div>
       </div>
 
-      <main className="flex-1 pb-[100px] sm:pb-[120px] md:pb-32 pt-[120px] overflow-x-hidden">
+      <main className="flex-1 pb-[100px] sm:pb-[120px] md:pb-32 pt-[72px] sm:pt-[130px] overflow-x-hidden">
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 sm:gap-5 md:gap-6 px-4 sm:px-5 md:px-6 py-4 sm:py-6 md:py-10">
           {error ? (
             <div className="space-y-2 rounded-xl sm:rounded-2xl md:rounded-3xl border border-red-500/40 bg-red-500/10 px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 md:py-4 text-xs sm:text-sm animate-in slide-in-from-top-2 duration-300">
@@ -8016,6 +8511,12 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
             trailerElapsed={trailerElapsed}
             editedTrailerPrompt={editedTrailerPrompt}
             onSetEditedTrailerPrompt={setEditedTrailerPrompt}
+            trailerFindText={trailerFindText}
+            setTrailerFindText={setTrailerFindText}
+            trailerReplaceText={trailerReplaceText}
+            setTrailerReplaceText={setTrailerReplaceText}
+            trailerRetryModel={trailerRetryModel}
+            setTrailerRetryModel={setTrailerRetryModel}
             buildDefaultTrailerPrompt={buildDefaultTrailerPrompt}
             buildDefaultLibraryPosterPrompt={buildDefaultLibraryPosterPrompt}
             onGenerateTrailer={(model, customPrompt) => void generateTrailer(model, customPrompt)}
@@ -8058,10 +8559,13 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
               setTrailerLoading(false); // Clear loading state too!
               trailerDigestRef.current = ""; // Allow regeneration
             }}
+            onClearTrailerError={() => setTrailerError(null)}
             onOpenLightbox={(url) => setLightboxImage(url)}
             trailerModel={trailerModel}
             stylizationGuardrails={stylizationGuardrails}
             toggleStylizationGuardrails={toggleStylizationGuardrails}
+            autopilotMode={autopilotMode}
+            setAutopilotMode={setAutopilotMode}
             showFormat={showFormat}
             showFormatLoading={showFormatLoading}
             episodes={episodes}
