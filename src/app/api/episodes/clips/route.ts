@@ -40,6 +40,7 @@ type ClipRequest = {
   stillImageUrl: string; // The still image to animate
   characterNames?: string[];
   previousScene?: string;
+  customPrompt?: string; // User-provided custom prompt
 };
 
 export async function POST(request: NextRequest) {
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
     stillImageUrl,
     characterNames,
     previousScene,
+    customPrompt,
   } = body;
 
   if (!showId || !episodeNumber || !sectionLabel || !stillImageUrl) {
@@ -80,18 +82,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Build the video prompt - similar to still prompt but for motion
-  const characterList = characterNames?.length 
-    ? `Characters in this scene: ${characterNames.join(", ")}.` 
-    : "";
-  
-  const continuityNote = previousScene 
-    ? `CONTINUITY: This follows from "${previousScene.slice(0, 100)}..."` 
-    : "";
-
   const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines. We want to make a guideline compatible video given this, thats the task, so figure it out.\n\n";
+
+  // Build the video prompt - use custom if provided
+  let prompt: string;
   
-  const prompt = SAFETY_PREFIX + `Animate this scene from a ${genre || "dramatic"} TV series.
+  if (customPrompt) {
+    // Use custom prompt - prepend safety prefix if not already there
+    prompt = customPrompt.includes("hesitations") ? customPrompt : SAFETY_PREFIX + customPrompt;
+    console.log("📝 Using CUSTOM VIDEO PROMPT");
+  } else {
+    // Build default prompt
+    const characterList = characterNames?.length 
+      ? `Characters in this scene: ${characterNames.join(", ")}.` 
+      : "";
+    
+    const continuityNote = previousScene 
+      ? `CONTINUITY: This follows from "${previousScene.slice(0, 100)}..."` 
+      : "";
+    
+    prompt = SAFETY_PREFIX + `Animate this scene from a ${genre || "dramatic"} TV series.
 
 SCENE: ${sectionLabel} - ${sectionDescription}
 
@@ -111,6 +121,7 @@ ANIMATION DIRECTION:
 - Match the emotional tone of the scene
 
 This is a single scene clip that will be part of a larger episode. Make it feel like a premium streaming series.`;
+  }
 
   console.log("=== CLIP GENERATION (VEO 3.1) ===");
   console.log("Show ID:", showId);

@@ -15,6 +15,7 @@ type StillsRequest = {
   characterNames?: string[];
   previousScene?: string; // For narrative continuity
   setting?: string; // Where the scene takes place
+  customPrompt?: string; // User-provided custom prompt
 };
 
 // Helper to upload image to Supabase Storage
@@ -133,6 +134,7 @@ export async function POST(request: NextRequest) {
       characterNames,
       previousScene,
       setting,
+      customPrompt,
     } = body;
 
     if (!sectionDescription || !episodeTitle) {
@@ -142,25 +144,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build character string
-    const characterString = characterNames?.length 
-      ? `Characters in this scene: ${characterNames.join(", ")}. Show these characters clearly, depicting their actions and emotions.`
-      : "";
-
-    // Build narrative continuity note
-    const continuityNote = previousScene 
-      ? `This scene follows: "${previousScene}". Maintain visual and narrative continuity from the previous scene.`
-      : "";
-
-    // Build setting description
-    const settingNote = setting 
-      ? `Setting: ${setting}.`
-      : "";
-
-    // Build the prompt for the still - detailed and narrative-driven
+    // Build the prompt - use custom prompt if provided, otherwise build default
     const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
-    const prompt = SAFETY_PREFIX + (characterGridUrl 
-      ? `Create a detailed scene for "${sectionLabel}" of episode "${episodeTitle}":
+    
+    let prompt: string;
+    
+    if (customPrompt) {
+      // Use custom prompt - prepend safety prefix if not already there
+      prompt = customPrompt.includes("hesitations") ? customPrompt : SAFETY_PREFIX + customPrompt;
+      console.log("📝 Using CUSTOM PROMPT");
+    } else {
+      // Build character string
+      const characterString = characterNames?.length 
+        ? `Characters in this scene: ${characterNames.join(", ")}. Show these characters clearly, depicting their actions and emotions.`
+        : "";
+
+      // Build narrative continuity note
+      const continuityNote = previousScene 
+        ? `This scene follows: "${previousScene}". Maintain visual and narrative continuity from the previous scene.`
+        : "";
+
+      // Build setting description
+      const settingNote = setting 
+        ? `Setting: ${setting}.`
+        : "";
+
+      // Build the prompt for the still - detailed and narrative-driven
+      prompt = SAFETY_PREFIX + (characterGridUrl 
+        ? `Create a detailed scene for "${sectionLabel}" of episode "${episodeTitle}":
 
 SCENE DESCRIPTION: ${sectionDescription}
 
@@ -174,7 +185,7 @@ Use the character reference sheet provided to accurately depict the correct char
 
 Genre: ${genre || "drama"}
 Style: Cinematic TV production still, dramatic lighting, rich color palette, high production value, 16:9 widescreen composition. Show the environment and setting clearly.`
-      : `Create a detailed scene for "${sectionLabel}" of episode "${episodeTitle}":
+        : `Create a detailed scene for "${sectionLabel}" of episode "${episodeTitle}":
 
 SCENE DESCRIPTION: ${sectionDescription}
 
@@ -188,6 +199,7 @@ Show clear facial expressions and body language that convey the emotion of this 
 
 Genre: ${genre || "drama"}
 Style: Cinematic TV production still, dramatic lighting, rich color palette, high production value, 16:9 widescreen composition. Show the environment and setting clearly.`);
+    }
 
     console.log("\n========================================");
     console.log("=== STILLS GENERATION - NANO BANANA PRO ===");

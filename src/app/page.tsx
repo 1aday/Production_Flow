@@ -326,7 +326,7 @@ export default function LandingPage() {
                           </span>
                         </>
                       )}
-                    </div>
+                  </div>
                   )}
                   <ChevronDown className={cn(
                     "h-4 w-4 text-white/40 transition-transform duration-200",
@@ -346,15 +346,15 @@ export default function LandingPage() {
                     <div className="flex flex-wrap gap-2">
                       {/* Autopilot Toggle */}
                       <button
-                        type="button"
-                        onClick={() => setAutopilotMode(!autopilotMode)}
-                        className={cn(
+                type="button"
+                onClick={() => setAutopilotMode(!autopilotMode)}
+                className={cn(
                           "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all",
-                          autopilotMode
+                  autopilotMode
                             ? "border-primary/60 bg-primary/15 text-white"
                             : "border-white/20 bg-transparent text-white/60 hover:bg-white/5"
-                        )}
-                      >
+                )}
+              >
                         <Zap className={cn("h-3.5 w-3.5", autopilotMode ? "text-primary" : "text-white/40")} />
                         Autopilot
                         {autopilotMode && <CheckCircle2 className="h-3 w-3 text-primary" />}
@@ -375,44 +375,44 @@ export default function LandingPage() {
                         Stylization
                         {stylizationGuardrails && <CheckCircle2 className="h-3 w-3 text-primary" />}
                       </button>
-                    </div>
+            </div>
 
                     {/* Model Selection - Horizontal Scrollable */}
-                    <div className="space-y-3">
-                      {/* Image Model */}
+            <div className="space-y-3">
+              {/* Image Model */}
                       <div className="space-y-1.5">
                         <p className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Image Model</p>
                         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-                          {IMAGE_MODEL_OPTIONS.map((option) => (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => setImageModel(option.id)}
-                              className={cn(
+                  {IMAGE_MODEL_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setImageModel(option.id)}
+                      className={cn(
                                 "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all whitespace-nowrap",
-                                imageModel === option.id
+                        imageModel === option.id
                                   ? "border-primary bg-primary/15 text-white font-medium"
                                   : "border-white/15 bg-transparent text-white/60 hover:bg-white/5 hover:border-white/25"
                               )}
                             >
                               {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                      {/* Video Model */}
+              {/* Video Model */}
                       <div className="space-y-1.5">
                         <p className="text-[10px] uppercase tracking-wider text-white/40 font-medium">Video Model</p>
                         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-                          {VIDEO_MODEL_OPTIONS.map((option) => (
-                            <button
-                              key={option.id}
-                              type="button"
-                              onClick={() => setVideoModel(option.id)}
-                              className={cn(
+                  {VIDEO_MODEL_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setVideoModel(option.id)}
+                      className={cn(
                                 "flex-shrink-0 px-3 py-2 rounded-lg border text-xs transition-all whitespace-nowrap",
-                                videoModel === option.id
+                        videoModel === option.id
                                   ? "border-primary bg-primary/15 text-white font-medium"
                                   : "border-white/15 bg-transparent text-white/60 hover:bg-white/5 hover:border-white/25"
                               )}

@@ -83,29 +83,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // Base URL for absolute URLs
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://production-flow-nine.vercel.app";
     
-    // WhatsApp ONLY supports these aspect ratios: 1.91:1, 1:1, or 16:9
-    // Our poster is 9:16 (portrait) which WhatsApp will IGNORE
-    // So we MUST use the /api/og endpoint to composite the poster into a 1200x630 landscape image
-    const ogParams = new URLSearchParams({
-      title: title,
-      ...(genre && { genre }),
-      ...(logline && { logline: logline.substring(0, 120) }),
-    });
+    // Use the poster directly as the OG image (9:16 portrait)
+    let ogImageUrl = `${baseUrl}/api/og`; // fallback
+    let imageWidth = 720;
+    let imageHeight = 1280;
+    const imageType = "image/png";
     
-    // Pass the poster URL to be composited into the landscape OG image
     if (posterUrl) {
-      const absolutePoster = posterUrl.startsWith("http") 
+      ogImageUrl = posterUrl.startsWith("http") 
         ? posterUrl 
         : `${baseUrl}${posterUrl}`;
-      ogParams.set('poster', absolutePoster);
     }
-    
-    const ogImageUrl = `${baseUrl}/api/og?${ogParams.toString()}`;
-    
-    // WhatsApp-compatible: 1200x630, WEBP format required
-    const imageWidth = 1200;
-    const imageHeight = 630;
-    const imageType = "image/webp";
 
     // Create keywords for better discoverability
     const keywords = [
@@ -124,7 +112,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       keywords: keywords.join(", "),
       
-      // Open Graph - 1200x630 landscape with poster composited (WhatsApp requires 1.91:1 ratio)
+      // Open Graph - uses poster directly (9:16 portrait)
       openGraph: {
         type: "website",
         url: `${baseUrl}/show/${id}`,

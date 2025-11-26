@@ -27,6 +27,9 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
+  FileText,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +71,266 @@ type VideoGenerationStatus = {
   attempts?: number;
 };
 
+// Prompt Editor Modal Component
+function PromptEditorModal({
+  isOpen,
+  onClose,
+  sectionLabel,
+  imagePrompt,
+  videoPrompt,
+  onGenerateWithPrompt,
+  onGenerateVideoWithPrompt,
+  isGenerating,
+  isGeneratingVideo,
+  hasImage,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  sectionLabel: string;
+  imagePrompt: string;
+  videoPrompt: string;
+  onGenerateWithPrompt: (prompt: string) => void;
+  onGenerateVideoWithPrompt: (prompt: string) => void;
+  isGenerating: boolean;
+  isGeneratingVideo: boolean;
+  hasImage: boolean;
+}) {
+  const [activeTab, setActiveTab] = useState<"image" | "video">("image");
+  const [editedImagePrompt, setEditedImagePrompt] = useState(imagePrompt);
+  const [editedVideoPrompt, setEditedVideoPrompt] = useState(videoPrompt);
+  const [copiedImage, setCopiedImage] = useState(false);
+  const [copiedVideo, setCopiedVideo] = useState(false);
+
+  // Reset edited prompts when modal opens with new prompts
+  useEffect(() => {
+    setEditedImagePrompt(imagePrompt);
+    setEditedVideoPrompt(videoPrompt);
+  }, [imagePrompt, videoPrompt, isOpen]);
+
+  if (!isOpen) return null;
+
+  const copyToClipboard = async (text: string, type: "image" | "video") => {
+    await navigator.clipboard.writeText(text);
+    if (type === "image") {
+      setCopiedImage(true);
+      setTimeout(() => setCopiedImage(false), 2000);
+    } else {
+      setCopiedVideo(true);
+      setTimeout(() => setCopiedVideo(false), 2000);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative w-full max-w-2xl max-h-[85vh] mx-4 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
+              <FileText className="h-4 w-4 text-violet-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">Edit Prompts</h3>
+              <p className="text-xs text-foreground/50">{sectionLabel}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-white/10 text-foreground/50 hover:text-foreground transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-white/10">
+          <button
+            onClick={() => setActiveTab("image")}
+            className={cn(
+              "flex-1 py-3 text-sm font-medium transition-colors relative",
+              activeTab === "image"
+                ? "text-foreground"
+                : "text-foreground/50 hover:text-foreground/70"
+            )}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              Image Prompt
+            </div>
+            {activeTab === "image" && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("video")}
+            className={cn(
+              "flex-1 py-3 text-sm font-medium transition-colors relative",
+              activeTab === "video"
+                ? "text-foreground"
+                : "text-foreground/50 hover:text-foreground/70"
+            )}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Video className="h-4 w-4" />
+              Video Prompt
+            </div>
+            {activeTab === "video" && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-violet-500" />
+            )}
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {activeTab === "image" ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-foreground/70">Image Generation Prompt</label>
+                <button
+                  onClick={() => copyToClipboard(editedImagePrompt, "image")}
+                  className="flex items-center gap-1 text-xs text-foreground/50 hover:text-foreground transition-colors"
+                >
+                  {copiedImage ? (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-400" />
+                      <span className="text-emerald-400">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3" />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
+              <textarea
+                value={editedImagePrompt}
+                onChange={(e) => setEditedImagePrompt(e.target.value)}
+                className="w-full h-64 p-3 bg-black/50 border border-white/10 rounded-lg text-sm text-foreground/90 placeholder:text-foreground/30 resize-none focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+                placeholder="Enter image generation prompt..."
+              />
+              <p className="text-[10px] text-foreground/40">
+                This prompt is sent to the image generation model (Nano Banana Pro) to create the scene still.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-foreground/70">Video Generation Prompt</label>
+                <button
+                  onClick={() => copyToClipboard(editedVideoPrompt, "video")}
+                  className="flex items-center gap-1 text-xs text-foreground/50 hover:text-foreground transition-colors"
+                >
+                  {copiedVideo ? (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-400" />
+                      <span className="text-emerald-400">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3" />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
+              <textarea
+                value={editedVideoPrompt}
+                onChange={(e) => setEditedVideoPrompt(e.target.value)}
+                className="w-full h-64 p-3 bg-black/50 border border-white/10 rounded-lg text-sm text-foreground/90 placeholder:text-foreground/30 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20"
+                placeholder="Enter video generation prompt..."
+              />
+              <p className="text-[10px] text-foreground/40">
+                This prompt is sent to VEO 3.1 along with the still image to animate the scene.
+              </p>
+              {!hasImage && (
+                <p className="text-[10px] text-amber-400/80 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Generate an image first before creating a video.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/10 flex items-center justify-between gap-3">
+          <button
+            onClick={() => {
+              setEditedImagePrompt(imagePrompt);
+              setEditedVideoPrompt(videoPrompt);
+            }}
+            className="px-3 py-2 text-xs text-foreground/50 hover:text-foreground transition-colors"
+          >
+            Reset to Default
+          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+            >
+              Cancel
+            </Button>
+            {activeTab === "image" ? (
+              <Button
+                size="sm"
+                onClick={() => {
+                  onGenerateWithPrompt(editedImagePrompt);
+                  onClose();
+                }}
+                disabled={isGenerating || !editedImagePrompt.trim()}
+                className="gap-2"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Generate Image
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => {
+                  onGenerateVideoWithPrompt(editedVideoPrompt);
+                  onClose();
+                }}
+                disabled={isGeneratingVideo || !editedVideoPrompt.trim() || !hasImage}
+                className="gap-2 bg-violet-600 hover:bg-violet-700"
+              >
+                {isGeneratingVideo ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Video className="h-3.5 w-3.5" />
+                    Generate Video
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Storyboard Section Component
 const STORYBOARD_COLORS = {
   amber: { bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-400", icon: "bg-amber-500/20" },
@@ -88,8 +351,12 @@ function StoryboardSection({
   isGenerating,
   isGeneratingVideo,
   videoStatus,
+  imagePrompt,
+  videoPrompt,
   onGenerate,
   onGenerateVideo,
+  onGenerateWithPrompt,
+  onGenerateVideoWithPrompt,
 }: { 
   label: string; 
   description: string; 
@@ -100,14 +367,20 @@ function StoryboardSection({
   isGenerating?: boolean;
   isGeneratingVideo?: boolean;
   videoStatus?: VideoGenerationStatus;
+  imagePrompt: string;
+  videoPrompt: string;
   onGenerate: () => void;
   onGenerateVideo?: () => void;
+  onGenerateWithPrompt: (prompt: string) => void;
+  onGenerateVideoWithPrompt: (prompt: string) => void;
 }) {
   const colors = STORYBOARD_COLORS[color];
   // Track if user has explicitly toggled to prefer image over video
   const [userPrefersImage, setUserPrefersImage] = useState(false);
   // Show video if available and user hasn't toggled to prefer image
   const showVideo = !!videoUrl && !userPrefersImage;
+  // Prompt editor modal state
+  const [showPromptEditor, setShowPromptEditor] = useState(false);
   
   return (
     <div className={cn("rounded-xl border p-4", colors.bg, colors.border)}>
@@ -120,20 +393,44 @@ function StoryboardSection({
           <span className={cn("text-xs font-bold tracking-wider", colors.text)}>{label}</span>
           <p className="text-xs text-foreground/50 line-clamp-1 mt-0.5">{description}</p>
         </div>
-        {/* Toggle between image/video when both exist */}
-        {imageUrl && videoUrl && (
+        <div className="flex items-center gap-1">
+          {/* Prompt editor button */}
           <button
-            onClick={() => setUserPrefersImage(!userPrefersImage)}
-            className={cn(
-              "p-1.5 rounded-md transition-colors",
-              showVideo ? "bg-violet-500/20 text-violet-400" : "bg-white/10 text-foreground/50 hover:text-foreground/70"
-            )}
-            title={showVideo ? "Show image" : "Show video"}
+            onClick={() => setShowPromptEditor(true)}
+            className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-foreground/40 hover:text-foreground/70 transition-colors"
+            title="View & edit prompts"
           >
-            {showVideo ? <ImageIcon className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
+            <FileText className="h-3.5 w-3.5" />
           </button>
-        )}
+          {/* Toggle between image/video when both exist */}
+          {imageUrl && videoUrl && (
+            <button
+              onClick={() => setUserPrefersImage(!userPrefersImage)}
+              className={cn(
+                "p-1.5 rounded-md transition-colors",
+                showVideo ? "bg-violet-500/20 text-violet-400" : "bg-white/10 text-foreground/50 hover:text-foreground/70"
+              )}
+              title={showVideo ? "Show image" : "Show video"}
+            >
+              {showVideo ? <ImageIcon className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
+            </button>
+          )}
+        </div>
       </div>
+      
+      {/* Prompt Editor Modal */}
+      <PromptEditorModal
+        isOpen={showPromptEditor}
+        onClose={() => setShowPromptEditor(false)}
+        sectionLabel={label}
+        imagePrompt={imagePrompt}
+        videoPrompt={videoPrompt}
+        onGenerateWithPrompt={onGenerateWithPrompt}
+        onGenerateVideoWithPrompt={onGenerateVideoWithPrompt}
+        isGenerating={isGenerating || false}
+        isGeneratingVideo={isGeneratingVideo || false}
+        hasImage={!!imageUrl}
+      />
       
       {/* Video, Image, or Placeholder */}
       {videoUrl && showVideo ? (
@@ -580,8 +877,99 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
       .filter((name: string | undefined): name is string => !!name);
   };
 
-  // Generate a still for a section
-  const generateStill = async (sectionLabel: string, sectionDescription: string) => {
+  // Build image prompt for a section
+  const buildImagePrompt = useCallback((sectionLabel: string, sectionDescription: string) => {
+    if (!currentEpisode || !showData) return "";
+    
+    const characterNames = getCharacterNames();
+    const { previousScene } = getSectionContext(sectionLabel);
+    
+    const characterString = characterNames.length > 0 
+      ? `Characters in this scene: ${characterNames.join(", ")}.` 
+      : "";
+    
+    const settingNote = showData.genre 
+      ? `Setting: A ${showData.genre.toLowerCase()} TV series.` 
+      : "";
+    
+    const continuityNote = previousScene 
+      ? `CONTINUITY: This follows from "${previousScene.slice(0, 100)}..."` 
+      : "";
+    
+    const prompt = portraitGridUrl 
+      ? `Create a detailed scene for "${sectionLabel}" of episode "${currentEpisode.title}":
+
+SCENE DESCRIPTION: ${sectionDescription}
+
+${characterString}
+
+${settingNote}
+
+${continuityNote}
+
+Use the character reference sheet provided to accurately depict the correct characters. Match their appearance, clothing, and features exactly from the reference. Show clear facial expressions and body language that convey the emotion of this moment.
+
+Genre: ${showData.genre || "drama"}
+Style: Cinematic TV production still, dramatic lighting, rich color palette, high production value, 16:9 widescreen composition. Show the environment and setting clearly.`
+      : `Create a detailed scene for "${sectionLabel}" of episode "${currentEpisode.title}":
+
+SCENE DESCRIPTION: ${sectionDescription}
+
+${characterString}
+
+${settingNote}
+
+${continuityNote}
+
+Show clear facial expressions and body language that convey the emotion of this moment.
+
+Genre: ${showData.genre || "drama"}
+Style: Cinematic TV production still, dramatic lighting, rich color palette, high production value, 16:9 widescreen composition. Show the environment and setting clearly.`;
+
+    return prompt;
+  }, [currentEpisode, showData, portraitGridUrl, getSectionContext, getCharacterNames]);
+
+  // Build video prompt for a section
+  const buildVideoPrompt = useCallback((sectionLabel: string, sectionDescription: string) => {
+    if (!currentEpisode || !showData) return "";
+    
+    const characterNames = getCharacterNames();
+    const { previousScene } = getSectionContext(sectionLabel);
+    
+    const characterList = characterNames.length 
+      ? `Characters in this scene: ${characterNames.join(", ")}.` 
+      : "";
+    
+    const continuityNote = previousScene 
+      ? `CONTINUITY: This follows from "${previousScene.slice(0, 100)}..."` 
+      : "";
+
+    const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines. We want to make a guideline compatible video given this, thats the task, so figure it out.\n\n";
+    
+    return SAFETY_PREFIX + `Animate this scene from a ${showData.genre || "dramatic"} TV series.
+
+SCENE: ${sectionLabel} - ${sectionDescription}
+
+Episode: "${currentEpisode.title}"
+Context: ${currentEpisode.logline}
+
+${characterList}
+${continuityNote}
+
+ANIMATION DIRECTION:
+- Bring this still frame to life with subtle, cinematic motion
+- Characters should have natural, expressive movements
+- Camera may include slight push-ins, pans, or subtle dolly moves
+- Maintain the exact visual style and composition of the source image
+- Add ambient motion: breathing, blinking, environmental details
+- Keep movements grounded and realistic - no exaggerated motions
+- Match the emotional tone of the scene
+
+This is a single scene clip that will be part of a larger episode. Make it feel like a premium streaming series.`;
+  }, [currentEpisode, showData, getSectionContext, getCharacterNames]);
+
+  // Generate a still for a section (with optional custom prompt)
+  const generateStill = async (sectionLabel: string, sectionDescription: string, customPrompt?: string) => {
     if (!currentEpisode || !showData) return;
     
     const key = `${currentEpisode.episode_number}-${sectionLabel}`;
@@ -593,7 +981,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     console.log("🎬 Generating still for:", sectionLabel);
     console.log("   Portrait Grid URL:", portraitGridUrl || "NOT AVAILABLE");
     console.log("   Characters:", characterNames.join(", ") || "NONE");
-    console.log("   Previous Scene:", previousScene || "FIRST SCENE");
+    console.log("   Custom Prompt:", customPrompt ? "YES" : "NO");
     
     try {
       const response = await fetch('/api/episodes/stills', {
@@ -611,6 +999,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
           characterGridUrl: portraitGridUrl,
           characterNames,
           previousScene,
+          customPrompt, // Pass custom prompt if provided
         }),
       });
       
@@ -637,6 +1026,13 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     }
   };
 
+  // Generate still with custom prompt wrapper
+  const generateStillWithPrompt = useCallback((sectionLabel: string, sectionDescription: string) => {
+    return (customPrompt: string) => {
+      generateStill(sectionLabel, sectionDescription, customPrompt);
+    };
+  }, [generateStill]);
+
   // Update video generation status
   const updateVideoStatus = useCallback((key: string, updates: Partial<VideoGenerationStatus>) => {
     setVideoGenerationStatuses(prev => {
@@ -662,8 +1058,8 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     setVideoGenerationStatuses(prev => prev.filter(s => s.key !== key));
   }, []);
 
-  // Generate a video clip from a still image
-  const generateClip = async (sectionLabel: string, sectionDescription: string, epNumber?: number) => {
+  // Generate a video clip from a still image (with optional custom prompt)
+  const generateClip = async (sectionLabel: string, sectionDescription: string, epNumber?: number, customPrompt?: string) => {
     const episodeNum = epNumber || currentEpisode?.episode_number;
     if (!episodeNum || !showData) return;
     
@@ -704,6 +1100,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     
     console.log("🎬 Generating clip for:", sectionLabel);
     console.log("   Still Image URL:", stillUrl);
+    console.log("   Custom Prompt:", customPrompt ? "YES" : "NO");
     
     try {
       // Update status to processing (API will do the actual work)
@@ -723,6 +1120,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
           stillImageUrl: stillUrl.split('?')[0], // Remove cache bust param
           characterNames,
           previousScene,
+          customPrompt, // Pass custom prompt if provided
         }),
       });
       
@@ -769,6 +1167,13 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
       setGeneratingClips(prev => ({ ...prev, [key]: false }));
     }
   };
+
+  // Generate video with custom prompt wrapper
+  const generateClipWithPrompt = useCallback((sectionLabel: string, sectionDescription: string) => {
+    return (customPrompt: string) => {
+      generateClip(sectionLabel, sectionDescription, undefined, customPrompt);
+    };
+  }, [generateClip]);
 
   // Retry a failed video generation
   const retryVideoGeneration = useCallback((key: string) => {
@@ -1154,8 +1559,12 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-TEASER`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-TEASER`]}
                       videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-TEASER`)}
+                      imagePrompt={buildImagePrompt("TEASER", currentEpisode.cold_open_hook)}
+                      videoPrompt={buildVideoPrompt("TEASER", currentEpisode.cold_open_hook)}
                       onGenerate={() => generateStill("TEASER", currentEpisode.cold_open_hook)}
                       onGenerateVideo={() => generateClip("TEASER", currentEpisode.cold_open_hook)}
+                      onGenerateWithPrompt={generateStillWithPrompt("TEASER", currentEpisode.cold_open_hook)}
+                      onGenerateVideoWithPrompt={generateClipWithPrompt("TEASER", currentEpisode.cold_open_hook)}
                     />
                     <StoryboardSection
                       label="ACT 1"
@@ -1167,8 +1576,12 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 1`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 1`]}
                       videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-ACT 1`)}
+                      imagePrompt={buildImagePrompt("ACT 1", currentEpisode.a_plot)}
+                      videoPrompt={buildVideoPrompt("ACT 1", currentEpisode.a_plot)}
                       onGenerate={() => generateStill("ACT 1", currentEpisode.a_plot)}
                       onGenerateVideo={() => generateClip("ACT 1", currentEpisode.a_plot)}
+                      onGenerateWithPrompt={generateStillWithPrompt("ACT 1", currentEpisode.a_plot)}
+                      onGenerateVideoWithPrompt={generateClipWithPrompt("ACT 1", currentEpisode.a_plot)}
                     />
                     <StoryboardSection
                       label="ACT 2"
@@ -1180,8 +1593,12 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 2`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 2`]}
                       videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-ACT 2`)}
+                      imagePrompt={buildImagePrompt("ACT 2", currentEpisode.b_plot || "Complications arise...")}
+                      videoPrompt={buildVideoPrompt("ACT 2", currentEpisode.b_plot || "Complications arise...")}
                       onGenerate={() => generateStill("ACT 2", currentEpisode.b_plot || "Complications arise...")}
                       onGenerateVideo={() => generateClip("ACT 2", currentEpisode.b_plot || "Complications arise...")}
+                      onGenerateWithPrompt={generateStillWithPrompt("ACT 2", currentEpisode.b_plot || "Complications arise...")}
+                      onGenerateVideoWithPrompt={generateClipWithPrompt("ACT 2", currentEpisode.b_plot || "Complications arise...")}
                     />
                     <StoryboardSection
                       label="ACT 3"
@@ -1193,8 +1610,12 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 3`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 3`]}
                       videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-ACT 3`)}
+                      imagePrompt={buildImagePrompt("ACT 3", currentEpisode.act_3_crisis || "Crisis point and confrontation")}
+                      videoPrompt={buildVideoPrompt("ACT 3", currentEpisode.act_3_crisis || "Crisis point and confrontation")}
                       onGenerate={() => generateStill("ACT 3", currentEpisode.act_3_crisis || "Crisis point and confrontation")}
                       onGenerateVideo={() => generateClip("ACT 3", currentEpisode.act_3_crisis || "Crisis point and confrontation")}
+                      onGenerateWithPrompt={generateStillWithPrompt("ACT 3", currentEpisode.act_3_crisis || "Crisis point and confrontation")}
+                      onGenerateVideoWithPrompt={generateClipWithPrompt("ACT 3", currentEpisode.act_3_crisis || "Crisis point and confrontation")}
                     />
                     <StoryboardSection
                       label="ACT 4"
@@ -1206,8 +1627,12 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 4`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 4`]}
                       videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-ACT 4`)}
+                      imagePrompt={buildImagePrompt("ACT 4", currentEpisode.cliffhanger_or_button)}
+                      videoPrompt={buildVideoPrompt("ACT 4", currentEpisode.cliffhanger_or_button)}
                       onGenerate={() => generateStill("ACT 4", currentEpisode.cliffhanger_or_button)}
                       onGenerateVideo={() => generateClip("ACT 4", currentEpisode.cliffhanger_or_button)}
+                      onGenerateWithPrompt={generateStillWithPrompt("ACT 4", currentEpisode.cliffhanger_or_button)}
+                      onGenerateVideoWithPrompt={generateClipWithPrompt("ACT 4", currentEpisode.cliffhanger_or_button)}
                     />
                     <StoryboardSection
                       label="TAG"
@@ -1219,8 +1644,12 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-TAG`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-TAG`]}
                       videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-TAG`)}
+                      imagePrompt={buildImagePrompt("TAG", currentEpisode.tag_scene || "Final comedic or emotional beat")}
+                      videoPrompt={buildVideoPrompt("TAG", currentEpisode.tag_scene || "Final comedic or emotional beat")}
                       onGenerate={() => generateStill("TAG", currentEpisode.tag_scene || "Final comedic or emotional beat")}
                       onGenerateVideo={() => generateClip("TAG", currentEpisode.tag_scene || "Final comedic or emotional beat")}
+                      onGenerateWithPrompt={generateStillWithPrompt("TAG", currentEpisode.tag_scene || "Final comedic or emotional beat")}
+                      onGenerateVideoWithPrompt={generateClipWithPrompt("TAG", currentEpisode.tag_scene || "Final comedic or emotional beat")}
                     />
                   </div>
                 </>
