@@ -41,12 +41,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     console.log('Show OG Debug:', {
       id,
       title,
-      logline: logline ? logline.substring(0, 60) + '...' : '(empty)',
-      hasBlueprint: !!show.blueprint,
-      hasPosterUrl: !!show.poster_url,
-      hasLibraryPosterUrl: !!show.library_poster_url,
-      posterSource: show.library_poster_url ? 'library_poster' : (show.poster_url ? 'poster' : 'og_fallback'),
-      hasGeneratedContent: !!show.generated_content,
+      posterUrl: posterUrl ? posterUrl.substring(0, 80) + '...' : '(none)',
+      usingDirectPoster: !!posterUrl,
     });
     
     // Create a compelling description from generated content
@@ -87,28 +83,32 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // Base URL for absolute URLs
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://productionflow.vercel.app";
     
-    // ALWAYS use landscape OG image (1200x630) for WhatsApp/social compatibility
-    // WhatsApp requires 1.91:1 aspect ratio - portrait posters don't work!
-    const ogParams = new URLSearchParams({
-      title: title,
-      ...(genre && { genre }),
-      ...(logline && { logline: logline.substring(0, 120) }),
-    });
+    // Use the library poster directly as OG image if available
+    let ogImageUrl: string;
+    let imageWidth: number;
+    let imageHeight: number;
+    let imageType: string;
     
-    // Include poster in the OG image if available (will be composited into landscape format)
     if (posterUrl) {
-      const absolutePoster = posterUrl.startsWith("http") 
+      // Use poster directly - it's a 9:16 portrait image
+      ogImageUrl = posterUrl.startsWith("http") 
         ? posterUrl 
         : `${baseUrl}${posterUrl}`;
-      ogParams.set('poster', absolutePoster);
+      imageWidth = 1080;  // Standard poster width
+      imageHeight = 1920; // 9:16 aspect ratio
+      imageType = "image/webp";
+    } else {
+      // Fallback to dynamic OG image when no poster exists
+      const ogParams = new URLSearchParams({
+        title: title,
+        ...(genre && { genre }),
+        ...(logline && { logline: logline.substring(0, 120) }),
+      });
+      ogImageUrl = `${baseUrl}/api/og?${ogParams.toString()}`;
+      imageWidth = 1200;
+      imageHeight = 630;
+      imageType = "image/png";
     }
-    
-    const ogImageUrl = `${baseUrl}/api/og?${ogParams.toString()}`;
-    
-    // Standard OG dimensions (landscape, 1.91:1 ratio) - required for WhatsApp
-    const imageWidth = 1200;
-    const imageHeight = 630;
-    const imageType = "image/png";
 
     // Create keywords for better discoverability
     const keywords = [
@@ -127,7 +127,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       keywords: keywords.join(", "),
       
-      // Open Graph - MUST be landscape (1.91:1) for WhatsApp compatibility
+      // Open Graph - uses library poster directly when available
       openGraph: {
         type: "website",
         url: `${baseUrl}/show/${id}`,

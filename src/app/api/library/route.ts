@@ -388,16 +388,7 @@ async function uploadAsset(
     if (url.startsWith('data:')) {
       buffer = dataUrlToBuffer(url);
     } else if (url.startsWith('http')) {
-      console.log(`⬇️ Downloading ${filename} from:`, url.slice(0, 80) + "...");
       buffer = await downloadAsBuffer(url);
-      if (!buffer) {
-        console.error(`❌ Failed to download ${filename} - URL may be expired or invalid`);
-        // For Replicate URLs that fail to download, return null so we don't store expired URLs
-        if (url.includes('replicate.delivery') || url.includes('pbxt.replicate')) {
-          console.log(`   Replicate URL detected - not storing expired URL`);
-          return null;
-        }
-      }
     } else if (url.startsWith('/')) {
       // Local file path - read from public directory
       try {
@@ -408,40 +399,23 @@ async function uploadAsset(
         console.log(`📁 Read local file: ${url}`);
       } catch (fsError) {
         console.warn(`Failed to read local file ${url}:`, fsError);
-        return url; // Keep local paths as-is
+        return url;
       }
     }
     
-    if (!buffer) {
-      console.warn(`⚠️ No buffer for ${filename} - keeping original URL if it's a permanent URL`);
-      // Only return the URL if it's likely to be permanent (Supabase, local path)
-      if (url.includes('supabase') || url.startsWith('/')) {
-        return url;
-      }
-      return null;
-    }
+    if (!buffer) return url; // Keep original if can't convert
     
     const storagePath = `${showId}/${filename}`;
     const uploaded = await uploadToSupabase(supabase, 'show-assets', storagePath, buffer, contentType);
     
     if (uploaded) {
-      console.log(`✅ Uploaded ${filename} to Supabase Storage: ${uploaded.slice(0, 80)}...`);
-      return uploaded;
+      console.log(`✅ Uploaded ${filename} to Supabase Storage`);
     }
     
-    console.error(`❌ Upload to Supabase failed for ${filename}`);
-    // If upload failed and original is a permanent URL, keep it
-    if (url.includes('supabase') || url.startsWith('/')) {
-      return url;
-    }
-    return null;
+    return uploaded || url;
   } catch (error) {
     console.error(`Failed to upload ${filename}:`, error);
-    // Only return URL if it's likely permanent
-    if (url.includes('supabase') || url.startsWith('/')) {
-      return url;
-    }
-    return null;
+    return url; // Fallback to original URL
   }
 }
 
