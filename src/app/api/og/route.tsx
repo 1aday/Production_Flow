@@ -12,13 +12,13 @@ export async function GET(request: NextRequest) {
     const genre = searchParams.get('genre') || '';
     const logline = searchParams.get('logline') || '';
 
-    // Canvas dimensions - WhatsApp compatible 1.91:1 ratio
+    // Canvas dimensions - 1200x630 for social media compatibility
     const WIDTH = 1200;
     const HEIGHT = 630;
 
-    // If poster URL provided, composite it into landscape format
+    // If poster URL provided, center it on a dark canvas
     if (posterUrl) {
-      console.log('OG: Compositing poster into landscape:', posterUrl.substring(0, 80) + '...');
+      console.log('OG: Centering poster on canvas:', posterUrl.substring(0, 80) + '...');
       
       try {
         const response = await fetch(posterUrl, {
@@ -37,13 +37,12 @@ export async function GET(request: NextRequest) {
           const posterWidth = posterMeta.width || 720;
           const posterHeight = posterMeta.height || 1280;
           
-          // Calculate poster placement - fit to left side with padding
-          const posterAreaWidth = Math.floor(WIDTH * 0.4); // 40% of width for poster
-          const padding = 40;
+          // Calculate how to fit poster in the canvas while maintaining aspect ratio
+          const padding = 20;
+          const availableWidth = WIDTH - (padding * 2);
           const availableHeight = HEIGHT - (padding * 2);
-          const availableWidth = posterAreaWidth - (padding * 2);
           
-          // Scale poster to fit
+          // Scale poster to fit within available space
           const scale = Math.min(
             availableWidth / posterWidth,
             availableHeight / posterHeight
@@ -51,9 +50,9 @@ export async function GET(request: NextRequest) {
           const scaledWidth = Math.floor(posterWidth * scale);
           const scaledHeight = Math.floor(posterHeight * scale);
           
-          // Center the poster vertically in its area
-          const posterX = padding + Math.floor((availableWidth - scaledWidth) / 2);
-          const posterY = padding + Math.floor((availableHeight - scaledHeight) / 2);
+          // Center the poster on the canvas
+          const posterX = Math.floor((WIDTH - scaledWidth) / 2);
+          const posterY = Math.floor((HEIGHT - scaledHeight) / 2);
           
           // Resize poster
           const resizedPoster = await sharp(posterBuffer)
@@ -61,54 +60,7 @@ export async function GET(request: NextRequest) {
             .png()
             .toBuffer();
           
-          // Create text area SVG for the right side
-          const textAreaX = posterAreaWidth + 20;
-          const textAreaWidth = WIDTH - textAreaX - padding;
-          
-          // Truncate title if too long
-          const displayTitle = title.length > 40 ? title.substring(0, 37) + '...' : title;
-          const displayLogline = logline.length > 150 ? logline.substring(0, 147) + '...' : logline;
-          
-          // Create SVG overlay with text
-          const svgText = `
-            <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
-              <style>
-                .title { fill: #ffffff; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 800; font-size: 48px; }
-                .genre { fill: #ffffff; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 600; font-size: 20px; }
-                .logline { fill: #aaaaaa; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 400; font-size: 22px; }
-                .brand { fill: #ffffff; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 700; font-size: 20px; }
-                .tagline { fill: #666666; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif; font-weight: 400; font-size: 16px; }
-              </style>
-              
-              <!-- Brand -->
-              <text x="${textAreaX}" y="60" class="brand">AS YOU WISH</text>
-              
-              <!-- Title -->
-              <text x="${textAreaX}" y="${HEIGHT / 2 - 40}" class="title">
-                ${escapeXml(displayTitle)}
-              </text>
-              
-              <!-- Genre pill -->
-              ${genre ? `
-                <rect x="${textAreaX}" y="${HEIGHT / 2}" width="${Math.min(genre.length * 12 + 40, 200)}" height="36" rx="18" fill="#333333"/>
-                <text x="${textAreaX + 20}" y="${HEIGHT / 2 + 25}" class="genre">${escapeXml(genre.toUpperCase())}</text>
-              ` : ''}
-              
-              <!-- Logline -->
-              ${displayLogline ? `
-                <foreignObject x="${textAreaX}" y="${HEIGHT / 2 + 60}" width="${textAreaWidth}" height="120">
-                  <div xmlns="http://www.w3.org/1999/xhtml" style="color: #aaaaaa; font-family: Inter, Helvetica Neue, Arial, sans-serif; font-size: 20px; line-height: 1.4; overflow: hidden;">
-                    ${escapeXml(displayLogline)}
-                  </div>
-                </foreignObject>
-              ` : ''}
-              
-              <!-- Tagline -->
-              <text x="${textAreaX}" y="${HEIGHT - 40}" class="tagline">AI Show Bible Generator</text>
-            </svg>
-          `;
-          
-          // Create the final composite image
+          // Create the final image - poster centered on dark background
           const finalImage = await sharp({
             create: {
               width: WIDTH,
@@ -123,16 +75,11 @@ export async function GET(request: NextRequest) {
                 left: posterX,
                 top: posterY,
               },
-              {
-                input: Buffer.from(svgText),
-                left: 0,
-                top: 0,
-              },
             ])
             .png()
             .toBuffer();
           
-          console.log('OG: Composited image size:', finalImage.length, 'bytes');
+          console.log('OG: Poster centered, size:', finalImage.length, 'bytes');
           
           return new NextResponse(new Uint8Array(finalImage), {
             headers: {
@@ -147,8 +94,8 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // No poster or poster failed - generate text-only image using ImageResponse
-    console.log('OG: Generating text fallback for:', title);
+    // No poster or poster failed - generate text-only fallback
+    console.log('OG: No poster, generating text fallback for:', title);
     
     const { ImageResponse } = await import('next/og');
     
@@ -258,14 +205,4 @@ export async function GET(request: NextRequest) {
     console.error('OG: Error:', error);
     return new NextResponse('Failed to generate image', { status: 500 });
   }
-}
-
-// Helper to escape XML special characters
-function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
 }
