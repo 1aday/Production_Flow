@@ -226,7 +226,8 @@ export async function POST(request: Request) {
   };
 
   // Default to true for backward compatibility
-  const useGuardrails = stylizationGuardrails !== false;
+  // Default to OFF (matching client default) - only ON if explicitly true
+  const useGuardrails = stylizationGuardrails === true;
   const systemDirective = useGuardrails ? systemDirectiveWithGuardrails : systemDirectiveWithoutGuardrails;
   
   console.log("=== BLUEPRINT GENERATION ===");

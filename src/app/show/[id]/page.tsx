@@ -31,7 +31,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const title = show.blueprint?.show_title || show.title || "Untitled Show";
     const logline = show.blueprint?.show_logline || show.blueprint?.logline || "";
     const genre = show.blueprint?.genre || "";
-    const setting = show.blueprint?.setting || "";
     const tone = show.blueprint?.tone || "";
     const characterCount = show.character_seeds?.length || 0;
     
@@ -40,13 +39,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     
     // Debug logging
     console.log('Show OG Debug:', {
+      id,
       title,
-      logline: logline || '(empty)',
+      logline: logline ? logline.substring(0, 60) + '...' : '(empty)',
+      hasBlueprint: !!show.blueprint,
+      hasPosterUrl: !!show.poster_url,
+      hasLibraryPosterUrl: !!show.library_poster_url,
+      posterSource: show.library_poster_url ? 'library_poster' : (show.poster_url ? 'poster' : 'og_fallback'),
       hasGeneratedContent: !!show.generated_content,
-      hasExpandedDesc: !!show.generated_content?.expanded_description,
-      expandedDescLength: show.generated_content?.expanded_description?.length || 0,
-      firstParagraph: show.generated_content?.expanded_description?.[0]?.substring(0, 50) || '(none)',
-      premise: show.blueprint?.premise?.substring(0, 50) || '(none)',
     });
     
     // Create a compelling description from generated content
@@ -89,10 +89,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     
     // Use poster if available, otherwise generate dynamic OG image
     let absolutePosterUrl: string;
+    let imageWidth: number;
+    let imageHeight: number;
+    let imageType: string;
+    
     if (posterUrl) {
       absolutePosterUrl = posterUrl.startsWith("http") 
         ? posterUrl 
         : `${baseUrl}${posterUrl}`;
+      // Poster is portrait format
+      imageWidth = 1280;
+      imageHeight = 1920;
+      imageType = "image/webp";
     } else {
       // Generate dynamic OG image with show details
       const ogParams = new URLSearchParams({
@@ -101,6 +109,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         ...(logline && { logline: logline.substring(0, 150) }),
       });
       absolutePosterUrl = `${baseUrl}/api/og?${ogParams.toString()}`;
+      // Dynamic OG is landscape format (standard OG dimensions)
+      imageWidth = 1200;
+      imageHeight = 630;
+      imageType = "image/png";
     }
 
     // Create keywords for better discoverability
@@ -130,10 +142,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         images: [
           {
             url: absolutePosterUrl,
-            width: 1280,
-            height: 1920,
+            width: imageWidth,
+            height: imageHeight,
             alt: `${title} - Show Poster`,
-            type: "image/webp",
+            type: imageType,
           },
         ],
         locale: "en_US",
@@ -164,8 +176,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
       // App-specific metadata
       other: {
-        "og:image:width": "1280",
-        "og:image:height": "1920",
+        "og:image:width": String(imageWidth),
+        "og:image:height": String(imageHeight),
         "og:image:alt": `${title} - Show Poster`,
         "twitter:image:alt": `${title} - Show Poster`,
       },

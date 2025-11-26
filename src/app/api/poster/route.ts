@@ -298,10 +298,10 @@ export async function POST(request: Request) {
 
       result = gptResult.output;
     } else if (selectedModel === "nano-banana-pro") {
-      // Nano Banana Pro
+      // Nano Banana Pro - use direct API for better error handling
       console.log("🎨 Using Nano Banana Pro for poster");
       
-      const input: Record<string, unknown> = {
+      const nanoInput: Record<string, unknown> = {
         prompt: compositePrompt,
         aspect_ratio: "2:3",
         resolution: "2K",
@@ -310,11 +310,59 @@ export async function POST(request: Request) {
       };
 
       if (body.characterGridUrl) {
-        input.image_input = [body.characterGridUrl];
+        nanoInput.image_input = [body.characterGridUrl];
         console.log("Using character grid as reference:", body.characterGridUrl.slice(0, 60) + "...");
       }
 
-      result = await replicate.run("google/nano-banana-pro", { input });
+      console.log("Nano Banana Pro input:", JSON.stringify(nanoInput, null, 2));
+
+      const createResponse = await fetch("https://api.replicate.com/v1/models/google/nano-banana-pro/predictions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ input: nanoInput }),
+      });
+
+      if (!createResponse.ok) {
+        const errorBody = await createResponse.text();
+        console.error("Nano Banana Pro API error:", errorBody);
+        throw new Error(`Failed to create Nano Banana Pro prediction: ${createResponse.status} - ${errorBody}`);
+      }
+
+      const nanoPrediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+      console.log("Nano Banana Pro prediction created:", nanoPrediction.id);
+
+      // Poll for completion
+      let nanoResult = nanoPrediction;
+      let pollCount = 0;
+      while (nanoResult.status === "starting" || nanoResult.status === "processing") {
+        pollCount++;
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${nanoResult.id}`, {
+          headers: {
+            "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+          },
+        });
+        
+        nanoResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+        console.log(`Poster poll ${pollCount}: ${nanoResult.status}`);
+      }
+
+      console.log(`Nano Banana Pro completed after ${pollCount} polls`);
+
+      if (nanoResult.status === "failed") {
+        console.error("Nano Banana Pro generation failed:", nanoResult.error);
+        throw new Error(nanoResult.error || "Nano Banana Pro poster generation failed");
+      }
+
+      if (nanoResult.status === "canceled") {
+        throw new Error("Nano Banana Pro poster generation was canceled");
+      }
+
+      result = nanoResult.output;
     } else {
       // FLUX
       console.log("🎨 Using FLUX 1.1 Pro for poster");

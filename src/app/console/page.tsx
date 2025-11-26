@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle, Sparkles, Users, Film, PlayCircle, Boxes, Clapperboard, Zap } from "lucide-react";
+import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle, Sparkles, Users, Film, PlayCircle, Boxes, Clapperboard, Zap, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -913,15 +913,22 @@ function CharacterDossierContent({
                 <Button
                   type="button"
                   variant={portraitUrl ? "outline" : "default"}
-                  onClick={() => onGeneratePortrait(characterId)}
-                  disabled={portraitLoading}
-                  className="w-full justify-center rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    console.log(`🖱️ Dossier portrait button clicked for ${characterId}, loading: ${portraitLoading}`);
+                    onGeneratePortrait(characterId);
+                  }}
+                  className="w-full justify-center rounded-full relative z-50"
+                  style={{ pointerEvents: 'auto' }}
                 >
                   {portraitLoading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Rendering portrait…
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Restart render
                     </>
+                  ) : portraitError ? (
+                    "Retry portrait"
                   ) : portraitUrl ? (
                     "Re-render portrait"
                   ) : (
@@ -1232,6 +1239,7 @@ function ResultView({
   setTrailerReplaceText,
   trailerRetryModel,
   setTrailerRetryModel,
+  trailerRetryCount,
   onGenerateTrailer,
   onRegenerateGrid,
   onRegeneratePoster,
@@ -1320,6 +1328,7 @@ function ResultView({
   setTrailerReplaceText: (value: string) => void;
   trailerRetryModel: "sora-2" | "sora-2-pro" | "veo-3.1";
   setTrailerRetryModel: (value: "sora-2" | "sora-2-pro" | "veo-3.1") => void;
+  trailerRetryCount: number;
   onGenerateTrailer: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => void;
   buildDefaultTrailerPrompt: () => string;
   buildDefaultLibraryPosterPrompt: () => string;
@@ -1699,10 +1708,26 @@ function ResultView({
             </div>
           ) : (
             <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
-              <p>Show poster generates automatically after portrait grid is ready.</p>
-              <p className="text-foreground/55">
-                Requires character portrait grid. No additional action needed.
-              </p>
+              {portraitGridUrl ? (
+                <>
+                  <p>Portrait grid is ready. Click below to generate poster.</p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void onRegeneratePoster()}
+                    className="w-full justify-center rounded-full text-sm"
+                  >
+                    Generate Show Poster
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p>Show poster generates automatically after portrait grid is ready.</p>
+                  <p className="text-foreground/55">
+                    Generate a character grid first, or it will auto-generate when autopilot is on.
+                  </p>
+                </>
+              )}
             </div>
           )}
       </CollapsibleSection>
@@ -1751,8 +1776,31 @@ function ResultView({
          </div>
        ) : (
         <div className="space-y-3 rounded-3xl border border-dashed border-white/15 bg-black/35 px-5 py-4 text-sm text-foreground/70">
-          <p>Grid renders after every character portrait is complete.</p>
-          <p className="text-foreground/55">Finish generating portraits to unlock the consolidated asset.</p>
+          {(() => {
+            const availablePortraits = characterSeeds?.filter(seed => characterPortraits[seed.id])?.length || 0;
+            const totalCharacters = characterSeeds?.length || 0;
+            return (
+              <>
+                <p>
+                  {availablePortraits > 0 
+                    ? `${availablePortraits}/${totalCharacters} portraits ready.`
+                    : "Generate character portraits first."}
+                </p>
+                {availablePortraits >= 1 ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={onRegenerateGrid}
+                    className="w-full justify-center rounded-full text-sm"
+                  >
+                    Generate Grid with {availablePortraits} Portrait{availablePortraits !== 1 ? 's' : ''}
+                  </Button>
+                ) : (
+                  <p className="text-foreground/55">Finish generating at least one portrait to create the grid.</p>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
       {portraitGridError ? (
@@ -2914,22 +2962,39 @@ function ResultView({
                     "Build dossier"
                   )}
                 </Button>
-                {doc && posterAvailable && !portraitError ? (
+                {doc && posterAvailable ? (
                   <Button
                     type="button"
-                    variant={portraitUrl ? "outline" : "secondary"}
-                    onClick={() => {
+                    variant={portraitLoading ? "destructive" : portraitUrl ? "outline" : "secondary"}
+                    onMouseDown={(e) => {
+                      // Force stop loading state for stuck portraits
+                      if (portraitLoading) {
+                        console.log(`🛑 Force-stopping stuck portrait for ${seed.id}`);
+                      }
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      console.log(`🖱️ Portrait button clicked for ${seed.id}, loading: ${portraitLoading}, error: ${portraitError || 'none'}`);
+                      
+                      // If portrait appears stuck, force clear the loading state first
+                      if (portraitLoading) {
+                        console.log(`🔄 Portrait ${seed.id} appears stuck, force-clearing state before restart`);
+                      }
+                      
                       const customPrompt = editedPortraitPrompts[seed.id];
                       onGeneratePortrait(seed.id, customPrompt as string | undefined);
                     }}
-                    disabled={portraitLoading}
-                    className="w-full justify-center rounded-full text-sm transition-all duration-200"
+                    className="w-full justify-center rounded-full text-sm transition-all duration-200 relative z-50"
+                    style={{ pointerEvents: 'auto' }}
                   >
                     {portraitLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Rendering…
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        Cancel & Restart
                       </>
+                    ) : portraitError ? (
+                      "Retry portrait"
                     ) : portraitUrl ? (
                       editedPortraitPrompts[seed.id] ? "Re-render with custom" : "Re-render portrait"
                     ) : (
@@ -3232,11 +3297,20 @@ function ResultView({
                   <p className="text-xl font-bold tracking-tight text-foreground/95">
                     Rendering Series Trailer
                   </p>
-                  <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                    <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                      {trailerStatusBadgeLabel}
-                    </p>
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5">
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                      <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+                        {trailerStatusBadgeLabel}
+                      </p>
+                    </div>
+                    {trailerRetryCount > 0 && (
+                      <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
+                        <p className="text-xs font-semibold text-amber-300">
+                          Retry #{trailerRetryCount}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <p className="text-xs text-foreground/50">
                     This can take up to 10 minutes
@@ -3289,11 +3363,20 @@ function ResultView({
               <div className="space-y-6 max-w-3xl mx-auto">
                 {/* Error Header */}
                 <div className="text-center">
-                  <div className="inline-flex items-center gap-3 rounded-full border border-amber-500/40 bg-amber-500/15 px-5 py-2 mb-4">
-                    <div className="h-2 w-2 rounded-full bg-amber-400" />
-                    <span className="text-xs font-semibold uppercase tracking-[0.26em] text-amber-300">
-                      Generation Failed
-                    </span>
+                  <div className="flex items-center justify-center gap-3 mb-4">
+                    <div className="inline-flex items-center gap-3 rounded-full border border-amber-500/40 bg-amber-500/15 px-5 py-2">
+                      <div className="h-2 w-2 rounded-full bg-amber-400" />
+                      <span className="text-xs font-semibold uppercase tracking-[0.26em] text-amber-300">
+                        Generation Failed
+                      </span>
+                    </div>
+                    {trailerRetryCount > 0 && (
+                      <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                        <span className="text-xs font-semibold text-amber-300">
+                          Attempt #{trailerRetryCount + 1}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <p className="text-lg font-semibold text-amber-200">Trailer generation failed</p>
                   <p className="mt-2 text-sm text-amber-200/70 max-w-lg mx-auto">{trailerError}</p>
@@ -4961,6 +5044,7 @@ export function Console({ initialShowId }: ConsoleProps) {
   const [trailerFindText, setTrailerFindText] = useState<string>("");
   const [trailerReplaceText, setTrailerReplaceText] = useState<string>("");
   const [trailerRetryModel, setTrailerRetryModel] = useState<"sora-2" | "sora-2-pro" | "veo-3.1">(videoGenModel);
+  const [trailerRetryCount, setTrailerRetryCount] = useState<number>(0);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   
   // Episode format and loglines
@@ -4972,7 +5056,9 @@ export function Console({ initialShowId }: ConsoleProps) {
   
   const portraitJobsRef = useRef<Map<string, string>>(new Map()); // characterId -> jobId
   const portraitPollsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
-  const portraitRetryCountRef = useRef<Map<string, number>>(new Map()); // characterId -> retry count (max 2 retries)
+  const portraitRetryCountRef = useRef<Map<string, number>>(new Map()); // characterId -> retry count (max 4 retries)
+  const portraitStartTimesRef = useRef<Map<string, number>>(new Map()); // characterId -> start timestamp for timeout
+  const portraitPollCountRef = useRef<Map<string, number>>(new Map()); // characterId -> poll count for stuck detection
   const videoJobsRef = useRef<Map<string, string>>(new Map()); // characterId -> jobId
   const videoPollsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const videoStartTimesRef = useRef<Map<string, number>>(new Map()); // characterId -> start timestamp
@@ -5462,10 +5548,43 @@ export function Console({ initialShowId }: ConsoleProps) {
 
   const generateCharacterPortrait = useCallback(
     async (characterId: string, customPrompt?: string) => {
+      console.log(`🎯 generateCharacterPortrait called for: ${characterId}`);
+      
       // CRITICAL: Capture show ID immediately to prevent cross-contamination
       const targetShowId = currentShowId;
       
+      console.log(`   Blueprint exists: ${!!blueprint}, ShowId: ${targetShowId}`);
+      
+      // FORCE CLEANUP: Always clear any potentially stuck state first
+      // This ensures the restart works even for stuck/orphaned portraits
+      const existingPoll = portraitPollsRef.current.get(characterId);
+      if (existingPoll) {
+        console.log(`   🧹 Force-clearing existing poll interval for ${characterId}`);
+        clearInterval(existingPoll);
+        portraitPollsRef.current.delete(characterId);
+      }
+      
+      const existingJob = portraitJobsRef.current.get(characterId);
+      if (existingJob) {
+        console.log(`   🧹 Force-clearing existing job ref ${existingJob} for ${characterId}`);
+        // Mark background task as canceled
+        if (targetShowId) {
+          updateBackgroundTask(existingJob, { status: 'canceled', error: 'Manually restarted' });
+          setTimeout(() => removeBackgroundTask(existingJob), 3000);
+        }
+        portraitJobsRef.current.delete(characterId);
+      }
+      
+      // Clear other refs
+      portraitStartTimesRef.current.delete(characterId);
+      portraitRetryCountRef.current.delete(characterId);
+      portraitPollCountRef.current.delete(characterId);
+      
+      // Force clear loading state - this is the key for stuck portraits
+      setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+      
       if (!blueprint) {
+        console.log(`   ❌ No blueprint - returning early`);
         setCharacterPortraitErrors((prev) => ({
           ...prev,
           [characterId]: "Blueprint missing for portrait generation.",
@@ -5474,32 +5593,31 @@ export function Console({ initialShowId }: ConsoleProps) {
       }
 
       const doc = characterDocs[characterId];
+      console.log(`   Doc exists for ${characterId}: ${!!doc}`);
+      
       if (!doc) {
+        console.log(`   ❌ No doc - returning early`);
         setCharacterPortraitErrors((prev) => ({
           ...prev,
           [characterId]: "Build the character dossier first.",
         }));
         return;
       }
+      
+      console.log(`   ✅ Proceeding with portrait generation for ${characterId}`);
 
-      // Check if there's an existing job for this character in our refs
-      const existingJobId = portraitJobsRef.current.get(characterId);
-      if (existingJobId) {
-        console.log(`⏸️ Portrait for ${characterId} already has active job ${existingJobId}, skipping duplicate call`);
-        return;
-      }
-
-      // Check for existing background task in storage
+      // Also check for existing background tasks that might be orphaned and cancel them
       if (targetShowId) {
         const existingTasks = getShowTasks(targetShowId);
-        const existingPortraitTask = existingTasks.find(
+        const existingPortraitTasks = existingTasks.filter(
           t => t.type === 'portrait' && t.characterId === characterId && (t.status === 'starting' || t.status === 'processing')
         );
         
-        if (existingPortraitTask) {
-          console.log(`⏸️ Portrait for ${characterId} already generating (task ${existingPortraitTask.id}), will not create new job`);
-          return;
-        }
+        existingPortraitTasks.forEach(task => {
+          console.log(`🔄 Canceling orphaned background task ${task.id} for ${characterId}`);
+          updateBackgroundTask(task.id, { status: 'canceled', error: 'Replaced by new generation' });
+          setTimeout(() => removeBackgroundTask(task.id), 3000);
+        });
       }
 
       // Generate NEW job ID
@@ -5512,6 +5630,9 @@ export function Console({ initialShowId }: ConsoleProps) {
       
       // Reset retry count for fresh generation
       portraitRetryCountRef.current.delete(characterId);
+      
+      // Track start time for timeout detection
+      portraitStartTimesRef.current.set(characterId, Date.now());
       
       console.log(`🎨 Generating portrait for ${characterId} in show: ${targetShowId}`);
       
@@ -5542,8 +5663,100 @@ export function Console({ initialShowId }: ConsoleProps) {
 
       // Start polling for this portrait
       const startPolling = (replicateJobId: string) => {
+        const PORTRAIT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes max
+        const MAX_POLL_COUNT = 60; // Max 60 polls (3 minutes at 3s intervals) before assuming stuck
+        const MAX_PROCESSING_POLLS = 40; // If stuck in "processing" for 40 polls, assume failed
+        
+        // Reset poll count for new job
+        portraitPollCountRef.current.set(characterId, 0);
+        
         const pollInterval = setInterval(async () => {
           try {
+            // Increment poll count
+            const pollCount = (portraitPollCountRef.current.get(characterId) || 0) + 1;
+            portraitPollCountRef.current.set(characterId, pollCount);
+            
+            // CRITICAL: Check if this job is still the active one for this character
+            // If user clicked "restart render", a new job may have replaced this one
+            const currentJobId = portraitJobsRef.current.get(characterId);
+            if (currentJobId !== replicateJobId) {
+              console.log(`🛑 Portrait poll for ${characterId} skipped - job ${replicateJobId.slice(0, 8)} replaced by ${currentJobId?.slice(0, 8) || 'none'}`);
+              // Stop this orphaned polling loop
+              const interval = portraitPollsRef.current.get(characterId);
+              if (interval === pollInterval) {
+                clearInterval(pollInterval);
+                portraitPollsRef.current.delete(characterId);
+              } else {
+                clearInterval(pollInterval); // Clear this specific interval anyway
+              }
+              portraitPollCountRef.current.delete(characterId);
+              return;
+            }
+            
+            // Check for max poll count (stuck detection)
+            if (pollCount >= MAX_POLL_COUNT) {
+              console.error(`🔄 Portrait ${characterId} exceeded max poll count (${MAX_POLL_COUNT}), marking as failed`);
+              
+              setCharacterPortraitErrors((prev) => ({
+                ...prev,
+                [characterId]: "Portrait generation appears stuck. The job may have failed silently. Please try again.",
+              }));
+              setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+              
+              if (currentShowId) {
+                updateBackgroundTask(replicateJobId, { 
+                  status: 'failed', 
+                  error: "Exceeded max poll count - job appears stuck" 
+                });
+                setTimeout(() => removeBackgroundTask(replicateJobId), 10000);
+              }
+              
+              const interval = portraitPollsRef.current.get(characterId);
+              if (interval) {
+                clearInterval(interval);
+                portraitPollsRef.current.delete(characterId);
+              }
+              portraitJobsRef.current.delete(characterId);
+              portraitStartTimesRef.current.delete(characterId);
+              portraitRetryCountRef.current.delete(characterId);
+              portraitPollCountRef.current.delete(characterId);
+              return;
+            }
+            
+            // Check for timeout
+            const startTime = portraitStartTimesRef.current.get(characterId);
+            if (startTime && Date.now() - startTime > PORTRAIT_TIMEOUT_MS) {
+              console.error(`⏰ Portrait ${characterId} timed out after 5 minutes`);
+              
+              // Set error and stop polling
+              setCharacterPortraitErrors((prev) => ({
+                ...prev,
+                [characterId]: "Portrait generation timed out after 5 minutes. Please try again.",
+              }));
+              setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+              
+              // Update background task
+              if (currentShowId) {
+                updateBackgroundTask(replicateJobId, { 
+                  status: 'failed', 
+                  error: "Timed out after 5 minutes" 
+                });
+                setTimeout(() => removeBackgroundTask(replicateJobId), 10000);
+              }
+              
+              // Stop polling and clean up
+              const interval = portraitPollsRef.current.get(characterId);
+              if (interval) {
+                clearInterval(interval);
+                portraitPollsRef.current.delete(characterId);
+              }
+              portraitJobsRef.current.delete(characterId);
+              portraitStartTimesRef.current.delete(characterId);
+              portraitRetryCountRef.current.delete(characterId);
+              portraitPollCountRef.current.delete(characterId);
+              return;
+            }
+            
             const response = await fetch(
               `/api/characters/portrait/status?jobId=${encodeURIComponent(replicateJobId)}`,
               { cache: "no-store" }
@@ -5619,6 +5832,8 @@ export function Console({ initialShowId }: ConsoleProps) {
                 portraitPollsRef.current.delete(characterId);
               }
               portraitJobsRef.current.delete(characterId);
+              portraitStartTimesRef.current.delete(characterId);
+              portraitRetryCountRef.current.delete(characterId);
               
               // Play success sound
               playSuccessChime();
@@ -5679,8 +5894,19 @@ export function Console({ initialShowId }: ConsoleProps) {
                 const retryDelay = isRateLimitError ? 3000 + (retryNumber * 2000) : 1500;
                 console.log(`⏳ Waiting ${retryDelay}ms before retry...`);
                 
+                // Capture the job ID at the time of scheduling the retry
+                const retryFromJobId = replicateJobId;
+                
                 setTimeout(async () => {
                   try {
+                    // CRITICAL: Check if this retry is still relevant
+                    // User may have clicked "restart render" since we scheduled this
+                    const currentJobId = portraitJobsRef.current.get(characterId);
+                    if (currentJobId && currentJobId !== retryFromJobId) {
+                      console.log(`🛑 Retry for ${characterId} cancelled - job replaced by ${currentJobId.slice(0, 8)}`);
+                      return; // Abort this retry, a new generation was started
+                    }
+                    
                     console.log(`🎨 Retrying portrait for ${characterId} (attempt ${retryNumber + 1})`);
                     
                     const retryResponse = await fetch("/api/characters/portrait", {
@@ -5702,6 +5928,8 @@ export function Console({ initialShowId }: ConsoleProps) {
                     if (retryResult.jobId) {
                       console.log(`✅ Retry started with new job ID: ${retryResult.jobId}`);
                       portraitJobsRef.current.set(characterId, retryResult.jobId);
+                      // Reset start time for the new attempt
+                      portraitStartTimesRef.current.set(characterId, Date.now());
                       startPolling(retryResult.jobId);
                     } else {
                       throw new Error("No job ID returned from retry");
@@ -5717,6 +5945,7 @@ export function Console({ initialShowId }: ConsoleProps) {
                     }));
                     setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
                     portraitRetryCountRef.current.delete(characterId);
+                    portraitStartTimesRef.current.delete(characterId);
                   }
                 }, retryDelay);
                 
@@ -5755,6 +5984,7 @@ export function Console({ initialShowId }: ConsoleProps) {
                 portraitPollsRef.current.delete(characterId);
               }
               portraitJobsRef.current.delete(characterId);
+              portraitStartTimesRef.current.delete(characterId);
             }
           } catch (pollError) {
             console.error(`Failed to poll portrait status for ${characterId}:`, pollError);
@@ -6247,41 +6477,29 @@ export function Console({ initialShowId }: ConsoleProps) {
     [blueprint, characterDocs, characterPortraits, posterAvailable, videoAspectRatio, videoModelId, videoResolution, videoSeconds, currentShowId, characterSeeds]
   );
 
-  // Resume portrait/video polling for active jobs
+  // Clean up stale background tasks on page load
+  // Don't try to resume portrait/video jobs - they can't be resumed after page refresh
+  // The Replicate jobs may still be running, but we've lost the polling connection
   useEffect(() => {
     if (!currentShowId) return;
-    if (!characterSeeds) return;
     
     const activeTasks = getShowTasks(currentShowId);
-    const portraitTasks = activeTasks.filter(t => t.type === 'portrait' && t.characterId && (t.status === 'starting' || t.status === 'processing'));
-    const videoTasks = activeTasks.filter(t => t.type === 'video' && t.characterId && (t.status === 'starting' || t.status === 'processing'));
+    const staleTasks = activeTasks.filter(t => 
+      (t.type === 'portrait' || t.type === 'video') && 
+      (t.status === 'starting' || t.status === 'processing')
+    );
     
-    // Resume portrait polling
-    portraitTasks.forEach(task => {
-      if (!task.characterId) return;
-      if (portraitPollsRef.current.has(task.characterId)) return; // Already polling
-      
-      console.log(`🔄 Resuming portrait polling for ${task.characterId}`);
-      portraitJobsRef.current.set(task.characterId, task.id);
-      
-      // Re-trigger generation which will detect existing job and just start polling
-      void generateCharacterPortrait(task.characterId);
+    // Mark stale tasks as needing re-generation
+    staleTasks.forEach(task => {
+      console.log(`🧹 Cleaning up stale ${task.type} task: ${task.id} for ${task.characterId || 'unknown'}`);
+      // Remove stale tasks - user will need to regenerate
+      removeBackgroundTask(task.id);
     });
     
-    // Resume video polling
-    videoTasks.forEach(task => {
-      if (!task.characterId) return;
-      if (videoPollsRef.current.has(task.characterId)) return; // Already polling
-      
-      console.log(`🔄 Resuming video polling for ${task.characterId}`);
-      videoJobsRef.current.set(task.characterId, task.id);
-      // Set start time to now for timeout tracking (we don't know original start time)
-      videoStartTimesRef.current.set(task.characterId, Date.now());
-      
-      // Re-trigger generation which will detect existing job and just start polling
-      void generateCharacterVideo(task.characterId);
-    });
-  }, [currentShowId, characterSeeds, generateCharacterPortrait, generateCharacterVideo]);
+    if (staleTasks.length > 0) {
+      console.log(`🧹 Cleaned up ${staleTasks.length} stale background tasks. Portraits/videos will need to be regenerated.`);
+    }
+  }, [currentShowId]);
 
   const generatePoster = useCallback(
     async (value: string, gridUrl?: string, specificShowId?: string) => {
@@ -6655,6 +6873,7 @@ export function Console({ initialShowId }: ConsoleProps) {
       }
       
       setTrailerUrl(result.url);
+      setTrailerRetryCount(0); // Reset retry count on success
       
       // Update background task as succeeded
       if (currentShowId) {
@@ -6699,6 +6918,7 @@ export function Console({ initialShowId }: ConsoleProps) {
       setTrailerStatus("failed");
       setTrailerStartTime(null);
       trailerDigestRef.current = ""; // Allow retry
+      setTrailerRetryCount(prev => prev + 1); // Increment retry count
       
       // Update background task as failed
       if (currentShowId) {
@@ -6937,51 +7157,85 @@ export function Console({ initialShowId }: ConsoleProps) {
       try {
         updateBackgroundTask(showGenTaskId, { status: 'processing' });
         
-        const response = await fetch("/api/generate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ prompt: value, model: chosenModel }),
-        });
-
-        if (!response.ok) {
-          // Check if response is HTML (error page) or JSON
-          const contentType = response.headers.get("content-type");
-          if (contentType?.includes("text/html")) {
-            throw new Error(`Show generation failed with server error (${response.status}). The server may be overloaded or timed out. Please try again.`);
+        // Retry logic for schema validation failures
+        const MAX_RETRIES = 2;
+        let lastError: Error | null = null;
+        let result: ApiResponse | null = null;
+        
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          if (attempt > 0) {
+            console.log(`🔄 Retrying show generation (attempt ${attempt + 1}/${MAX_RETRIES}) after schema validation failure...`);
+            // Brief delay before retry
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
           
-          const body = (await response.json().catch(() => null)) as
-            | {
-                error?: string;
-                messages?: Array<{ instancePath?: string; message?: string }>;
-                details?: unknown;
-              }
-            | null;
+          const response = await fetch("/api/generate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ 
+              prompt: value, 
+              model: chosenModel,
+              stylizationGuardrails, // Pass the user's setting
+            }),
+          });
 
-          if (body?.messages) {
-            console.error("Schema validation errors:", body.messages);
-            // Format validation errors for user-friendly display
-            const errorDetails = body.messages
-              .map(m => `${m.instancePath || 'root'}: ${m.message || 'invalid'}`)
-              .join('; ');
-            throw new Error(`Schema validation failed: ${errorDetails}. Please try again - the AI model generated an invalid response.`);
-          } else if (body?.details) {
-            console.error("Model output details:", body.details);
+          if (!response.ok) {
+            // Check if response is HTML (error page) or JSON
+            const contentType = response.headers.get("content-type");
+            if (contentType?.includes("text/html")) {
+              throw new Error(`Show generation failed with server error (${response.status}). The server may be overloaded or timed out. Please try again.`);
+            }
+            
+            const body = (await response.json().catch(() => null)) as
+              | {
+                  error?: string;
+                  messages?: Array<{ instancePath?: string; message?: string }>;
+                  details?: unknown;
+                }
+              | null;
+
+            // Check if this is a schema validation error (retryable)
+            if (body?.messages || body?.error?.includes("schema validation")) {
+              console.error(`Schema validation error (attempt ${attempt + 1}):`, body.messages || body.error);
+              const errorDetails = body.messages
+                ? body.messages.map(m => `${m.instancePath || 'root'}: ${m.message || 'invalid'}`).join('; ')
+                : body.error || 'Unknown validation error';
+              lastError = new Error(`Schema validation failed: ${errorDetails}`);
+              
+              // Continue to retry if not last attempt
+              if (attempt < MAX_RETRIES - 1) {
+                continue;
+              }
+              // Last attempt - throw with user-friendly message
+              throw new Error(`Schema validation failed after ${MAX_RETRIES} attempts: ${errorDetails}. The AI model is having trouble generating a valid response. Please try again or use a different prompt.`);
+            } else if (body?.details) {
+              console.error("Model output details:", body.details);
+            }
+
+            const fallback = `Request failed (${response.status})`;
+            throw new Error(body?.error ?? fallback);
           }
 
-          const fallback = `Request failed (${response.status})`;
-          throw new Error(body?.error ?? fallback);
-        }
+          // Check if successful response is JSON
+          const contentType = response.headers.get("content-type");
+          if (!contentType?.includes("application/json")) {
+            throw new Error("Show generation returned unexpected response format. The server may have encountered an error.");
+          }
 
-        // Check if successful response is JSON
-        const contentType = response.headers.get("content-type");
-        if (!contentType?.includes("application/json")) {
-          throw new Error("Show generation returned unexpected response format. The server may have encountered an error.");
+          result = (await response.json()) as ApiResponse;
+          
+          // Success - break out of retry loop
+          if (attempt > 0) {
+            console.log(`✅ Show generation succeeded on attempt ${attempt + 1}`);
+          }
+          break;
         }
-
-        const result = (await response.json()) as ApiResponse;
+        
+        if (!result) {
+          throw lastError || new Error("Show generation failed after retries");
+        }
 
         if ("error" in result && result.error) {
           throw new Error(result.error);
@@ -7620,27 +7874,10 @@ export function Console({ initialShowId }: ConsoleProps) {
     
     const showTitle = blueprint.show_title || "Untitled Show";
     const logline = blueprint.show_logline || "";
-    const productionStyle = blueprint.production_style;
-    const guardrailMessage = stylizationGuardrails
-      ? "IMPORTANT: Match this exact visual style. Do NOT use photorealistic or realistic rendering."
-      : "";
-    
-    const styleGuidance = productionStyle
-      ? `
-
-VISUAL STYLE:
-Medium: ${productionStyle.medium || 'Stylized cinematic'}
-References: ${(productionStyle.cinematic_references || []).join(', ')}
-Treatment: ${productionStyle.visual_treatment || 'Cinematic theatrical style'}
-Stylization: ${productionStyle.stylization_level || 'cinematic'}
-${guardrailMessage ? `\n${guardrailMessage}` : ''}`
-      : guardrailMessage
-        ? `\n${guardrailMessage}`
-        : '';
 
     return `Create an iconic teaser trailer for the series "${showTitle}".
 
-${logline}${styleGuidance}
+${logline}
 
 TRAILER REQUIREMENTS:
 
@@ -7674,7 +7911,7 @@ TRAILER REQUIREMENTS:
 4. Create a well-paced, exciting montage that captures the show's core vibe and genre
 5. Showcase the MOST INTERESTING and ICONIC moments that would make viewers want to watch
 6. Build anticipation and intrigue through dynamic editing, compelling visuals, and punchy narration`;
-  }, [blueprint, stylizationGuardrails]);
+  }, [blueprint]);
 
   const generateLibraryPoster = useCallback(async (customPrompt?: string) => {
     const canGenerate = canGenerateLibraryPoster();
@@ -8517,12 +8754,103 @@ TRAILER REQUIREMENTS:
             setTrailerReplaceText={setTrailerReplaceText}
             trailerRetryModel={trailerRetryModel}
             setTrailerRetryModel={setTrailerRetryModel}
+            trailerRetryCount={trailerRetryCount}
             buildDefaultTrailerPrompt={buildDefaultTrailerPrompt}
             buildDefaultLibraryPosterPrompt={buildDefaultLibraryPosterPrompt}
             onGenerateTrailer={(model, customPrompt) => void generateTrailer(model, customPrompt)}
             onRegenerateGrid={() => {
+              // Manual grid generation - works with any available portraits
+              if (!characterSeeds || characterSeeds.length === 0) return;
+              
+              const portraitsData = characterSeeds
+                .map((seed) => {
+                  const url = characterPortraits[seed.id];
+                  if (!url) return null;
+                  return { id: seed.id, name: seed.name, url };
+                })
+                .filter((entry): entry is { id: string; name: string; url: string } => Boolean(entry));
+              
+              if (portraitsData.length === 0) {
+                setPortraitGridError("No portraits available to generate grid.");
+                return;
+              }
+              
+              console.log(`🖼️ Manually generating portrait grid with ${portraitsData.length} portraits`);
+              
+              // Clear existing and regenerate
               portraitGridDigestRef.current = "";
               setPortraitGridUrl(null);
+              setPortraitGridLoading(true);
+              setPortraitGridError(null);
+              
+              const gridTaskId = `portrait-grid-${currentShowId}`;
+              
+              void (async () => {
+                if (currentShowId) {
+                  addBackgroundTask({
+                    id: gridTaskId,
+                    type: 'portrait-grid',
+                    showId: currentShowId,
+                    status: 'starting',
+                    stepNumber: 6,
+                    metadata: {
+                      showTitle: blueprint?.show_title || "Untitled Show",
+                      portraitCount: portraitsData.length,
+                    },
+                  });
+                }
+                
+                try {
+                  if (currentShowId) {
+                    updateBackgroundTask(gridTaskId, { status: 'processing' });
+                  }
+                  
+                  const response = await fetch("/api/characters/portrait-grid", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      portraits: portraitsData,
+                      columns: Math.min(3, portraitsData.length),
+                    }),
+                  });
+                  
+                  if (!response.ok) {
+                    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+                    const message = body?.error ?? `Failed to generate portrait grid (${response.status})`;
+                    throw new Error(message);
+                  }
+                  
+                  const result = (await response.json()) as { url?: string };
+                  if (result.url) {
+                    setPortraitGridUrl(result.url);
+                    portraitGridDigestRef.current = JSON.stringify(portraitsData.map(p => p.url));
+                    playSuccessChime();
+                    
+                    if (currentShowId) {
+                      updateBackgroundTask(gridTaskId, {
+                        status: 'succeeded',
+                        completedAt: Date.now(),
+                        outputUrl: result.url,
+                      });
+                      setTimeout(() => removeBackgroundTask(gridTaskId), 5000);
+                    }
+                  } else {
+                    throw new Error("Portrait grid response missing URL.");
+                  }
+                } catch (error) {
+                  console.error("Failed to compose portrait grid:", error);
+                  const message = error instanceof Error ? error.message : "Unable to compose portrait grid.";
+                  setPortraitGridError(message);
+                  portraitGridDigestRef.current = "";
+                  
+                  if (currentShowId) {
+                    updateBackgroundTask(gridTaskId, { status: 'failed', error: message });
+                    setTimeout(() => removeBackgroundTask(gridTaskId), 10000);
+                  }
+                } finally {
+                  setPortraitGridLoading(false);
+                }
+              })();
             }}
             onRegeneratePoster={async (customPrompt?: string) => {
               console.log("🔄 Regenerating library poster...");

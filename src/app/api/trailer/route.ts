@@ -15,7 +15,6 @@ type TrailerBody = {
   jobId?: string;
   model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto';
   customPrompt?: string;
-  stylizationGuardrails?: boolean;
 };
 
 // Helper function to generate with Sora 2
@@ -195,14 +194,11 @@ export async function POST(request: NextRequest) {
 
   pruneTrailerStatusRecords();
 
-  const { title, logline, characterGridUrl, show, jobId: incomingJobId, model: requestedModel = 'auto', customPrompt, stylizationGuardrails: guardrailsSetting } = body;
+  const { title, logline, characterGridUrl, show, jobId: incomingJobId, model: requestedModel = 'auto', customPrompt } = body;
   const jobId =
     typeof incomingJobId === "string" && incomingJobId.trim().length > 0
       ? incomingJobId.trim()
       : undefined;
-  
-  // Get stylization guardrails setting (defaults to true for backward compatibility)
-  const stylizationGuardrails = guardrailsSetting !== false;
 
   if (!title || !logline || !characterGridUrl) {
     return NextResponse.json(
@@ -211,37 +207,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Extract production style
-  const productionStyle = (show as { production_style?: {
-    medium?: string;
-    cinematic_references?: string[];
-    visual_treatment?: string;
-    stylization_level?: string;
-  } }).production_style;
-
   // Use custom prompt if provided, otherwise build default prompt
   const trailerPrompt = customPrompt || (() => {
-    // Build style guidance - only add restrictions if guardrails are ON
-    const styleGuidance = stylizationGuardrails && productionStyle ? `
-
-VISUAL STYLE (CRITICAL - Follow exactly):
-Medium: ${productionStyle.medium}
-References: ${(productionStyle.cinematic_references || []).join(', ')}
-Treatment: ${productionStyle.visual_treatment}
-Stylization: ${productionStyle.stylization_level}
-
-IMPORTANT: Match this exact visual style.` : `
-
-RENDERING APPROACH:
-- Photorealistic rendering is ALLOWED and ENCOURAGED if desired
-- Realistic, naturalistic, photographic styles are ALLOWED
-- Live-action appearance is ALLOWED
-- You may render in ANY style - realistic, stylized, animated, or illustrated`;
-
     // Build a blockbuster-style trailer prompt
     return `Create an iconic teaser trailer for the series "${title}".
 
-${logline}${styleGuidance}
+${logline}
 
 TRAILER REQUIREMENTS:
 
@@ -270,46 +241,11 @@ TRAILER REQUIREMENTS:
    ✗ NEVER be explanatory or expository
    ✗ NEVER use boring, flat narration
    ✗ NEVER sound like a documentary narrator
-   
-   EXAMPLE GOOD TRAILER VOICEOVER STYLE:
-   "Some secrets... [pause] ...refuse to stay buried."
-   "In a world on the edge... one choice... will change everything."
-   "They thought they knew the truth. They were wrong."
-   
-   The narrator should sound like a PROFESSIONAL TRAILER VOICE ACTOR - commanding, magnetic, impossible to ignore.
 
 3. Study the character grid reference image to understand the cast, weaving them into the narrative
 4. Create a well-paced, exciting montage that captures the show's core vibe and genre
 5. Showcase the MOST INTERESTING and ICONIC moments that would make viewers want to watch
-6. Build anticipation and intrigue through dynamic editing, compelling visuals, and punchy narration
-
-PACING & STRUCTURE:
-- Open with the title card (2-3 seconds) with impactful music
-- Voiceover opens with a HOOK - short, powerful, mysterious (NOT "In a world where..." unless it's perfect for the tone)
-- Quick cuts showcasing key characters and moments, each PUNCTUATED by sharp voiceover phrases
-- Build energy and TENSION throughout - narration should ESCALATE, not plateau
-- Include 2-3 memorable "money shots" with power-word voiceover hits
-- Voiceover rhythm: SHORT bursts that let visuals breathe, then hit HARD on the next beat
-- FINAL LINE must be a KILLER moment that leaves you wanting more - one perfect sentence that defines everything
-
-TONE & GENRE GUIDANCE:
-- If COMEDY: Visual humor, perfect timing, absurd situations. Voiceover: DRY, WITTY, self-aware - the voice is IN on the joke.
-- If ACTION: Dynamic movement, EXPLOSIVE tension, life-or-death stakes. Voiceover: INTENSE, gravelly, every word is WAR.
-- If HORROR: Creeping dread, shadows, the unseen. Voiceover: WHISPERED menace, bone-chilling calm, what's NOT said is scarier.
-- If DRAMA: Raw emotion, character conflict, human stakes. Voiceover: POWERFUL vulnerability, real and heartfelt, tears or triumph.
-- If ADVENTURE: Epic scope, wonder, impossible journeys. Voiceover: GRAND, awe-filled, makes you believe in magic.
-
-VISUAL APPROACH:
-- Use dynamic camera movements and impactful compositions
-- Vary shot sizes: wide establishing shots, dramatic close-ups, mid-shots for action
-- Match the show's visual style and production medium exactly (see above)
-- Create a sense of scale and production value
-- Every frame should feel intentional and exciting
-- Sync visuals with voiceover for maximum impact
-
-The character grid shows your cast - use them throughout but focus on MOMENTS and ATMOSPHERE matched with compelling narration.
-
-Show data: ${JSON.stringify(show).slice(0, 2000)}`;
+6. Build anticipation and intrigue through dynamic editing, compelling visuals, and punchy narration`;
   })();
 
   console.log("=== TRAILER GENERATION ===");
