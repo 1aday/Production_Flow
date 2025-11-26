@@ -87,33 +87,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     // Base URL for absolute URLs
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://productionflow.vercel.app";
     
-    // Use poster if available, otherwise generate dynamic OG image
-    let absolutePosterUrl: string;
-    let imageWidth: number;
-    let imageHeight: number;
-    let imageType: string;
+    // ALWAYS use landscape OG image (1200x630) for WhatsApp/social compatibility
+    // WhatsApp requires 1.91:1 aspect ratio - portrait posters don't work!
+    const ogParams = new URLSearchParams({
+      title: title,
+      ...(genre && { genre }),
+      ...(logline && { logline: logline.substring(0, 120) }),
+    });
     
+    // Include poster in the OG image if available (will be composited into landscape format)
     if (posterUrl) {
-      absolutePosterUrl = posterUrl.startsWith("http") 
+      const absolutePoster = posterUrl.startsWith("http") 
         ? posterUrl 
         : `${baseUrl}${posterUrl}`;
-      // Poster is portrait format
-      imageWidth = 1280;
-      imageHeight = 1920;
-      imageType = "image/webp";
-    } else {
-      // Generate dynamic OG image with show details
-      const ogParams = new URLSearchParams({
-        title: title,
-        ...(genre && { genre }),
-        ...(logline && { logline: logline.substring(0, 150) }),
-      });
-      absolutePosterUrl = `${baseUrl}/api/og?${ogParams.toString()}`;
-      // Dynamic OG is landscape format (standard OG dimensions)
-      imageWidth = 1200;
-      imageHeight = 630;
-      imageType = "image/png";
+      ogParams.set('poster', absolutePoster);
     }
+    
+    const ogImageUrl = `${baseUrl}/api/og?${ogParams.toString()}`;
+    
+    // Standard OG dimensions (landscape, 1.91:1 ratio) - required for WhatsApp
+    const imageWidth = 1200;
+    const imageHeight = 630;
+    const imageType = "image/png";
 
     // Create keywords for better discoverability
     const keywords = [
@@ -132,7 +127,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       keywords: keywords.join(", "),
       
-      // Open Graph
+      // Open Graph - MUST be landscape (1.91:1) for WhatsApp compatibility
       openGraph: {
         type: "website",
         url: `${baseUrl}/show/${id}`,
@@ -141,7 +136,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         siteName: "As You Wish",
         images: [
           {
-            url: absolutePosterUrl,
+            url: ogImageUrl,
             width: imageWidth,
             height: imageHeight,
             alt: `${title} - Show Poster`,
@@ -156,7 +151,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         card: "summary_large_image",
         title: title,
         description,
-        images: [absolutePosterUrl],
+        images: [ogImageUrl],
         creator: "@asyouwish",
         site: "@asyouwish",
       },

@@ -89,12 +89,26 @@ export async function uploadToSupabase(
 // Download file from URL as Buffer
 export async function downloadAsBuffer(url: string): Promise<Buffer | null> {
   try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
+    console.log(`⬇️ Fetching: ${url.slice(0, 100)}...`);
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'ProductionFlow/1.0',
+      },
+    });
+    
+    if (!response.ok) {
+      console.error(`❌ Download failed with status ${response.status}: ${response.statusText}`);
+      console.error(`   URL: ${url.slice(0, 100)}...`);
+      return null;
+    }
+    
     const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(arrayBuffer);
+    console.log(`✅ Downloaded ${Math.round(buffer.length / 1024)}KB`);
+    return buffer;
   } catch (error) {
-    console.error('Download failed:', error);
+    console.error('❌ Download error:', error instanceof Error ? error.message : String(error));
+    console.error(`   URL: ${url.slice(0, 100)}...`);
     return null;
   }
 }

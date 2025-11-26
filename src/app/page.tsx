@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Sparkles, ArrowRight, Play, Loader2, Trash2, Zap, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Navbar } from "@/components/Navbar";
 import { STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
 import { getShowUrl } from "@/lib/slug";
@@ -188,6 +187,28 @@ export default function LandingPage() {
   const [videoLightbox, setVideoLightbox] = useState<{ url: string; title: string } | null>(null);
   const [hoveredShow, setHoveredShow] = useState<string | null>(null);
   const [tappedShow, setTappedShow] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea based on content
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    // Reset height to auto to get the correct scrollHeight
+    textarea.style.height = 'auto';
+    
+    // Calculate new height (min 56px for mobile, 80px for desktop, max 200px)
+    const minHeight = window.innerWidth >= 640 ? 80 : 56;
+    const maxHeight = 200;
+    const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+    
+    textarea.style.height = `${newHeight}px`;
+  }, []);
+
+  // Adjust height when input changes
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [input, adjustTextareaHeight]);
 
   return (
     <div className="min-h-screen bg-black text-foreground overflow-x-hidden w-full max-w-full">
@@ -257,16 +278,22 @@ export default function LandingPage() {
               {/* Focus glow */}
               <div className="absolute -inset-1 bg-primary/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
               
-              <input
-                type="text"
+              <textarea
+                ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void handleSubmit();
+                  // Submit on Enter (without shift) or Cmd/Ctrl+Enter
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleSubmit();
+                  }
                 }}
                 placeholder="A robot family navigating suburban life..."
                 disabled={isSubmitting}
-                className="relative w-full h-14 sm:h-20 bg-zinc-900/50 border-2 border-white/20 focus:border-primary/40 rounded-xl sm:rounded-2xl px-4 sm:px-8 text-base sm:text-2xl text-white placeholder:text-white/25 focus:outline-none focus:bg-zinc-900/70 transition-all duration-300 backdrop-blur-2xl font-light"
+                rows={1}
+                className="relative w-full min-h-[56px] sm:min-h-[80px] max-h-[200px] bg-zinc-900/50 border-2 border-white/20 focus:border-primary/40 rounded-xl sm:rounded-2xl px-4 sm:px-8 py-4 sm:py-6 text-base sm:text-2xl text-white placeholder:text-white/25 focus:outline-none focus:bg-zinc-900/70 transition-all duration-300 backdrop-blur-2xl font-light resize-none overflow-y-auto leading-relaxed"
+                style={{ height: 'auto' }}
               />
             </div>
 

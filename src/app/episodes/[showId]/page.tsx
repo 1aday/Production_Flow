@@ -85,12 +85,10 @@ function StoryboardSection({
   onGenerateVideo?: () => void;
 }) {
   const colors = STORYBOARD_COLORS[color];
-  const [showVideo, setShowVideo] = useState(!!videoUrl);
-
-  // Update showVideo when videoUrl changes
-  useEffect(() => {
-    if (videoUrl) setShowVideo(true);
-  }, [videoUrl]);
+  // Track if user has explicitly toggled to prefer image over video
+  const [userPrefersImage, setUserPrefersImage] = useState(false);
+  // Show video if available and user hasn't toggled to prefer image
+  const showVideo = !!videoUrl && !userPrefersImage;
   
   return (
     <div className={cn("rounded-xl border p-4", colors.bg, colors.border)}>
@@ -106,7 +104,7 @@ function StoryboardSection({
         {/* Toggle between image/video when both exist */}
         {imageUrl && videoUrl && (
           <button
-            onClick={() => setShowVideo(!showVideo)}
+            onClick={() => setUserPrefersImage(!userPrefersImage)}
             className={cn(
               "p-1.5 rounded-md transition-colors",
               showVideo ? "bg-violet-500/20 text-violet-400" : "bg-white/10 text-foreground/50 hover:text-foreground/70"

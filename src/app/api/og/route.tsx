@@ -10,7 +10,95 @@ export async function GET(request: NextRequest) {
     const title = searchParams.get('title') || 'Untitled Show';
     const genre = searchParams.get('genre') || '';
     const logline = searchParams.get('logline') || '';
+    const posterUrl = searchParams.get('poster') || '';
     
+    // If we have a poster, show it LARGE and centered with cinematic bars
+    if (posterUrl) {
+      return new ImageResponse(
+        (
+          <div
+            style={{
+              height: '100%',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#000',
+              position: 'relative',
+            }}
+          >
+            {/* Full portrait poster - centered and as large as possible */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={posterUrl}
+              alt=""
+              style={{
+                height: '100%',
+                width: 'auto',
+                objectFit: 'contain',
+              }}
+            />
+            
+            {/* Title overlay at bottom */}
+            <div
+              style={{
+                display: 'flex',
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: 'linear-gradient(transparent, rgba(0,0,0,0.95))',
+                padding: '60px 40px 30px',
+                alignItems: 'flex-end',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div
+                  style={{
+                    fontSize: 42,
+                    fontWeight: 900,
+                    color: '#fff',
+                    textShadow: '0 2px 20px rgba(0,0,0,0.8)',
+                  }}
+                >
+                  {title.length > 35 ? title.substring(0, 32) + '...' : title}
+                </div>
+                {genre && (
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 600,
+                      color: 'rgba(255,255,255,0.7)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '2px',
+                    }}
+                  >
+                    {genre.replace('_', ' ')}
+                  </div>
+                )}
+              </div>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: 'rgba(255,255,255,0.6)',
+                  letterSpacing: '1px',
+                }}
+              >
+                AS YOU WISH
+              </div>
+            </div>
+          </div>
+        ),
+        {
+          width: 1200,
+          height: 630,
+        }
+      );
+    }
+    
+    // No poster - use centered text layout
     return new ImageResponse(
       (
         <div
@@ -60,7 +148,6 @@ export async function GET(request: NextRequest) {
                 fontWeight: 900,
                 background: 'linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%)',
                 backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
                 color: 'transparent',
                 textAlign: 'center',
                 marginBottom: 40,
@@ -155,4 +242,3 @@ export async function GET(request: NextRequest) {
     return new Response('Failed to generate image', { status: 500 });
   }
 }
-
