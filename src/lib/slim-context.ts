@@ -309,8 +309,8 @@ export function buildSlimPortraitPrompt(
 ): string {
   const lines: string[] = [];
 
-  // Style header
-  lines.push(`Portrait for "${showContext.show_title}"`);
+  // Style header - don't include show title as it can appear in generated images
+  lines.push("Character Portrait");
   lines.push(`Style: ${showContext.style.medium} (${showContext.style.stylization_level})`);
   
   if (showContext.style.cinematic_references.length > 0) {

@@ -83,23 +83,24 @@ Include a compelling "show_logline" and detailed "poster_description".`,
     
     portraitBasePrompt: `!! VISUAL STYLE - CRITICAL - MUST FOLLOW !!
 
-This is a character portrait for "{SHOW_TITLE}"
+Character portrait
 Production Medium: {PRODUCTION_MEDIUM}
 Visual References: {CINEMATIC_REFERENCES}
 Stylization Level: {STYLIZATION_LEVEL}
 
 CRITICAL RULES:
 - DO NOT use photorealistic rendering
-- DO NOT create a photo-like realistic image`,
+- DO NOT create a photo-like realistic image
+- DO NOT include any text or titles in the image`,
     
     videoBasePrompt: `Produce a {DURATION}-second, {ASPECT_RATIO} cinematic showcase featuring ONLY the specified character.`,
     
     posterBasePrompt: `!! VISUAL STYLE - CRITICAL - MUST FOLLOW !!
 
-Show Title: "{SHOW_TITLE}"
-Production Medium: {PRODUCTION_MEDIUM}`,
+Production Medium: {PRODUCTION_MEDIUM}
+DO NOT include any text or titles in the image.`,
     
-    trailerBasePrompt: `Create an iconic teaser trailer for the series "{SHOW_TITLE}".`,
+    trailerBasePrompt: `Create an iconic teaser trailer. DO NOT include any text or titles.`,
   };
 }
 

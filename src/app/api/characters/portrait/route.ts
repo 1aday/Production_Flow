@@ -42,6 +42,55 @@ const trimJson = (value: unknown, limit = MAX_JSON_LENGTH) => {
   }
 };
 
+// Recursively remove show title keys from an object to prevent them appearing in generated images
+const removeShowTitleRecursive = (obj: unknown, showTitle?: string): unknown => {
+  if (obj === null || obj === undefined) return obj;
+  
+  // Handle strings - check if it's a JSON string that needs parsing
+  if (typeof obj === 'string') {
+    // If it looks like JSON containing show_title, parse and clean it
+    if (obj.includes('show_title') || obj.includes('showTitle')) {
+      try {
+        const parsed = JSON.parse(obj);
+        const cleaned = removeShowTitleRecursive(parsed, showTitle);
+        return JSON.stringify(cleaned);
+      } catch {
+        // Not valid JSON, return as-is but remove show title text if present
+        if (showTitle) {
+          return obj.replace(new RegExp(showTitle, 'gi'), '[SHOW]');
+        }
+        return obj;
+      }
+    }
+    return obj;
+  }
+  
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(item => removeShowTitleRecursive(item, showTitle));
+  }
+  
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    // Skip any key that contains "title" or "show_id" when it looks like a title
+    const lowerKey = key.toLowerCase();
+    if (lowerKey === 'show_title' || lowerKey === 'showtitle' || lowerKey === 'title') {
+      continue;
+    }
+    // Skip show_id if it contains the show title (it should be an ID, not title)
+    if (lowerKey === 'show_id' && typeof value === 'string' && value.includes(' ')) {
+      continue;
+    }
+    // Clean the inherits field specially
+    if (lowerKey === 'inherits' && typeof value === 'string') {
+      result[key] = removeShowTitleRecursive(value, showTitle);
+    } else {
+      result[key] = removeShowTitleRecursive(value, showTitle);
+    }
+  }
+  return result;
+};
+
 export const maxDuration = 60; // Reduced to 60s since we return immediately
 
 export async function POST(request: Request) {
@@ -108,14 +157,33 @@ export async function POST(request: Request) {
   const isRealistic = checkRealisticStyle(slimShow);
   
   // Legacy: still support full JSON as fallback for complex cases
-  const showJson = trimJson(body.show);
-  const characterJson = trimJson(body.character);
+  // Recursively remove show_title from all nested objects to prevent it appearing in generated images
+  const showTitle = slimShow.show_title;
+  const showForJson = removeShowTitleRecursive(body.show, showTitle);
+  const characterForJson = removeShowTitleRecursive(body.character, showTitle);
+  const showJson = trimJson(showForJson);
+  const characterJson = trimJson(characterForJson);
 
   console.log("=== PORTRAIT REQUEST DEBUG ===");
-  console.log("Show title:", slimShow.show_title);
+  console.log("Show title (for logging only):", slimShow.show_title);
   console.log("Style:", slimShow.style.medium);
   console.log("Is realistic:", isRealistic);
   console.log("Character:", slimCharacter.name);
+  
+  // Debug: Check if show title still appears in the cleaned JSONs
+  if (showJson.toLowerCase().includes(slimShow.show_title.toLowerCase())) {
+    console.log("⚠️ WARNING: Show title still in showJson!");
+    console.log("showJson sample:", showJson.slice(0, 500));
+  } else {
+    console.log("✅ Show title successfully removed from showJson");
+  }
+  
+  if (characterJson.toLowerCase().includes(slimShow.show_title.toLowerCase())) {
+    console.log("⚠️ WARNING: Show title found in characterJson!");
+    console.log("characterJson sample:", characterJson.slice(0, 500));
+  } else {
+    console.log("✅ Show title NOT in characterJson");
+  }
 
   const prompt = body.customPrompt || (() => {
     // Build style header using slim extraction
@@ -136,7 +204,7 @@ export async function POST(request: Request) {
     } else if (stylizationGuardrails) {
       // Guardrails ON but no production style: Add basic stylization reminder
       styleHeader = [
-        `Character portrait for "${slimShow.show_title}"`,
+        "Character portrait",
         "Use theatrical/stylized treatment.",
         "",
         "---",
@@ -145,7 +213,7 @@ export async function POST(request: Request) {
     } else if (isRealistic) {
       // Guardrails OFF with realistic style: PUSH for photorealistic
       styleHeader = [
-        `!! PHOTOREALISTIC CHARACTER PORTRAIT for "${slimShow.show_title}" !!`,
+        "!! PHOTOREALISTIC CHARACTER PORTRAIT !!",
         "",
         "RENDERING APPROACH - MUST FOLLOW:",
         "- Render as a PHOTOREALISTIC portrait like a professional headshot or movie still",
@@ -163,7 +231,7 @@ export async function POST(request: Request) {
     } else {
       // Guardrails OFF: Flexible approach based on show aesthetic
       styleHeader = [
-        `Character portrait for "${slimShow.show_title}"`,
+        "Character portrait",
         "",
         "RENDERING FREEDOM:",
         "- Match the show's intended aesthetic as described in the guidelines",
@@ -213,11 +281,22 @@ export async function POST(request: Request) {
   })();
 
   try {
-    console.log("🎨 Creating portrait prediction...");
-    console.log("Show title:", slimShow.show_title);
-    console.log("Production style:", slimShow.style.medium || "not specified");
+    console.log("\n========================================");
+    console.log("🎨 PORTRAIT GENERATION - FULL DEBUG");
+    console.log("========================================");
     console.log("Selected image model:", selectedModel);
-    console.log("Prompt preview (first 300 chars):", prompt.slice(0, 300) + "...");
+    console.log("Production style:", slimShow.style.medium || "not specified");
+    console.log("\n--- FULL PROMPT START ---");
+    console.log(prompt);
+    console.log("--- FULL PROMPT END ---\n");
+    
+    // Check if show title appears in prompt
+    if (prompt.toLowerCase().includes(slimShow.show_title.toLowerCase())) {
+      console.log("⚠️ WARNING: Show title found in prompt!");
+    } else {
+      console.log("✅ Show title NOT found in prompt");
+    }
+    
     if (body.customPrompt) {
       console.log("Using custom prompt:", body.customPrompt.slice(0, 150) + "...");
     }

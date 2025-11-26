@@ -367,7 +367,7 @@ type CharacterBehavior =
 };
 
 type ModelId = "gpt-5" | "gpt-4o";
-type ImageModelId = "gpt-image" | "flux";
+type ImageModelId = "gpt-image" | "flux" | "nano-banana-pro";
 type VideoGenerationModelId = "sora-2" | "sora-2-pro" | "veo-3.1";
 
 const MODEL_OPTIONS: Array<{
@@ -401,6 +401,11 @@ const IMAGE_MODEL_OPTIONS: Array<{
     id: "flux",
     label: "FLUX 1.1 Pro",
     description: "Fast, excellent for stylized art and character consistency",
+  },
+  {
+    id: "nano-banana-pro",
+    label: "Nano Banana Pro",
+    description: "Google's model with 2K resolution output",
   },
 ];
 
@@ -4299,10 +4304,10 @@ function ResultView({
   return (
     <>
       {/* Show Overview with Integrated Tabs */}
-      <div className="max-w-[1600px] mx-auto mb-4 sm:mb-6">
-        <div className="rounded-2xl sm:rounded-3xl border border-white/12 bg-black/45 shadow-[0_18px_60px_rgba(0,0,0,0.55)] overflow-hidden">
+      <div className="max-w-[1600px] mx-auto mb-4 sm:mb-6 px-3 sm:px-4 min-w-0 w-full box-border" style={{ maxWidth: 'calc(100vw - 24px)' }}>
+        <div className="rounded-2xl sm:rounded-3xl border border-white/12 bg-black/45 shadow-[0_18px_60px_rgba(0,0,0,0.55)] overflow-hidden w-full min-w-0 max-w-full box-border">
           {/* Show Header */}
-          <div className="p-4 sm:p-6 pb-3 sm:pb-4 space-y-3 sm:space-y-4 border-b border-white/12">
+          <div className="p-4 sm:p-6 pb-3 sm:pb-4 space-y-3 sm:space-y-4 border-b border-white/12 overflow-hidden max-w-full box-border">
             <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
               <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.28em] sm:tracking-[0.32em] text-foreground/55">
                 Show overview
@@ -4310,19 +4315,19 @@ function ResultView({
               {usageBadge}
             </div>
             {blueprint.show_title ? (
-              <h2 className="text-xl sm:text-2xl font-bold text-foreground/90 leading-tight">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground/90 leading-tight break-words">
                 {blueprint.show_title}
               </h2>
             ) : null}
-            <p className="text-sm sm:text-base leading-relaxed text-foreground/80 whitespace-pre-wrap">
+            <p className="text-sm sm:text-base leading-relaxed text-foreground/80 whitespace-pre-wrap break-words max-w-full overflow-hidden overflow-wrap-anywhere" style={{ wordBreak: 'break-word' }}>
               {blueprint.show_logline}
             </p>
           </div>
 
           {/* Tabs Section */}
-          <Tabs defaultValue="master" className="space-y-0" id="main-tabs">
-            <div className="flex flex-col gap-3 px-3 sm:px-6 pt-3 sm:pt-4 pb-2">
-              <div className="relative w-full">
+          <Tabs defaultValue="master" className="space-y-0 overflow-hidden w-full max-w-full" id="main-tabs">
+            <div className="flex flex-col gap-3 px-3 sm:px-6 pt-3 sm:pt-4 pb-2 overflow-hidden w-full max-w-full box-border">
+              <div className="relative w-full max-w-full overflow-hidden">
                 <div
                   className={cn(
                     "pointer-events-none absolute inset-y-1 left-0 hidden w-6 rounded-l-2xl bg-gradient-to-r from-black/80 to-transparent transition-opacity duration-200 sm:block",
@@ -4409,13 +4414,13 @@ function ResultView({
                   variant="outline"
                   onClick={toggleStylizationGuardrails}
                   className={cn(
-                    "w-full rounded-full px-4 py-2 text-[11px] font-semibold tracking-[0.2em] uppercase transition-colors",
+                    "w-full rounded-full px-3 py-2 text-[10px] font-semibold tracking-[0.12em] uppercase transition-colors",
                     guardrailToggleBaseClasses
                   )}
                   title="Toggle stylization guardrails"
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  Stylization Guardrails: {stylizationGuardrails ? "On" : "Off"}
+                  <Sparkles className="h-3 w-3 text-primary flex-shrink-0" />
+                  <span className="truncate">Guardrails: {stylizationGuardrails ? "On" : "Off"}</span>
                 </Button>
               </div>
             </div>
@@ -4512,6 +4517,21 @@ export function Console({ initialShowId }: ConsoleProps) {
     if (stored !== null) {
       setStylizationGuardrails(stored !== "false");
     }
+    
+    // Load image model preference from home page settings
+    const storedImageModel = window.localStorage.getItem("production-flow.image-model");
+    if (storedImageModel && (storedImageModel === "gpt-image" || storedImageModel === "flux" || storedImageModel === "nano-banana-pro")) {
+      setImageModel(storedImageModel as ImageModelId);
+    }
+    
+    // Load video generation model preference from home page settings
+    const storedVideoModel = window.localStorage.getItem("production-flow.video-model");
+    if (storedVideoModel) {
+      // Set the video generation model if it matches
+      if (storedVideoModel === "sora-2" || storedVideoModel === "sora-2-pro" || storedVideoModel === "veo-3.1") {
+        setVideoGenModel(storedVideoModel as VideoGenerationModelId);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -4521,6 +4541,12 @@ export function Console({ initialShowId }: ConsoleProps) {
       stylizationGuardrails ? "true" : "false"
     );
   }, [stylizationGuardrails]);
+
+  // Persist image model changes to localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("production-flow.image-model", imageModel);
+  }, [imageModel]);
 
   const toggleStylizationGuardrails = () => {
     setStylizationGuardrails((prev) => !prev);
@@ -7661,7 +7687,7 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-black text-foreground">
+    <div className="flex min-h-screen flex-col bg-black text-foreground overflow-x-hidden max-w-[100vw] w-full">
       {/* Lightbox */}
       {lightboxImage ? (
         <div 
@@ -7888,7 +7914,7 @@ The character grid shows your cast - use them throughout but focus on MOMENTS an
         </div>
       </div>
 
-      <main className="flex-1 pb-[100px] sm:pb-[120px] md:pb-32 pt-[120px]">
+      <main className="flex-1 pb-[100px] sm:pb-[120px] md:pb-32 pt-[120px] overflow-x-hidden">
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 sm:gap-5 md:gap-6 px-4 sm:px-5 md:px-6 py-4 sm:py-6 md:py-10">
           {error ? (
             <div className="space-y-2 rounded-xl sm:rounded-2xl md:rounded-3xl border border-red-500/40 bg-red-500/10 px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 md:py-4 text-xs sm:text-sm animate-in slide-in-from-top-2 duration-300">

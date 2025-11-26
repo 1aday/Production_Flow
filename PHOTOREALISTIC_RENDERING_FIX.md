@@ -111,3 +111,4 @@ Currently, all shows are forced to choose animation/stylized styles due to schem
 
 **The key insight**: Just removing restrictions wasn't enough. We needed to actively tell the model to ignore the animation preferences that were baked into the show JSON.
 
+

@@ -241,7 +241,7 @@ function inferAgeRange(age: number): string {
 export function buildStylePrompt(show: SlimShowContext, includeDetails = true): string {
   const lines: string[] = [];
   
-  lines.push(`Show: "${show.show_title}"`);
+  // Don't include show title - it can appear as text in generated images
   lines.push(`Style: ${show.style.medium}`);
   lines.push(`Stylization: ${show.style.stylization_level}`);
   

@@ -170,3 +170,4 @@ Users must explicitly select Nano Banana Pro or FLUX if they want to use those m
 
 Nano Banana Pro is fully integrated and ready to use! Users can now select it from the Settings panel and generate high-quality 2K images for all portrait and poster types.
 
+

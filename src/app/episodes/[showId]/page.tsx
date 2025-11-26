@@ -20,6 +20,8 @@ import {
   X,
   Plus,
   RotateCcw,
+  Video,
+  ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,18 +67,30 @@ function StoryboardSection({
   color, 
   icon,
   imageUrl,
+  videoUrl,
   isGenerating,
+  isGeneratingVideo,
   onGenerate,
+  onGenerateVideo,
 }: { 
   label: string; 
   description: string; 
   color: keyof typeof STORYBOARD_COLORS;
   icon: React.ReactNode;
   imageUrl?: string;
+  videoUrl?: string;
   isGenerating?: boolean;
+  isGeneratingVideo?: boolean;
   onGenerate: () => void;
+  onGenerateVideo?: () => void;
 }) {
   const colors = STORYBOARD_COLORS[color];
+  const [showVideo, setShowVideo] = useState(!!videoUrl);
+
+  // Update showVideo when videoUrl changes
+  useEffect(() => {
+    if (videoUrl) setShowVideo(true);
+  }, [videoUrl]);
   
   return (
     <div className={cn("rounded-xl border p-4", colors.bg, colors.border)}>
@@ -89,10 +103,45 @@ function StoryboardSection({
           <span className={cn("text-xs font-bold tracking-wider", colors.text)}>{label}</span>
           <p className="text-xs text-foreground/50 line-clamp-1 mt-0.5">{description}</p>
         </div>
+        {/* Toggle between image/video when both exist */}
+        {imageUrl && videoUrl && (
+          <button
+            onClick={() => setShowVideo(!showVideo)}
+            className={cn(
+              "p-1.5 rounded-md transition-colors",
+              showVideo ? "bg-violet-500/20 text-violet-400" : "bg-white/10 text-foreground/50 hover:text-foreground/70"
+            )}
+            title={showVideo ? "Show image" : "Show video"}
+          >
+            {showVideo ? <ImageIcon className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
+          </button>
+        )}
       </div>
       
-      {/* Image or Placeholder */}
-      {imageUrl ? (
+      {/* Video, Image, or Placeholder */}
+      {videoUrl && showVideo ? (
+        <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden border border-white/10 group">
+          <video
+            src={videoUrl}
+            className="w-full h-full object-cover"
+            controls
+            playsInline
+            preload="metadata"
+          />
+          {/* Regenerate video overlay on hover */}
+          {!isGeneratingVideo && onGenerateVideo && (
+            <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={onGenerateVideo}
+                className="px-2 py-1 rounded-md bg-black/80 hover:bg-violet-600 text-xs font-medium text-white/80 hover:text-white transition-all flex items-center gap-1"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Regen Video
+              </button>
+            </div>
+          )}
+        </div>
+      ) : imageUrl ? (
         <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden border border-white/10 group">
           <Image
             src={imageUrl}
@@ -100,8 +149,17 @@ function StoryboardSection({
             fill
             className="object-cover"
           />
-          {/* Regenerating overlay */}
-          {isGenerating && (
+          {/* Generating video overlay */}
+          {isGeneratingVideo && (
+            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-6 w-6 text-violet-400 animate-spin" />
+                <span className="text-xs text-white/80">Generating Video...</span>
+              </div>
+            </div>
+          )}
+          {/* Regenerating still overlay */}
+          {isGenerating && !isGeneratingVideo && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
               <div className="flex flex-col items-center gap-2">
                 <Loader2 className="h-6 w-6 text-white animate-spin" />
@@ -109,15 +167,26 @@ function StoryboardSection({
               </div>
             </div>
           )}
-          {/* Regenerate button - visible on hover */}
-          {!isGenerating && (
-            <button
-              onClick={onGenerate}
-              className="absolute bottom-2 right-2 px-3 py-1.5 rounded-lg bg-black/80 hover:bg-primary text-xs font-medium text-white/80 hover:text-white transition-all opacity-0 group-hover:opacity-100 flex items-center gap-1.5"
-            >
-              <RotateCcw className="h-3 w-3" />
-              Regenerate
-            </button>
+          {/* Action buttons - visible on hover */}
+          {!isGenerating && !isGeneratingVideo && (
+            <div className="absolute bottom-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={onGenerate}
+                className="px-2 py-1.5 rounded-md bg-black/80 hover:bg-primary text-xs font-medium text-white/80 hover:text-white transition-all flex items-center gap-1"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Still
+              </button>
+              {onGenerateVideo && (
+                <button
+                  onClick={onGenerateVideo}
+                  className="px-2 py-1.5 rounded-md bg-violet-600/80 hover:bg-violet-600 text-xs font-medium text-white/90 hover:text-white transition-all flex items-center gap-1"
+                >
+                  <Video className="h-3 w-3" />
+                  Video
+                </button>
+              )}
+            </div>
           )}
         </div>
       ) : (
@@ -168,6 +237,10 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
   const [generatedStills, setGeneratedStills] = useState<Record<number, Record<string, string>>>({});
   const [generatingStills, setGeneratingStills] = useState<Record<string, boolean>>({});
   const [portraitGridUrl, setPortraitGridUrl] = useState<string | undefined>();
+  
+  // Clips (video) generation state: { [episodeNumber]: { [sectionLabel]: videoUrl } }
+  const [generatedClips, setGeneratedClips] = useState<Record<number, Record<string, string>>>({});
+  const [generatingClips, setGeneratingClips] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function fetchShow() {
@@ -199,6 +272,14 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
               stills[parseInt(epNum)] = sections as Record<string, string>;
             });
             setGeneratedStills(stills);
+          }
+          // Load saved episode clips (videos)
+          if (data.show.episodeClips) {
+            const clips: Record<number, Record<string, string>> = {};
+            Object.entries(data.show.episodeClips).forEach(([epNum, sections]) => {
+              clips[parseInt(epNum)] = sections as Record<string, string>;
+            });
+            setGeneratedClips(clips);
           }
         }
       } catch (error) {
@@ -236,9 +317,9 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
       { label: "TEASER", description: currentEpisode.cold_open_hook },
       { label: "ACT 1", description: currentEpisode.a_plot },
       { label: "ACT 2", description: currentEpisode.b_plot || "Complications arise..." },
-      { label: "ACT 3", description: "Crisis point and confrontation" },
+      { label: "ACT 3", description: currentEpisode.act_3_crisis || "Crisis point and confrontation" },
       { label: "ACT 4", description: currentEpisode.cliffhanger_or_button },
-      { label: "TAG", description: "Final comedic or emotional beat" },
+      { label: "TAG", description: currentEpisode.tag_scene || "Final comedic or emotional beat" },
     ];
     
     const currentIndex = sections.findIndex(s => s.label === sectionLabel);
@@ -312,9 +393,72 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     }
   };
 
+  // Generate a video clip from a still image
+  const generateClip = async (sectionLabel: string, sectionDescription: string) => {
+    if (!currentEpisode || !showData) return;
+    
+    // Need the still image URL to generate video
+    const stillUrl = generatedStills[currentEpisode.episode_number]?.[sectionLabel];
+    if (!stillUrl) {
+      console.error("No still image available to generate video from");
+      return;
+    }
+    
+    const key = `${currentEpisode.episode_number}-${sectionLabel}`;
+    setGeneratingClips(prev => ({ ...prev, [key]: true }));
+    
+    const { previousScene } = getSectionContext(sectionLabel);
+    const characterNames = getCharacterNames();
+    
+    console.log("🎬 Generating clip for:", sectionLabel);
+    console.log("   Still Image URL:", stillUrl);
+    
+    try {
+      const response = await fetch('/api/episodes/clips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          showId,
+          episodeNumber: currentEpisode.episode_number,
+          sectionLabel,
+          sectionDescription,
+          episodeTitle: currentEpisode.title,
+          episodeLogline: currentEpisode.logline,
+          genre: showData.genre,
+          stillImageUrl: stillUrl.split('?')[0], // Remove cache bust param
+          characterNames,
+          previousScene,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.videoUrl) {
+          // Add cache-busting parameter
+          const cacheBustedUrl = `${data.videoUrl}?t=${Date.now()}`;
+          setGeneratedClips(prev => ({
+            ...prev,
+            [currentEpisode.episode_number]: {
+              ...(prev[currentEpisode.episode_number] || {}),
+              [sectionLabel]: cacheBustedUrl,
+            },
+          }));
+        }
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to generate clip:', errorData.error);
+      }
+    } catch (error) {
+      console.error('Error generating clip:', error);
+    } finally {
+      setGeneratingClips(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
   const currentEpisode = showData?.episodes?.[selectedEpisode];
   const posterUrl = showData?.libraryPosterUrl || showData?.posterUrl;
   const currentStills = currentEpisode ? generatedStills[currentEpisode.episode_number] || {} : {};
+  const currentClips = currentEpisode ? generatedClips[currentEpisode.episode_number] || {} : {};
 
   // Generate all scenes for current episode
   const generateAllScenes = async () => {
@@ -324,9 +468,9 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
       { label: "TEASER", description: currentEpisode.cold_open_hook },
       { label: "ACT 1", description: currentEpisode.a_plot },
       { label: "ACT 2", description: currentEpisode.b_plot || "Complications arise..." },
-      { label: "ACT 3", description: "Crisis point and confrontation" },
+      { label: "ACT 3", description: currentEpisode.act_3_crisis || "Crisis point and confrontation" },
       { label: "ACT 4", description: currentEpisode.cliffhanger_or_button },
-      { label: "TAG", description: "Final comedic or emotional beat" },
+      { label: "TAG", description: currentEpisode.tag_scene || "Final comedic or emotional beat" },
     ];
     
     // Generate all in parallel
@@ -346,7 +490,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     return (
       <div className="min-h-screen bg-black">
         <div className="fixed top-0 left-0 right-0 z-50">
-          <Navbar variant="solid" />
+        <Navbar variant="solid" />
         </div>
         <div className="flex items-center justify-center min-h-screen pt-16">
           <div className="flex flex-col items-center gap-4">
@@ -362,7 +506,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     return (
       <div className="min-h-screen bg-black">
         <div className="fixed top-0 left-0 right-0 z-50">
-          <Navbar variant="solid" />
+        <Navbar variant="solid" />
         </div>
         <div className="flex items-center justify-center min-h-screen pt-16">
           <div className="text-center">
@@ -398,14 +542,14 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
         <div className="flex min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
           
           {/* Sidebar - Hidden on mobile, visible on desktop */}
-          <aside 
-            className={cn(
+        <aside 
+          className={cn(
               "fixed lg:sticky top-16 lg:top-20 left-0 h-[calc(100vh-4rem)] lg:h-[calc(100vh-5rem)] z-40 flex flex-col border-r border-white/10 bg-black/95 lg:bg-black/50 backdrop-blur-xl transition-all duration-300 ease-in-out",
               mobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
               sidebarCollapsed ? "lg:w-16" : "w-72 lg:w-64"
-            )}
-          >
-            {/* Sidebar Header */}
+          )}
+        >
+          {/* Sidebar Header */}
             <div className="flex items-center justify-between h-12 px-3 border-b border-white/10">
               <div className="flex items-center gap-2 min-w-0">
                 <Clapperboard className="h-4 w-4 text-primary flex-shrink-0" />
@@ -435,33 +579,33 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
+          </div>
 
-            {/* Show Poster & Info */}
+          {/* Show Poster & Info */}
             {!sidebarCollapsed && (
               <div className="p-3 border-b border-white/10">
                 <div className="flex gap-3">
-                  {posterUrl ? (
+            {posterUrl ? (
                     <div className="relative w-16 h-24 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 shadow-lg">
-                      <Image
-                        src={posterUrl}
-                        alt={showData.showTitle || showData.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  ) : (
+                <Image
+                  src={posterUrl}
+                  alt={showData.showTitle || showData.title}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            ) : (
                     <div className="w-16 h-24 flex-shrink-0 flex items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br from-primary/10 to-violet-500/10">
                       <Film className="h-6 w-6 text-foreground/30" />
-                    </div>
-                  )}
+              </div>
+            )}
                   <div className="min-w-0 flex-1 py-1">
-                    <h2 className="font-semibold text-sm line-clamp-2 leading-tight">
-                      {showData.showTitle || showData.title}
-                    </h2>
-                    {showData.genre && (
+                <h2 className="font-semibold text-sm line-clamp-2 leading-tight">
+                  {showData.showTitle || showData.title}
+                </h2>
+                {showData.genre && (
                       <p className="text-[10px] uppercase tracking-wider text-foreground/50 mt-1">{showData.genre}</p>
-                    )}
+                )}
                     <Badge variant="outline" className="text-[9px] h-4 px-1.5 mt-2">
                       {showData.episodes.length} eps
                     </Badge>
@@ -470,62 +614,62 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
               </div>
             )}
 
-            {/* Navigation Links */}
+          {/* Navigation Links */}
             <div className="p-2 border-b border-white/10 space-y-1">
-              <Link href={`/show/${showId}`}>
-                <Button
-                  variant="ghost"
-                  className={cn(
+                <Link href={`/show/${showId}`}>
+                  <Button
+                    variant="ghost"
+                    className={cn(
                     "w-full justify-start gap-2 text-foreground/70 hover:text-foreground h-8 text-xs",
-                    sidebarCollapsed && "justify-center px-2"
-                  )}
-                  size="sm"
-                >
+                      sidebarCollapsed && "justify-center px-2"
+                    )}
+                    size="sm"
+                  >
                   <Home className="h-3.5 w-3.5 flex-shrink-0" />
-                  {!sidebarCollapsed && <span>Show Page</span>}
-                </Button>
-              </Link>
-              <Link href="/episodes">
-                <Button
-                  variant="ghost"
-                  className={cn(
+                    {!sidebarCollapsed && <span>Show Page</span>}
+                  </Button>
+                </Link>
+                <Link href="/episodes">
+                  <Button
+                    variant="ghost"
+                    className={cn(
                     "w-full justify-start gap-2 text-foreground/70 hover:text-foreground h-8 text-xs",
-                    sidebarCollapsed && "justify-center px-2"
-                  )}
-                  size="sm"
-                >
+                      sidebarCollapsed && "justify-center px-2"
+                    )}
+                    size="sm"
+                  >
                   <ArrowLeft className="h-3.5 w-3.5 flex-shrink-0" />
-                  {!sidebarCollapsed && <span>All Shows</span>}
-                </Button>
-              </Link>
+                    {!sidebarCollapsed && <span>All Shows</span>}
+                  </Button>
+                </Link>
             </div>
 
-            {/* Episode List */}
-            <ScrollArea className="flex-1">
+          {/* Episode List */}
+          <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
-                {showData.episodes.map((episode, index) => {
-                  const isSelected = selectedEpisode === index;
-                  const isPilot = episode.episode_number === 1;
-                  const typeStyle = getEpisodeTypeStyle(episode.episode_type);
-                  const status = getEpisodeStatus(episode.episode_number);
-                  const isComplete = status.storyboard === "complete" && status.keyframes === "complete" && status.videos === "complete";
-                  
-                  return (
-                    <button
+              {showData.episodes.map((episode, index) => {
+                const isSelected = selectedEpisode === index;
+                const isPilot = episode.episode_number === 1;
+                const typeStyle = getEpisodeTypeStyle(episode.episode_type);
+                const status = getEpisodeStatus(episode.episode_number);
+                const isComplete = status.storyboard === "complete" && status.keyframes === "complete" && status.videos === "complete";
+                
+                return (
+                      <button
                       key={index}
                       onClick={() => {
                         setSelectedEpisode(index);
                         setMobileSidebarOpen(false);
                       }}
-                      className={cn(
-                        "w-full text-left rounded-lg border transition-all duration-200",
+                        className={cn(
+                          "w-full text-left rounded-lg border transition-all duration-200",
                         sidebarCollapsed ? "p-2 flex items-center justify-center" : "p-2.5",
-                        isSelected
+                          isSelected
                           ? "bg-primary/15 border-primary/30"
                           : "bg-white/5 border-transparent hover:bg-white/10"
-                      )}
-                    >
-                      {sidebarCollapsed ? (
+                        )}
+                      >
+                        {sidebarCollapsed ? (
                         <div className={cn(
                           "w-7 h-7 rounded flex items-center justify-center text-xs font-bold",
                           isSelected ? "bg-primary/30 text-primary" : "bg-white/10 text-foreground/60"
@@ -544,43 +688,43 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                           )}>
                             {isComplete ? (
                               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                            ) : (
-                              episode.episode_number
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1 mb-0.5">
-                              {isPilot && (
-                                <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">P</span>
+                              ) : (
+                                episode.episode_number
                               )}
-                              <span className={cn("text-[8px] px-1 py-0.5 rounded font-medium", typeStyle.bg, typeStyle.text)}>
-                                {episode.episode_type.split('-')[0]}
-                              </span>
                             </div>
-                            <p className={cn(
+                            <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1 mb-0.5">
+                                {isPilot && (
+                                  <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">P</span>
+                                )}
+                              <span className={cn("text-[8px] px-1 py-0.5 rounded font-medium", typeStyle.bg, typeStyle.text)}>
+                                  {episode.episode_type.split('-')[0]}
+                                </span>
+                              </div>
+                              <p className={cn(
                               "text-[11px] font-medium line-clamp-1",
-                              isSelected ? "text-foreground" : "text-foreground/70"
-                            )}>
-                              {episode.title}
-                            </p>
+                                isSelected ? "text-foreground" : "text-foreground/70"
+                              )}>
+                                {episode.title}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          </aside>
+                        )}
+                      </button>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </aside>
 
-          {/* Main Content */}
+        {/* Main Content */}
           <main className={cn(
             "flex-1 flex flex-col min-w-0",
             !sidebarCollapsed && "lg:ml-0"
           )}>
-            {/* Top Bar */}
+          {/* Top Bar */}
             <header className="sticky top-16 lg:top-20 z-30 h-12 border-b border-white/10 bg-black/80 backdrop-blur-md flex items-center justify-between px-4">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
                 {/* Mobile menu button */}
                 <Button
                   variant="ghost"
@@ -590,34 +734,34 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                 >
                   <Menu className="h-4 w-4" />
                 </Button>
-                {currentEpisode && (
-                  <>
+              {currentEpisode && (
+                <>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] text-foreground/50">S01</span>
                       <span className="text-sm font-bold">E{currentEpisode.episode_number}</span>
-                    </div>
+                  </div>
                     <Separator orientation="vertical" className="h-4" />
                     <h1 className="text-sm font-medium truncate max-w-[200px] sm:max-w-none">
                       {currentEpisode.title}
-                    </h1>
-                  </>
-                )}
-              </div>
+                  </h1>
+                </>
+              )}
+            </div>
               <div className="flex items-center gap-1.5">
-                <Badge className={cn(
+              <Badge className={cn(
                   "text-[10px] h-5",
-                  getEpisodeTypeStyle(currentEpisode?.episode_type || "").bg,
-                  getEpisodeTypeStyle(currentEpisode?.episode_type || "").text,
-                  "border",
-                  getEpisodeTypeStyle(currentEpisode?.episode_type || "").border
-                )}>
-                  {currentEpisode?.episode_type}
-                </Badge>
-                {currentEpisode?.episode_number === 1 && (
+                getEpisodeTypeStyle(currentEpisode?.episode_type || "").bg,
+                getEpisodeTypeStyle(currentEpisode?.episode_type || "").text,
+                "border",
+                getEpisodeTypeStyle(currentEpisode?.episode_type || "").border
+              )}>
+                {currentEpisode?.episode_type}
+              </Badge>
+              {currentEpisode?.episode_number === 1 && (
                   <Badge className="text-[10px] h-5 bg-amber-500/20 text-amber-400 border-amber-500/30">PILOT</Badge>
-                )}
-              </div>
-            </header>
+              )}
+            </div>
+          </header>
 
           {/* Content Area - Storyboard */}
           <ScrollArea className="flex-1 min-h-0">
@@ -660,8 +804,11 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       color="amber"
                       icon={<Zap className="h-4 w-4" />}
                       imageUrl={currentStills["TEASER"]}
+                      videoUrl={currentClips["TEASER"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-TEASER`]}
+                      isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-TEASER`]}
                       onGenerate={() => generateStill("TEASER", currentEpisode.cold_open_hook)}
+                      onGenerateVideo={() => generateClip("TEASER", currentEpisode.cold_open_hook)}
                     />
                     <StoryboardSection
                       label="ACT 1"
@@ -669,8 +816,11 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       color="blue"
                       icon={<Play className="h-4 w-4" />}
                       imageUrl={currentStills["ACT 1"]}
+                      videoUrl={currentClips["ACT 1"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 1`]}
+                      isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 1`]}
                       onGenerate={() => generateStill("ACT 1", currentEpisode.a_plot)}
+                      onGenerateVideo={() => generateClip("ACT 1", currentEpisode.a_plot)}
                     />
                     <StoryboardSection
                       label="ACT 2"
@@ -678,17 +828,23 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       color="emerald"
                       icon={<Target className="h-4 w-4" />}
                       imageUrl={currentStills["ACT 2"]}
+                      videoUrl={currentClips["ACT 2"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 2`]}
+                      isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 2`]}
                       onGenerate={() => generateStill("ACT 2", currentEpisode.b_plot || "Complications arise...")}
+                      onGenerateVideo={() => generateClip("ACT 2", currentEpisode.b_plot || "Complications arise...")}
                     />
                     <StoryboardSection
                       label="ACT 3"
-                      description="Crisis point and confrontation"
+                      description={currentEpisode.act_3_crisis || "Crisis point and confrontation"}
                       color="rose"
                       icon={<Zap className="h-4 w-4" />}
                       imageUrl={currentStills["ACT 3"]}
+                      videoUrl={currentClips["ACT 3"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 3`]}
-                      onGenerate={() => generateStill("ACT 3", "Crisis point and confrontation")}
+                      isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 3`]}
+                      onGenerate={() => generateStill("ACT 3", currentEpisode.act_3_crisis || "Crisis point and confrontation")}
+                      onGenerateVideo={() => generateClip("ACT 3", currentEpisode.act_3_crisis || "Crisis point and confrontation")}
                     />
                     <StoryboardSection
                       label="ACT 4"
@@ -696,17 +852,23 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       color="violet"
                       icon={<Sparkles className="h-4 w-4" />}
                       imageUrl={currentStills["ACT 4"]}
+                      videoUrl={currentClips["ACT 4"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 4`]}
+                      isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 4`]}
                       onGenerate={() => generateStill("ACT 4", currentEpisode.cliffhanger_or_button)}
+                      onGenerateVideo={() => generateClip("ACT 4", currentEpisode.cliffhanger_or_button)}
                     />
                     <StoryboardSection
                       label="TAG"
-                      description="Final comedic or emotional beat"
+                      description={currentEpisode.tag_scene || "Final comedic or emotional beat"}
                       color="slate"
                       icon={<Film className="h-4 w-4" />}
                       imageUrl={currentStills["TAG"]}
+                      videoUrl={currentClips["TAG"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-TAG`]}
-                      onGenerate={() => generateStill("TAG", "Final comedic or emotional beat")}
+                      isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-TAG`]}
+                      onGenerate={() => generateStill("TAG", currentEpisode.tag_scene || "Final comedic or emotional beat")}
+                      onGenerateVideo={() => generateClip("TAG", currentEpisode.tag_scene || "Final comedic or emotional beat")}
                     />
                   </div>
                 </>

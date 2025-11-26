@@ -179,3 +179,4 @@ All changes are **backwards compatible**:
 3. **Remove deprecated fields** - After migration, remove unused character doc sections
 4. **Add completion tracking** - Use `schema_version` for migration tracking
 
+

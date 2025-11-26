@@ -46,13 +46,15 @@ Return a JSON object with this exact structure:
       "episode_number": 1,
       "title": "Episode Title",
       "logline": "When [inciting incident], [protagonist] must [goal] before [stakes]. A compelling 2-3 sentence episode summary.",
-      "cold_open_hook": "Brief description of how this episode opens",
-      "a_plot": "Main story of the episode",
-      "b_plot": "Secondary storyline",
+      "cold_open_hook": "Brief description of the teaser/cold open scene",
+      "a_plot": "Main story of the episode - ACT 1 setup",
+      "b_plot": "Secondary storyline - ACT 2 complications",
+      "act_3_crisis": "The crisis point - highest tension moment where everything seems lost or the conflict peaks",
       "featured_characters": ["character-id-1", "character-id-2"],
       "themes": ["theme1", "theme2"],
       "episode_type": "pilot/case-of-week/character-focus/mythology/etc",
-      "cliffhanger_or_button": "How the episode ends"
+      "cliffhanger_or_button": "ACT 4 - How the main conflict resolves or cliffhanger",
+      "tag_scene": "Final scene - comedic button, emotional beat, or tease for next episode"
     }
   ]
 }

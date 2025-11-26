@@ -123,3 +123,4 @@ The image model selector is now easily accessible right above the prompt box! Us
 
 ✨ **Much better UX!**
 
+

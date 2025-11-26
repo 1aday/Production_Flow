@@ -12,10 +12,12 @@ export type Episode = {
   cold_open_hook: string;
   a_plot: string;
   b_plot: string;
+  act_3_crisis?: string;
   featured_characters: string[];
   themes: string[];
   episode_type: string;
   cliffhanger_or_button: string;
+  tag_scene?: string;
 };
 
 type Props = {
