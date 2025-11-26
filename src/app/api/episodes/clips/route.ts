@@ -3,6 +3,32 @@ import { createServerSupabaseClient } from "@/lib/supabase";
 
 export const maxDuration = 300; // 5 minutes for video generation
 
+const MAX_RETRIES = 10;
+const INITIAL_RETRY_DELAY = 5000; // 5 seconds
+
+// Check if error is a content safety/moderation error that should be retried
+function isRetryableError(error: string | undefined): boolean {
+  if (!error) return false;
+  const retryablePatterns = [
+    "flagged as sensitive",
+    "E005",
+    "content policy",
+    "safety",
+    "moderation",
+    "inappropriate",
+    "violates",
+  ];
+  const lowerError = error.toLowerCase();
+  return retryablePatterns.some(pattern => lowerError.includes(pattern.toLowerCase()));
+}
+
+// Sleep helper with jitter for rate limiting
+function sleep(ms: number): Promise<void> {
+  // Add some random jitter (±20%) to avoid thundering herd
+  const jitter = ms * 0.2 * (Math.random() - 0.5);
+  return new Promise(resolve => setTimeout(resolve, ms + jitter));
+}
+
 type ClipRequest = {
   showId: string;
   episodeNumber: number;
@@ -63,7 +89,7 @@ export async function POST(request: NextRequest) {
     ? `CONTINUITY: This follows from "${previousScene.slice(0, 100)}..."` 
     : "";
 
-  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
+  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines. We want to make a guideline compatible video given this, thats the task, so figure it out.\n\n";
   
   const prompt = SAFETY_PREFIX + `Animate this scene from a ${genre || "dramatic"} TV series.
 
@@ -92,94 +118,140 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
   console.log("Still Image:", stillImageUrl);
   console.log("Prompt:", prompt.slice(0, 200) + "...");
 
-  try {
-    // Call VEO 3.1 with the still image as reference
-    const veoInput = {
-      prompt,
-      reference_images: [stillImageUrl],
-      aspect_ratio: "16:9",
-      duration: 8, // VEO max is 8 seconds
-      resolution: "1080p",
-      generate_audio: true,
-    };
+  // VEO input configuration
+  const veoInput = {
+    prompt,
+    reference_images: [stillImageUrl],
+    aspect_ratio: "16:9",
+    duration: 8, // VEO max is 8 seconds
+    resolution: "1080p",
+    generate_audio: true,
+  };
 
-    console.log("VEO 3.1 input:", JSON.stringify(veoInput, null, 2));
+  let lastError: string = "Unknown error";
+  let attempt = 0;
 
-    const response = await fetch("https://api.replicate.com/v1/models/google/veo-3.1/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ input: veoInput }),
-    });
+  // Retry loop for content moderation errors
+  while (attempt < MAX_RETRIES) {
+    attempt++;
+    console.log(`\n🎬 Attempt ${attempt}/${MAX_RETRIES} for ${sectionLabel}...`);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("VEO 3.1 request failed:", response.status, errorText);
-      throw new Error(`VEO 3.1 request failed: ${response.status}`);
-    }
+    try {
+      console.log("VEO 3.1 input:", JSON.stringify(veoInput, null, 2));
 
-    const prediction = await response.json() as { 
-      id: string; 
-      status: string; 
-      error?: string; 
-      output?: unknown 
-    };
-    console.log("VEO prediction created:", prediction.id);
-
-    // Poll for completion
-    let result = prediction;
-    while (result.status === "starting" || result.status === "processing") {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-        headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
+      const response = await fetch("https://api.replicate.com/v1/models/google/veo-3.1/predictions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ input: veoInput }),
       });
-      result = await statusResponse.json() as typeof prediction;
-      console.log("VEO status:", result.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("VEO 3.1 request failed:", response.status, errorText);
+        lastError = `VEO 3.1 request failed: ${response.status}`;
+        
+        // Check if this is a rate limit error - wait longer
+        if (response.status === 429) {
+          console.log("⏳ Rate limited, waiting 30 seconds...");
+          await sleep(30000);
+          continue;
+        }
+        
+        throw new Error(lastError);
+      }
+
+      const prediction = await response.json() as { 
+        id: string; 
+        status: string; 
+        error?: string; 
+        output?: unknown 
+      };
+      console.log("VEO prediction created:", prediction.id);
+
+      // Poll for completion
+      let result = prediction;
+      while (result.status === "starting" || result.status === "processing") {
+        await sleep(3000);
+        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
+          headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
+        });
+        result = await statusResponse.json() as typeof prediction;
+        console.log("VEO status:", result.status);
+      }
+
+      if (result.status === "failed") {
+        lastError = result.error || "VEO generation failed";
+        console.error(`❌ VEO generation failed (attempt ${attempt}):`, lastError);
+        
+        // Check if this is a retryable content moderation error
+        if (isRetryableError(result.error) && attempt < MAX_RETRIES) {
+          const delay = INITIAL_RETRY_DELAY * Math.pow(1.5, attempt - 1); // Exponential backoff
+          console.log(`🔄 Content flagged, retrying in ${Math.round(delay / 1000)}s... (attempt ${attempt}/${MAX_RETRIES})`);
+          await sleep(delay);
+          continue;
+        }
+        
+        throw new Error(lastError);
+      }
+
+      // Extract video URL
+      let videoUrl: string | undefined;
+      if (typeof result.output === "string") {
+        videoUrl = result.output;
+      } else if (Array.isArray(result.output) && result.output.length > 0) {
+        videoUrl = result.output[0] as string;
+      }
+
+      if (!videoUrl) {
+        throw new Error("VEO returned no video output");
+      }
+
+      console.log(`✅ Video generated on attempt ${attempt}:`, videoUrl);
+
+      // Upload to Supabase Storage
+      const savedUrl = await uploadClipToStorage(
+        showId,
+        episodeNumber,
+        sectionLabel,
+        videoUrl
+      );
+
+      // Save to database
+      await saveClipToDatabase(showId, episodeNumber, sectionLabel, savedUrl);
+
+      // Return with cache busting and attempt info
+      return NextResponse.json({ 
+        videoUrl: `${savedUrl}?t=${Date.now()}`,
+        model: "veo-3.1",
+        attempts: attempt
+      });
+
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : "Failed to generate clip";
+      console.error(`[clips] Error on attempt ${attempt}:`, lastError);
+      
+      // If it's a retryable error and we have attempts left, continue
+      if (isRetryableError(lastError) && attempt < MAX_RETRIES) {
+        const delay = INITIAL_RETRY_DELAY * Math.pow(1.5, attempt - 1);
+        console.log(`🔄 Retrying in ${Math.round(delay / 1000)}s... (attempt ${attempt}/${MAX_RETRIES})`);
+        await sleep(delay);
+        continue;
+      }
+      
+      // Non-retryable error or out of attempts
+      break;
     }
-
-    if (result.status === "failed") {
-      console.error("VEO generation failed:", result.error);
-      throw new Error(result.error || "VEO generation failed");
-    }
-
-    // Extract video URL
-    let videoUrl: string | undefined;
-    if (typeof result.output === "string") {
-      videoUrl = result.output;
-    } else if (Array.isArray(result.output) && result.output.length > 0) {
-      videoUrl = result.output[0] as string;
-    }
-
-    if (!videoUrl) {
-      throw new Error("VEO returned no video output");
-    }
-
-    console.log("✅ Video generated:", videoUrl);
-
-    // Upload to Supabase Storage
-    const savedUrl = await uploadClipToStorage(
-      showId,
-      episodeNumber,
-      sectionLabel,
-      videoUrl
-    );
-
-    // Save to database
-    await saveClipToDatabase(showId, episodeNumber, sectionLabel, savedUrl);
-
-    // Return with cache busting
-    return NextResponse.json({ 
-      videoUrl: `${savedUrl}?t=${Date.now()}`,
-      model: "veo-3.1"
-    });
-
-  } catch (error) {
-    console.error("[clips] Error:", error);
-    const message = error instanceof Error ? error.message : "Failed to generate clip";
-    return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  // All attempts exhausted
+  console.error(`❌ All ${MAX_RETRIES} attempts failed for ${sectionLabel}`);
+  return NextResponse.json({ 
+    error: `Failed after ${attempt} attempts: ${lastError}`,
+    attempts: attempt
+  }, { status: 500 });
 }
 
 async function uploadClipToStorage(

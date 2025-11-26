@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { 
@@ -22,6 +22,11 @@ import {
   RotateCcw,
   Video,
   ImageIcon,
+  AlertCircle,
+  Clock,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +56,18 @@ type EpisodeStatus = {
   videos: "pending" | "generating" | "complete";
 };
 
+type VideoGenerationStatus = {
+  key: string;
+  episodeNumber: number;
+  sectionLabel: string;
+  status: "queued" | "starting" | "processing" | "succeeded" | "failed";
+  progress?: number;
+  error?: string;
+  startTime: number;
+  model?: string;
+  attempts?: number;
+};
+
 // Storyboard Section Component
 const STORYBOARD_COLORS = {
   amber: { bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-400", icon: "bg-amber-500/20" },
@@ -70,6 +87,7 @@ function StoryboardSection({
   videoUrl,
   isGenerating,
   isGeneratingVideo,
+  videoStatus,
   onGenerate,
   onGenerateVideo,
 }: { 
@@ -81,6 +99,7 @@ function StoryboardSection({
   videoUrl?: string;
   isGenerating?: boolean;
   isGeneratingVideo?: boolean;
+  videoStatus?: VideoGenerationStatus;
   onGenerate: () => void;
   onGenerateVideo?: () => void;
 }) {
@@ -149,10 +168,54 @@ function StoryboardSection({
           />
           {/* Generating video overlay */}
           {isGeneratingVideo && (
-            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-6 w-6 text-violet-400 animate-spin" />
-                <span className="text-xs text-white/80">Generating Video...</span>
+            <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3 p-4 text-center">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-violet-500/20 rounded-full blur-xl animate-pulse" />
+                  <Loader2 className="h-8 w-8 text-violet-400 animate-spin relative" />
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-white/90">
+                    {videoStatus?.status === "starting" ? "Starting model..." : "Generating Video..."}
+                  </span>
+                  <p className="text-[10px] text-white/50 mt-1">
+                    {videoStatus?.status === "starting" 
+                      ? "Cold start may take 30-60s" 
+                      : "This typically takes 2-3 minutes"}
+                  </p>
+                </div>
+                {/* Progress indicator */}
+                <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+                  <div 
+                    className={cn(
+                      "h-full rounded-full transition-all duration-1000",
+                      videoStatus?.status === "starting"
+                        ? "bg-blue-500 w-1/4 animate-pulse"
+                        : "bg-violet-500 w-3/4"
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Error overlay - show when video generation failed */}
+          {videoStatus?.status === "failed" && !isGeneratingVideo && (
+            <div className="absolute inset-0 bg-red-950/80 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2 p-4 text-center max-w-[200px]">
+                <AlertCircle className="h-6 w-6 text-red-400" />
+                <span className="text-xs font-medium text-red-300">Video generation failed</span>
+                <p className="text-[10px] text-red-400/80 line-clamp-2">
+                  {videoStatus.error || "Unknown error"}
+                </p>
+                {onGenerateVideo && (
+                  <button
+                    onClick={onGenerateVideo}
+                    className="mt-1 px-3 py-1.5 rounded-md bg-red-500/20 hover:bg-red-500/30 text-xs font-medium text-red-300 hover:text-red-200 transition-colors flex items-center gap-1"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Retry
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -212,6 +275,186 @@ function StoryboardSection({
   );
 }
 
+// Video Generation Status Panel Component
+function VideoGenerationPanel({
+  activeGenerations,
+  onDismiss,
+  onRetry,
+}: {
+  activeGenerations: VideoGenerationStatus[];
+  onDismiss: (key: string) => void;
+  onRetry: (key: string) => void;
+}) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  if (activeGenerations.length === 0) return null;
+  
+  const activeCount = activeGenerations.filter(g => 
+    g.status === "queued" || g.status === "starting" || g.status === "processing"
+  ).length;
+  const failedCount = activeGenerations.filter(g => g.status === "failed").length;
+  const completedCount = activeGenerations.filter(g => g.status === "succeeded").length;
+  
+  const formatElapsedTime = (startTime: number) => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const mins = Math.floor(elapsed / 60);
+    const secs = elapsed % 60;
+    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  };
+  
+  const getStatusIcon = (status: VideoGenerationStatus["status"]) => {
+    switch (status) {
+      case "queued": return <Clock className="h-3.5 w-3.5 text-foreground/50" />;
+      case "starting": return <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin" />;
+      case "processing": return <Loader2 className="h-3.5 w-3.5 text-violet-400 animate-spin" />;
+      case "succeeded": return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />;
+      case "failed": return <XCircle className="h-3.5 w-3.5 text-red-400" />;
+    }
+  };
+  
+  const getStatusText = (status: VideoGenerationStatus["status"]) => {
+    switch (status) {
+      case "queued": return "Queued";
+      case "starting": return "Starting model...";
+      case "processing": return "Generating video...";
+      case "succeeded": return "Complete";
+      case "failed": return "Failed";
+    }
+  };
+  
+  const getStatusColor = (status: VideoGenerationStatus["status"]) => {
+    switch (status) {
+      case "queued": return "text-foreground/50";
+      case "starting": return "text-blue-400";
+      case "processing": return "text-violet-400";
+      case "succeeded": return "text-emerald-400";
+      case "failed": return "text-red-400";
+    }
+  };
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 w-80 max-w-[calc(100vw-2rem)]">
+      <div className="rounded-xl border border-white/20 bg-black/95 backdrop-blur-xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="w-full flex items-center justify-between p-3 border-b border-white/10 hover:bg-white/5 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Video className="h-4 w-4 text-violet-400" />
+            <span className="text-sm font-medium">Video Generation</span>
+            <div className="flex items-center gap-1.5 ml-2">
+              {activeCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-500/20 text-violet-400">
+                  {activeCount} active
+                </span>
+              )}
+              {failedCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-500/20 text-red-400">
+                  {failedCount} failed
+                </span>
+              )}
+              {completedCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/20 text-emerald-400">
+                  {completedCount} done
+                </span>
+              )}
+            </div>
+          </div>
+          {isCollapsed ? (
+            <ChevronUp className="h-4 w-4 text-foreground/50" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-foreground/50" />
+          )}
+        </button>
+        
+        {/* Content */}
+        {!isCollapsed && (
+          <div className="max-h-64 overflow-y-auto">
+            {activeGenerations.map((gen) => (
+              <div
+                key={gen.key}
+                className={cn(
+                  "p-3 border-b border-white/5 last:border-0",
+                  gen.status === "failed" && "bg-red-500/5"
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 min-w-0">
+                    {getStatusIcon(gen.status)}
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">
+                        Ep{gen.episodeNumber} · {gen.sectionLabel}
+                      </p>
+                      <p className={cn("text-[10px]", getStatusColor(gen.status))}>
+                        {getStatusText(gen.status)}
+                        {(gen.status === "starting" || gen.status === "processing") && (
+                          <span className="text-foreground/40 ml-1">
+                            ({formatElapsedTime(gen.startTime)})
+                          </span>
+                        )}
+                      </p>
+                      {gen.error && (
+                        <p className="text-[10px] text-red-400/80 mt-1 line-clamp-2">
+                          {gen.error}
+                        </p>
+                      )}
+                      {gen.status === "succeeded" && (
+                        <p className="text-[10px] text-foreground/30 mt-0.5">
+                          {gen.model}{gen.attempts && gen.attempts > 1 ? ` (${gen.attempts} attempts)` : ""}
+                        </p>
+                      )}
+                      {gen.status === "failed" && gen.attempts && gen.attempts > 1 && (
+                        <p className="text-[10px] text-red-400/60 mt-0.5">
+                          Failed after {gen.attempts} attempts
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {gen.status === "failed" && (
+                      <button
+                        onClick={() => onRetry(gen.key)}
+                        className="p-1 rounded hover:bg-white/10 text-foreground/50 hover:text-foreground transition-colors"
+                        title="Retry"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                      </button>
+                    )}
+                    {(gen.status === "succeeded" || gen.status === "failed") && (
+                      <button
+                        onClick={() => onDismiss(gen.key)}
+                        className="p-1 rounded hover:bg-white/10 text-foreground/50 hover:text-foreground transition-colors"
+                        title="Dismiss"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Progress bar for active generations */}
+                {(gen.status === "starting" || gen.status === "processing") && (
+                  <div className="mt-2 h-1 bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                      className={cn(
+                        "h-full rounded-full transition-all duration-500",
+                        gen.status === "starting" 
+                          ? "bg-blue-500 w-1/4 animate-pulse" 
+                          : "bg-violet-500 w-3/4"
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const EPISODE_TYPE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   pilot: { bg: "bg-amber-500/15", border: "border-amber-500/30", text: "text-amber-400" },
   "case-of-week": { bg: "bg-blue-500/15", border: "border-blue-500/30", text: "text-blue-400" },
@@ -239,6 +482,9 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
   // Clips (video) generation state: { [episodeNumber]: { [sectionLabel]: videoUrl } }
   const [generatedClips, setGeneratedClips] = useState<Record<number, Record<string, string>>>({});
   const [generatingClips, setGeneratingClips] = useState<Record<string, boolean>>({});
+  
+  // Video generation status tracking
+  const [videoGenerationStatuses, setVideoGenerationStatuses] = useState<VideoGenerationStatus[]>([]);
 
   useEffect(() => {
     async function fetchShow() {
@@ -391,19 +637,67 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     }
   };
 
+  // Update video generation status
+  const updateVideoStatus = useCallback((key: string, updates: Partial<VideoGenerationStatus>) => {
+    setVideoGenerationStatuses(prev => {
+      const idx = prev.findIndex(s => s.key === key);
+      if (idx === -1) return prev;
+      const newStatuses = [...prev];
+      newStatuses[idx] = { ...newStatuses[idx], ...updates };
+      return newStatuses;
+    });
+  }, []);
+
+  // Add a new video generation status
+  const addVideoStatus = useCallback((status: VideoGenerationStatus) => {
+    setVideoGenerationStatuses(prev => {
+      // Remove any existing status with the same key
+      const filtered = prev.filter(s => s.key !== status.key);
+      return [...filtered, status];
+    });
+  }, []);
+
+  // Remove a video generation status
+  const removeVideoStatus = useCallback((key: string) => {
+    setVideoGenerationStatuses(prev => prev.filter(s => s.key !== key));
+  }, []);
+
   // Generate a video clip from a still image
-  const generateClip = async (sectionLabel: string, sectionDescription: string) => {
-    if (!currentEpisode || !showData) return;
+  const generateClip = async (sectionLabel: string, sectionDescription: string, epNumber?: number) => {
+    const episodeNum = epNumber || currentEpisode?.episode_number;
+    if (!episodeNum || !showData) return;
+    
+    const episode = showData.episodes?.find(e => e.episode_number === episodeNum);
+    if (!episode) return;
     
     // Need the still image URL to generate video
-    const stillUrl = generatedStills[currentEpisode.episode_number]?.[sectionLabel];
+    const stillUrl = generatedStills[episodeNum]?.[sectionLabel];
     if (!stillUrl) {
       console.error("No still image available to generate video from");
+      // Show error in status panel
+      const key = `${episodeNum}-${sectionLabel}`;
+      addVideoStatus({
+        key,
+        episodeNumber: episodeNum,
+        sectionLabel,
+        status: "failed",
+        error: "No still image available. Generate a still first.",
+        startTime: Date.now(),
+      });
       return;
     }
     
-    const key = `${currentEpisode.episode_number}-${sectionLabel}`;
+    const key = `${episodeNum}-${sectionLabel}`;
     setGeneratingClips(prev => ({ ...prev, [key]: true }));
+    
+    // Add to status tracking
+    addVideoStatus({
+      key,
+      episodeNumber: episodeNum,
+      sectionLabel,
+      status: "starting",
+      startTime: Date.now(),
+    });
     
     const { previousScene } = getSectionContext(sectionLabel);
     const characterNames = getCharacterNames();
@@ -412,16 +706,19 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
     console.log("   Still Image URL:", stillUrl);
     
     try {
+      // Update status to processing (API will do the actual work)
+      updateVideoStatus(key, { status: "processing" });
+      
       const response = await fetch('/api/episodes/clips', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           showId,
-          episodeNumber: currentEpisode.episode_number,
+          episodeNumber: episodeNum,
           sectionLabel,
           sectionDescription,
-          episodeTitle: currentEpisode.title,
-          episodeLogline: currentEpisode.logline,
+          episodeTitle: episode.title,
+          episodeLogline: episode.logline,
           genre: showData.genre,
           stillImageUrl: stillUrl.split('?')[0], // Remove cache bust param
           characterNames,
@@ -436,22 +733,66 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
           const cacheBustedUrl = `${data.videoUrl}?t=${Date.now()}`;
           setGeneratedClips(prev => ({
             ...prev,
-            [currentEpisode.episode_number]: {
-              ...(prev[currentEpisode.episode_number] || {}),
+            [episodeNum]: {
+              ...(prev[episodeNum] || {}),
               [sectionLabel]: cacheBustedUrl,
             },
           }));
+          
+          // Update status to succeeded (include attempts if > 1)
+          updateVideoStatus(key, { 
+            status: "succeeded", 
+            model: data.model || "veo-3.1",
+            attempts: data.attempts || 1,
+          });
         }
       } else {
         const errorData = await response.json();
         console.error('Failed to generate clip:', errorData.error);
+        
+        // Update status to failed (include attempts info)
+        updateVideoStatus(key, { 
+          status: "failed", 
+          error: errorData.error || "Failed to generate video",
+          attempts: errorData.attempts || 1,
+        });
       }
     } catch (error) {
       console.error('Error generating clip:', error);
+      
+      // Update status to failed
+      updateVideoStatus(key, { 
+        status: "failed", 
+        error: error instanceof Error ? error.message : "Network error occurred"
+      });
     } finally {
       setGeneratingClips(prev => ({ ...prev, [key]: false }));
     }
   };
+
+  // Retry a failed video generation
+  const retryVideoGeneration = useCallback((key: string) => {
+    const status = videoGenerationStatuses.find(s => s.key === key);
+    if (!status) return;
+    
+    // Get the section description
+    const episode = showData?.episodes?.find(e => e.episode_number === status.episodeNumber);
+    if (!episode) return;
+    
+    const sectionDescriptions: Record<string, string> = {
+      "TEASER": episode.cold_open_hook,
+      "ACT 1": episode.a_plot,
+      "ACT 2": episode.b_plot || "Complications arise...",
+      "ACT 3": episode.act_3_crisis || "Crisis point and confrontation",
+      "ACT 4": episode.cliffhanger_or_button,
+      "TAG": episode.tag_scene || "Final comedic or emotional beat",
+    };
+    
+    const description = sectionDescriptions[status.sectionLabel];
+    if (description) {
+      generateClip(status.sectionLabel, description, status.episodeNumber);
+    }
+  }, [videoGenerationStatuses, showData]);
 
   const currentEpisode = showData?.episodes?.[selectedEpisode];
   const posterUrl = showData?.libraryPosterUrl || showData?.posterUrl;
@@ -526,6 +867,13 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
       <div className="fixed top-0 left-0 right-0 z-50">
         <Navbar variant="solid" />
       </div>
+
+      {/* Video Generation Status Panel */}
+      <VideoGenerationPanel
+        activeGenerations={videoGenerationStatuses}
+        onDismiss={removeVideoStatus}
+        onRetry={retryVideoGeneration}
+      />
 
       {/* Mobile Sidebar Overlay */}
       {mobileSidebarOpen && (
@@ -805,6 +1153,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       videoUrl={currentClips["TEASER"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-TEASER`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-TEASER`]}
+                      videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-TEASER`)}
                       onGenerate={() => generateStill("TEASER", currentEpisode.cold_open_hook)}
                       onGenerateVideo={() => generateClip("TEASER", currentEpisode.cold_open_hook)}
                     />
@@ -817,6 +1166,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       videoUrl={currentClips["ACT 1"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 1`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 1`]}
+                      videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-ACT 1`)}
                       onGenerate={() => generateStill("ACT 1", currentEpisode.a_plot)}
                       onGenerateVideo={() => generateClip("ACT 1", currentEpisode.a_plot)}
                     />
@@ -829,6 +1179,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       videoUrl={currentClips["ACT 2"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 2`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 2`]}
+                      videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-ACT 2`)}
                       onGenerate={() => generateStill("ACT 2", currentEpisode.b_plot || "Complications arise...")}
                       onGenerateVideo={() => generateClip("ACT 2", currentEpisode.b_plot || "Complications arise...")}
                     />
@@ -841,6 +1192,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       videoUrl={currentClips["ACT 3"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 3`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 3`]}
+                      videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-ACT 3`)}
                       onGenerate={() => generateStill("ACT 3", currentEpisode.act_3_crisis || "Crisis point and confrontation")}
                       onGenerateVideo={() => generateClip("ACT 3", currentEpisode.act_3_crisis || "Crisis point and confrontation")}
                     />
@@ -853,6 +1205,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       videoUrl={currentClips["ACT 4"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-ACT 4`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-ACT 4`]}
+                      videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-ACT 4`)}
                       onGenerate={() => generateStill("ACT 4", currentEpisode.cliffhanger_or_button)}
                       onGenerateVideo={() => generateClip("ACT 4", currentEpisode.cliffhanger_or_button)}
                     />
@@ -865,6 +1218,7 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
                       videoUrl={currentClips["TAG"]}
                       isGenerating={generatingStills[`${currentEpisode.episode_number}-TAG`]}
                       isGeneratingVideo={generatingClips[`${currentEpisode.episode_number}-TAG`]}
+                      videoStatus={videoGenerationStatuses.find(s => s.key === `${currentEpisode.episode_number}-TAG`)}
                       onGenerate={() => generateStill("TAG", currentEpisode.tag_scene || "Final comedic or emotional beat")}
                       onGenerateVideo={() => generateClip("TAG", currentEpisode.tag_scene || "Final comedic or emotional beat")}
                     />
