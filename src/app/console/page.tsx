@@ -2430,7 +2430,7 @@ function ResultView({
 
     const unbuiltCharacters = characterSeeds.filter((seed) => !characterDocs[seed.id]);
     const charactersWithoutPortraits = characterSeeds.filter(
-      (seed) => characterDocs[seed.id] && !characterPortraits[seed.id] && !characterPortraitErrors[seed.id]
+      (seed) => characterDocs[seed.id] && !characterPortraits[seed.id] && !characterPortraitErrors[seed.id] && !characterPortraitLoading[seed.id]
     );
     const charactersWithPortraitErrors = characterSeeds.filter(
       (seed) => characterPortraitErrors[seed.id]
@@ -5556,6 +5556,19 @@ export function Console({ initialShowId }: ConsoleProps) {
       
       console.log(`   Blueprint exists: ${!!blueprint}, ShowId: ${targetShowId}`);
       
+      // GUARD: Skip if portrait already exists and no custom prompt (not a re-render)
+      const existingPortrait = characterPortraits[characterId];
+      if (existingPortrait && !customPrompt) {
+        console.log(`   ⏭️ Portrait already exists for ${characterId}, skipping (use custom prompt to re-render)`);
+        return;
+      }
+      
+      // GUARD: Skip if already loading (prevent double-clicks)
+      if (characterPortraitLoading[characterId]) {
+        console.log(`   ⏭️ Portrait already loading for ${characterId}, skipping duplicate request`);
+        return;
+      }
+      
       // FORCE CLEANUP: Always clear any potentially stuck state first
       // This ensures the restart works even for stuck/orphaned portraits
       const existingPoll = portraitPollsRef.current.get(characterId);
@@ -6066,7 +6079,7 @@ export function Console({ initialShowId }: ConsoleProps) {
         portraitJobsRef.current.delete(characterId);
       }
     },
-    [blueprint, characterDocs, libraryPosterUrl, currentShowId, characterSeeds, imageModel]
+    [blueprint, characterDocs, characterPortraits, characterPortraitLoading, libraryPosterUrl, currentShowId, characterSeeds, imageModel]
   );
 
   const handlePortraitLoaded = useCallback((characterId: string) => {
@@ -6118,6 +6131,12 @@ export function Console({ initialShowId }: ConsoleProps) {
     async (characterId: string, customPrompt?: string) => {
       // CRITICAL: Capture show ID immediately to prevent cross-contamination
       const targetShowId = currentShowId;
+      
+      // GUARD: Skip if already loading (prevent double-clicks)
+      if (characterVideoLoading[characterId]) {
+        console.log(`⏭️ Video already loading for ${characterId}, skipping duplicate request`);
+        return;
+      }
       
       if (!posterAvailable) {
         setCharacterVideoErrors((prev) => ({
@@ -6475,7 +6494,7 @@ export function Console({ initialShowId }: ConsoleProps) {
         videoStartTimesRef.current.delete(characterId);
       }
     },
-    [blueprint, characterDocs, characterPortraits, posterAvailable, videoAspectRatio, videoModelId, videoResolution, videoSeconds, currentShowId, characterSeeds]
+    [blueprint, characterDocs, characterPortraits, characterVideoLoading, posterAvailable, videoAspectRatio, videoModelId, videoResolution, videoSeconds, currentShowId, characterSeeds]
   );
 
   // Clean up stale background tasks on page load
@@ -7472,8 +7491,15 @@ export function Console({ initialShowId }: ConsoleProps) {
       setActiveModel(show.model);
       setCharacterSeeds(show.characterSeeds || []);
       setCharacterDocs(show.characterDocs || {});
+      setCharacterBuilding({});
+      setCharacterBuildErrors({});
       setCharacterPortraits(show.characterPortraits || {});
+      setCharacterPortraitLoading({});
+      setCharacterPortraitLoaded({});
+      setCharacterPortraitErrors({});
       setCharacterVideos(show.characterVideos || {});
+      setCharacterVideoLoading({});
+      setCharacterVideoErrors({});
       setSelectedVideoIndex({});
       setPosterUrl(show.posterUrl || null);
       setLibraryPosterUrl(show.libraryPosterUrl || null);

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       }
       
       const imageBuffer = await response.arrayBuffer();
-      const contentType = response.headers.get('content-type') || 'image/webp';
+      const contentType = response.headers.get('content-type') || 'image/png';
       
       console.log('OG: Returning poster, size:', imageBuffer.byteLength, 'bytes');
       

@@ -293,8 +293,8 @@ async function uploadAssetsToStorage(
       }
       
       if (buffer) {
-        const storagePath = `${showId}/portraits/${charId}.webp`;
-        const uploaded = await uploadToSupabase(supabase, 'show-assets', storagePath, buffer, 'image/webp');
+        const storagePath = `${showId}/portraits/${charId}.png`;
+        const uploaded = await uploadToSupabase(supabase, 'show-assets', storagePath, buffer, 'image/png');
         result.characterPortraits[charId] = uploaded || url;
         console.log(`✅ Uploaded portrait for ${charId} to Supabase`);
       } else {
@@ -341,13 +341,13 @@ async function uploadAssetsToStorage(
 
     // Upload poster
     if (assets.posterUrl) {
-      result.posterUrl = await uploadAsset(supabase, showId, assets.posterUrl, 'poster.webp', 'image/webp');
+      result.posterUrl = await uploadAsset(supabase, showId, assets.posterUrl, 'poster.png', 'image/png');
     }
 
     // Upload library poster
     if (assets.libraryPosterUrl && assets.libraryPosterUrl.trim()) {
       console.log("📤 Uploading library poster:", assets.libraryPosterUrl.slice(0, 80) + "...");
-      result.libraryPosterUrl = await uploadAsset(supabase, showId, assets.libraryPosterUrl, 'library-poster.webp', 'image/webp');
+      result.libraryPosterUrl = await uploadAsset(supabase, showId, assets.libraryPosterUrl, 'library-poster.png', 'image/png');
       console.log("✅ Library poster upload result:", result.libraryPosterUrl ? "Success" : "Failed");
     } else {
       console.log("⏭️ No library poster URL provided (libraryPosterUrl is:", assets.libraryPosterUrl || "null/undefined", ")");
@@ -357,7 +357,7 @@ async function uploadAssetsToStorage(
 
     // Upload portrait grid
     if (assets.portraitGridUrl) {
-      result.portraitGridUrl = await uploadAsset(supabase, showId, assets.portraitGridUrl, 'portrait-grid.webp', 'image/webp');
+      result.portraitGridUrl = await uploadAsset(supabase, showId, assets.portraitGridUrl, 'portrait-grid.png', 'image/png');
     }
 
     // Upload trailer

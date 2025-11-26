@@ -175,13 +175,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Composite all elements onto canvas
-    const gridBuffer = await canvas.composite(compositeOperations).webp({ quality: 95 }).toBuffer();
+    const gridBuffer = await canvas.composite(compositeOperations).png().toBuffer();
 
     console.log(`✅ Character grid composited: ${GRID_WIDTH}x${GRID_HEIGHT}`);
 
     // Convert to base64 data URL
     const base64 = gridBuffer.toString("base64");
-    const dataUrl = `data:image/webp;base64,${base64}`;
+    const dataUrl = `data:image/png;base64,${base64}`;
 
     return NextResponse.json({ url: dataUrl });
   } catch (error) {

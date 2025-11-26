@@ -311,8 +311,7 @@ export async function POST(request: Request) {
         input: {
           prompt,
           aspect_ratio: "1:1",
-          output_format: "webp",
-          output_quality: 95,
+          output_format: "png",
           safety_tolerance: 2,
         },
       });
@@ -325,7 +324,7 @@ export async function POST(request: Request) {
           prompt,
           aspect_ratio: "1:1",
           resolution: "2K",
-          output_format: "jpg",
+          output_format: "png",
           safety_filter_level: "block_only_high",
         },
       });

@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       savedAssets.characterPortraits = {};
       for (const [characterId, url] of Object.entries(assets.characterPortraits)) {
         if (url && url.startsWith("http")) {
-          const filename = `portrait-${characterId}.webp`;
+          const filename = `portrait-${characterId}.png`;
           savedAssets.characterPortraits[characterId] = await downloadAsset(url, showId, filename);
           downloadCount++;
         } else {
@@ -96,17 +96,17 @@ export async function POST(request: NextRequest) {
 
     // Download other assets
     if (assets.posterUrl && assets.posterUrl.startsWith("http")) {
-      savedAssets.posterUrl = await downloadAsset(assets.posterUrl, showId, "poster.webp");
+      savedAssets.posterUrl = await downloadAsset(assets.posterUrl, showId, "poster.png");
       downloadCount++;
     }
 
     if (assets.libraryPosterUrl && assets.libraryPosterUrl.startsWith("http")) {
-      savedAssets.libraryPosterUrl = await downloadAsset(assets.libraryPosterUrl, showId, "library-poster.webp");
+      savedAssets.libraryPosterUrl = await downloadAsset(assets.libraryPosterUrl, showId, "library-poster.png");
       downloadCount++;
     }
 
     if (assets.portraitGridUrl && assets.portraitGridUrl.startsWith("http")) {
-      savedAssets.portraitGridUrl = await downloadAsset(assets.portraitGridUrl, showId, "portrait-grid.webp");
+      savedAssets.portraitGridUrl = await downloadAsset(assets.portraitGridUrl, showId, "portrait-grid.png");
       downloadCount++;
     }
 

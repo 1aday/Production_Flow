@@ -305,7 +305,7 @@ export async function POST(request: Request) {
         prompt: compositePrompt,
         aspect_ratio: "2:3",
         resolution: "2K",
-        output_format: "jpg",
+        output_format: "png",
         safety_filter_level: "block_only_high",
       };
 
@@ -370,8 +370,7 @@ export async function POST(request: Request) {
       const input: Record<string, unknown> = {
         prompt: compositePrompt,
         aspect_ratio: "2:3",
-        output_format: "webp",
-        output_quality: 95,
+        output_format: "png",
         safety_tolerance: 2,
       };
 

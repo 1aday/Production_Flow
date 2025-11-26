@@ -207,7 +207,7 @@ Style: Cinematic TV production still, dramatic lighting, rich color palette, hig
         image_input: characterGridUrl ? [characterGridUrl] : undefined,
         aspect_ratio: "16:9",
         resolution: "2K",
-        output_format: "jpg",
+        output_format: "png",
         safety_filter_level: "block_only_high",
       },
     };
