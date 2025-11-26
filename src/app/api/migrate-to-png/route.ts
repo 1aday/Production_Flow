@@ -115,7 +115,7 @@ export async function POST() {
       if (show.library_poster_url?.includes('.webp')) webpCount++;
       if (show.portrait_grid_url?.includes('.webp')) webpCount++;
       if (show.character_portraits) {
-        for (const url of Object.values(show.character_portraits)) {
+        for (const url of Object.values(show.character_portraits) as (string | null)[]) {
           if (url?.includes('.webp')) webpCount++;
         }
       }
