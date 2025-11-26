@@ -80,10 +80,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description = description.substring(0, 197) + "...";
     }
 
-    // Base URL for absolute URLs - uses env var, falls back to Vercel URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
-      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
-      || "https://production-flow-nine.vercel.app";
+    // Base URL for absolute URLs
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://production-flow-nine.vercel.app";
     
     // WhatsApp ONLY supports these aspect ratios: 1.91:1, 1:1, or 16:9
     // Our poster is 9:16 (portrait) which WhatsApp will IGNORE
