@@ -18,7 +18,9 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://productionflow.vercel.app";
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
+  || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+  || "https://production-flow-nine.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
