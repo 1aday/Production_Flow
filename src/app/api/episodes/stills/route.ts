@@ -33,13 +33,13 @@ async function uploadStillToStorage(
     
     const imageBuffer = await response.arrayBuffer();
     const sanitizedLabel = sectionLabel.toLowerCase().replace(/\s+/g, "-");
-    const fileName = `${showId}/ep${episodeNumber}-${sanitizedLabel}.jpg`;
+    const fileName = `${showId}/ep${episodeNumber}-${sanitizedLabel}.png`;
     
     // Upload to Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from("episode-media")
       .upload(fileName, imageBuffer, {
-        contentType: "image/jpeg",
+        contentType: "image/png",
         upsert: true,
       });
     
@@ -158,7 +158,8 @@ export async function POST(request: NextRequest) {
       : "";
 
     // Build the prompt for the still - detailed and narrative-driven
-    const prompt = characterGridUrl 
+    const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
+    const prompt = SAFETY_PREFIX + (characterGridUrl 
       ? `Create a detailed scene for "${sectionLabel}" of episode "${episodeTitle}":
 
 SCENE DESCRIPTION: ${sectionDescription}
@@ -186,7 +187,7 @@ ${continuityNote}
 Show clear facial expressions and body language that convey the emotion of this moment.
 
 Genre: ${genre || "drama"}
-Style: Cinematic TV production still, dramatic lighting, rich color palette, high production value, 16:9 widescreen composition. Show the environment and setting clearly.`;
+Style: Cinematic TV production still, dramatic lighting, rich color palette, high production value, 16:9 widescreen composition. Show the environment and setting clearly.`);
 
     console.log("\n========================================");
     console.log("=== STILLS GENERATION - NANO BANANA PRO ===");

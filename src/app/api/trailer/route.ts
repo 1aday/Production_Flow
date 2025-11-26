@@ -207,8 +207,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
+  
   // Use custom prompt if provided, otherwise build default prompt
-  const trailerPrompt = customPrompt || (() => {
+  const trailerPrompt = SAFETY_PREFIX + (customPrompt || (() => {
     // Build a blockbuster-style trailer prompt
     return `Create an iconic teaser trailer for the series "${title}".
 
@@ -246,7 +248,7 @@ TRAILER REQUIREMENTS:
 4. Create a well-paced, exciting montage that captures the show's core vibe and genre
 5. Showcase the MOST INTERESTING and ICONIC moments that would make viewers want to watch
 6. Build anticipation and intrigue through dynamic editing, compelling visuals, and punchy narration`;
-  })();
+  })());
 
   console.log("=== TRAILER GENERATION ===");
   console.log("Title:", title);

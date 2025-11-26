@@ -185,7 +185,9 @@ export async function POST(request: Request) {
     console.log("✅ Show title NOT in characterJson");
   }
 
-  const prompt = body.customPrompt || (() => {
+  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
+  
+  const prompt = SAFETY_PREFIX + (body.customPrompt || (() => {
     // Build style header using slim extraction
     let styleHeader: string[] = [];
     
@@ -277,8 +279,10 @@ export async function POST(request: Request) {
       "Show Aesthetic Guidelines:",
       showJson,
       ...requirements,
+      "",
+      "IMPORTANT: Do not add any text from the prompt or color codes to the image, unless its a text part of the character. This is supposed to be a character portrait.",
     ].join("\n");
-  })();
+  })());
 
   try {
     console.log("\n========================================");

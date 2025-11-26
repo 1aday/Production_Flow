@@ -330,7 +330,9 @@ export async function POST(request: Request) {
     "",
   ];
 
-  const prompt = [
+  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
+  
+  const prompt = SAFETY_PREFIX + [
     `Produce a ${seconds}-second, ${describeAspectRatio(aspectRatio)} cinematic showcase featuring ONLY the specified character.`,
     "Anchor every creative choice in the show's visual style and the character's established look.",
     resolution

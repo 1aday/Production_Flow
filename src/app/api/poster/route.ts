@@ -212,9 +212,11 @@ export async function POST(request: Request) {
   // Choose base prompt based on guardrails
   const BASE_PROMPT = stylizationGuardrails ? BASE_PROMPT_STYLIZED : BASE_PROMPT_REALISTIC;
   
-  let compositePrompt = body.characterGridUrl 
+  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
+  
+  let compositePrompt = SAFETY_PREFIX + (body.characterGridUrl 
     ? `${styleHeader}${BASE_PROMPT}\n\nHere are the characters (shown in the reference image grid):\n${userPrompt}`
-    : `${styleHeader}${BASE_PROMPT}\n\nCharacter prompt:\n${userPrompt}`;
+    : `${styleHeader}${BASE_PROMPT}\n\nCharacter prompt:\n${userPrompt}`);
 
   if (compositePrompt.length > MAX_PROMPT_LENGTH) {
     compositePrompt = trimWithEllipsis(compositePrompt, MAX_PROMPT_LENGTH);

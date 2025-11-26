@@ -912,25 +912,31 @@ function CharacterDossierContent({
                 ) : null}
                 <Button
                   type="button"
-                  variant={portraitUrl ? "outline" : "default"}
+                  variant={portraitLoading ? "destructive" : portraitError ? "destructive" : portraitUrl ? "secondary" : "default"}
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
                     console.log(`🖱️ Dossier portrait button clicked for ${characterId}, loading: ${portraitLoading}`);
                     onGeneratePortrait(characterId);
                   }}
-                  className="w-full justify-center rounded-full relative z-50"
+                  className="w-full justify-center rounded-full relative z-50 hover:scale-[1.02] active:scale-[0.98] transition-transform"
                   style={{ pointerEvents: 'auto' }}
                 >
                   {portraitLoading ? (
                     <>
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Restart render
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Cancel & Restart
                     </>
                   ) : portraitError ? (
-                    "Retry portrait"
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Retry portrait
+                    </>
                   ) : portraitUrl ? (
-                    "Re-render portrait"
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Re-render portrait
+                    </>
                   ) : (
                     "Render portrait"
                   )}
@@ -2966,7 +2972,7 @@ function ResultView({
                 {doc && posterAvailable ? (
                   <Button
                     type="button"
-                    variant={portraitLoading ? "destructive" : portraitUrl ? "outline" : "secondary"}
+                    variant={portraitLoading ? "destructive" : portraitError ? "destructive" : portraitUrl ? "secondary" : "default"}
                     onMouseDown={(e) => {
                       // Force stop loading state for stuck portraits
                       if (portraitLoading) {
@@ -2986,7 +2992,7 @@ function ResultView({
                       const customPrompt = editedPortraitPrompts[seed.id];
                       onGeneratePortrait(seed.id, customPrompt as string | undefined);
                     }}
-                    className="w-full justify-center rounded-full text-sm transition-all duration-200 relative z-50"
+                    className="w-full justify-center rounded-full text-sm transition-all duration-200 relative z-50 hover:scale-[1.02] active:scale-[0.98]"
                     style={{ pointerEvents: 'auto' }}
                   >
                     {portraitLoading ? (
@@ -2995,9 +3001,15 @@ function ResultView({
                         Cancel & Restart
                       </>
                     ) : portraitError ? (
-                      "Retry portrait"
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Retry portrait
+                      </>
                     ) : portraitUrl ? (
-                      editedPortraitPrompts[seed.id] ? "Re-render with custom" : "Re-render portrait"
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        {editedPortraitPrompts[seed.id] ? "Re-render with custom" : "Re-render portrait"}
+                      </>
                     ) : (
                       editedPortraitPrompts[seed.id] ? "Render with custom" : "Render portrait"
                     )}
@@ -5555,13 +5567,6 @@ export function Console({ initialShowId }: ConsoleProps) {
       const targetShowId = currentShowId;
       
       console.log(`   Blueprint exists: ${!!blueprint}, ShowId: ${targetShowId}`);
-      
-      // GUARD: Skip if portrait already exists and no custom prompt (not a re-render)
-      const existingPortrait = characterPortraits[characterId];
-      if (existingPortrait && !customPrompt) {
-        console.log(`   ⏭️ Portrait already exists for ${characterId}, skipping (use custom prompt to re-render)`);
-        return;
-      }
       
       // GUARD: Skip if already loading (prevent double-clicks)
       if (characterPortraitLoading[characterId]) {

@@ -249,7 +249,8 @@ Remember: The show title "${showTitle}" MUST be clearly visible with beautiful t
     }
     
     // Build the final poster prompt
-    const posterPrompt = `${userPrompt}${styleGuidance}${posterRequirements}`;
+    const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
+    const posterPrompt = SAFETY_PREFIX + `${userPrompt}${styleGuidance}${posterRequirements}`;
 
     console.log("\n=== LIBRARY POSTER GENERATION ===");
     console.log("✅ Show Title Being Used:", showTitle);
