@@ -1241,6 +1241,7 @@ function ResultView({
   setTrailerRetryModel,
   trailerRetryCount,
   onGenerateTrailer,
+  buildDefaultTrailerPrompt,
   onRegenerateGrid,
   onRegeneratePoster,
   editedLibraryPosterPrompt,

@@ -18,7 +18,7 @@ export type BackgroundTask = {
   characterId?: string; // For portrait/video/dossier tasks
   startedAt: number;
   completedAt?: number; // When the task finished
-  status: 'starting' | 'processing' | 'succeeded' | 'failed';
+  status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
   progress?: number; // 0-100
   outputUrl?: string;
   error?: string;
