@@ -122,7 +122,7 @@ export default function PromptsPage() {
     return (
       <div className="min-h-screen bg-black text-foreground">
         <Navbar variant="solid" />
-        <div className="max-w-4xl mx-auto px-6 py-12 pt-24">
+        <div className="max-w-4xl mx-auto px-3 sm:px-6 py-8 pt-20 sm:pt-24">
           <div className="space-y-4 text-center">
             <p className="text-red-400 font-semibold">Failed to load prompt templates</p>
             <p className="text-sm text-foreground/60">{error || "Database error"}</p>
@@ -138,22 +138,22 @@ export default function PromptsPage() {
       <Navbar variant="solid" />
       
       {/* Page Header */}
-      <div className="pt-20 border-b border-white/10">
-        <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-4 px-6 py-4">
+      <div className="pt-16 border-b border-white/10">
+        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between gap-3 px-3 sm:px-5 py-2.5">
           <div className="flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-primary" />
             <div>
-              <h1 className="text-lg font-semibold">AI Prompts</h1>
-              <p className="text-xs text-foreground/50">Global templates for all shows</p>
+              <h1 className="text-base sm:text-lg font-sans font-semibold text-white">AI Prompts</h1>
+              <p className="text-[10px] text-white/50">Global templates for all shows</p>
             </div>
-            </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="text-[10px]">
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[9px] h-5">
               v{templates.version}
             </Badge>
             {hasChanges ? (
-              <Badge variant="outline" className="text-amber-400 border-amber-400/40 bg-amber-400/10">
-                Unsaved changes
+              <Badge variant="outline" className="text-amber-400 border-amber-400/40 bg-amber-400/10 text-[9px] h-5">
+                Unsaved
               </Badge>
             ) : null}
             <Button
@@ -162,9 +162,9 @@ export default function PromptsPage() {
               size="sm"
               onClick={resetToDefault}
               disabled={saving}
-              className="gap-2 rounded-full"
+              className="gap-1.5 rounded-full h-8 px-3 text-xs"
             >
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className="h-3.5 w-3.5" />
               Reset All
             </Button>
             <Button
@@ -173,186 +173,186 @@ export default function PromptsPage() {
               size="sm"
               onClick={saveTemplates}
               disabled={saving || !hasChanges}
-              className="gap-2 rounded-full"
+              className="gap-1.5 rounded-full h-8 px-3 text-xs"
             >
-              <Save className="h-4 w-4" />
+              <Save className="h-3.5 w-3.5" />
               {saving ? "Saving..." : "Save All"}
             </Button>
           </div>
         </div>
       </div>
 
-      <main className="mx-auto max-w-[1400px] px-6 py-8 space-y-6 pb-32">
+      <main className="mx-auto max-w-[1200px] px-2 sm:px-4 lg:px-6 py-3 sm:py-5 space-y-4 pb-20">
         {/* Info Banner */}
-        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4">
-          <p className="text-sm text-blue-200/90">
-            <strong>Global Prompt Templates:</strong> These prompts are used for ALL shows. Changes here affect future generations. Variables like <code className="px-1.5 py-0.5 rounded bg-black/40">{`{SHOW_TITLE}`}</code> are automatically replaced.
+        <div className="rounded-lg border border-blue-500/25 bg-blue-500/8 px-3 py-2.5">
+          <p className="text-xs text-blue-200/80">
+            <strong>Global Prompt Templates:</strong> These prompts are used for ALL shows. Variables like <code className="px-1 py-0.5 rounded bg-black/40 text-[10px]">{`{SHOW_TITLE}`}</code> are automatically replaced.
           </p>
         </div>
 
         {/* Show Generation */}
         <Card className="border-white/10 bg-black/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
+          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Sparkles className="h-4 w-4 text-primary" />
               Show Generation Directive
             </CardTitle>
-            <CardDescription>System directive for creating show blueprints (visual aesthetics JSON)</CardDescription>
+            <CardDescription className="text-[11px]">System directive for creating show blueprints</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 pt-0">
             <Textarea
               value={templates.showGenerationDirective}
               onChange={(e) => {
                 setTemplates({ ...templates, showGenerationDirective: e.target.value });
                 setHasChanges(true);
               }}
-              className="min-h-[200px] resize-y rounded-2xl bg-black/60 text-sm border-white/15 font-mono"
+              className="min-h-[150px] resize-y rounded-lg bg-black/60 text-xs border-white/15 font-mono"
             />
           </CardContent>
         </Card>
 
         {/* Character Extraction */}
         <Card className="border-white/10 bg-black/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
+          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-primary" />
               Character Extraction Directive
             </CardTitle>
-            <CardDescription>System directive for extracting character seeds from user prompts</CardDescription>
+            <CardDescription className="text-[11px]">System directive for extracting character seeds</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 pt-0">
             <Textarea
               value={templates.characterExtractionDirective}
               onChange={(e) => {
                 setTemplates({ ...templates, characterExtractionDirective: e.target.value });
                 setHasChanges(true);
               }}
-              className="min-h-[180px] resize-y rounded-2xl bg-black/60 text-sm border-white/15 font-mono"
+              className="min-h-[120px] resize-y rounded-lg bg-black/60 text-xs border-white/15 font-mono"
             />
           </CardContent>
         </Card>
 
         {/* Character Build */}
         <Card className="border-white/10 bg-black/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5 text-primary" />
+          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-primary" />
               Character Build Directive
             </CardTitle>
-            <CardDescription>System directive for building full character dossiers</CardDescription>
+            <CardDescription className="text-[11px]">System directive for building full character dossiers</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 pt-0">
             <Textarea
               value={templates.characterBuildDirective}
               onChange={(e) => {
                 setTemplates({ ...templates, characterBuildDirective: e.target.value });
                 setHasChanges(true);
               }}
-              className="min-h-[180px] resize-y rounded-2xl bg-black/60 text-sm border-white/15 font-mono"
+              className="min-h-[120px] resize-y rounded-lg bg-black/60 text-xs border-white/15 font-mono"
             />
           </CardContent>
         </Card>
 
         {/* Portrait Generation */}
         <Card className="border-white/10 bg-black/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-primary" />
+          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <ImageIcon className="h-4 w-4 text-primary" />
               Portrait Generation Template
             </CardTitle>
-            <CardDescription>
-              Base prompt for character portraits. Variables: {`{SHOW_TITLE}`}, {`{PRODUCTION_MEDIUM}`}, {`{CINEMATIC_REFERENCES}`}, {`{VISUAL_TREATMENT}`}, {`{STYLIZATION_LEVEL}`}
+            <CardDescription className="text-[11px]">
+              Variables: {`{SHOW_TITLE}`}, {`{PRODUCTION_MEDIUM}`}, {`{CINEMATIC_REFERENCES}`}, etc.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 pt-0">
             <Textarea
               value={templates.portraitBasePrompt}
               onChange={(e) => {
                 setTemplates({ ...templates, portraitBasePrompt: e.target.value });
                 setHasChanges(true);
               }}
-              className="min-h-[150px] resize-y rounded-2xl bg-black/60 text-sm border-white/15 font-mono"
+              className="min-h-[100px] resize-y rounded-lg bg-black/60 text-xs border-white/15 font-mono"
             />
           </CardContent>
         </Card>
 
         {/* Video Generation */}
         <Card className="border-white/10 bg-black/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Video className="h-5 w-5 text-primary" />
+          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Video className="h-4 w-4 text-primary" />
               Video Generation Template
             </CardTitle>
-            <CardDescription>
-              Base prompt for character videos. Variables: {`{DURATION}`}, {`{ASPECT_RATIO}`}, {`{PRODUCTION_MEDIUM}`}, {`{CINEMATIC_REFERENCES}`}, {`{VISUAL_TREATMENT}`}
+            <CardDescription className="text-[11px]">
+              Variables: {`{DURATION}`}, {`{ASPECT_RATIO}`}, {`{PRODUCTION_MEDIUM}`}, etc.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 pt-0">
             <Textarea
               value={templates.videoBasePrompt}
               onChange={(e) => {
                 setTemplates({ ...templates, videoBasePrompt: e.target.value });
                 setHasChanges(true);
               }}
-              className="min-h-[140px] resize-y rounded-2xl bg-black/60 text-sm border-white/15 font-mono"
+              className="min-h-[100px] resize-y rounded-lg bg-black/60 text-xs border-white/15 font-mono"
             />
           </CardContent>
         </Card>
 
         {/* Poster Generation */}
         <Card className="border-white/10 bg-black/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Film className="h-5 w-5 text-primary" />
+          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Film className="h-4 w-4 text-primary" />
               Poster Generation Template
             </CardTitle>
-            <CardDescription>
-              Base prompt for show posters. Variables: {`{SHOW_TITLE}`}, {`{PRODUCTION_MEDIUM}`}, {`{CINEMATIC_REFERENCES}`}, {`{VISUAL_TREATMENT}`}, {`{STYLIZATION_LEVEL}`}
+            <CardDescription className="text-[11px]">
+              Variables: {`{SHOW_TITLE}`}, {`{PRODUCTION_MEDIUM}`}, {`{STYLIZATION_LEVEL}`}, etc.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 pt-0">
             <Textarea
               value={templates.posterBasePrompt}
               onChange={(e) => {
                 setTemplates({ ...templates, posterBasePrompt: e.target.value });
                 setHasChanges(true);
               }}
-              className="min-h-[160px] resize-y rounded-2xl bg-black/60 text-sm border-white/15 font-mono"
+              className="min-h-[120px] resize-y rounded-lg bg-black/60 text-xs border-white/15 font-mono"
             />
           </CardContent>
         </Card>
 
         {/* Trailer Generation */}
         <Card className="border-white/10 bg-black/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clapperboard className="h-5 w-5 text-primary" />
+          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Clapperboard className="h-4 w-4 text-primary" />
               Trailer Generation Template
             </CardTitle>
-            <CardDescription>
-              Base prompt for trailers. Variables: {`{SHOW_TITLE}`}, {`{LOGLINE}`}, {`{PRODUCTION_MEDIUM}`}, {`{CINEMATIC_REFERENCES}`}, {`{VISUAL_TREATMENT}`}, {`{STYLIZATION_LEVEL}`}
+            <CardDescription className="text-[11px]">
+              Variables: {`{SHOW_TITLE}`}, {`{LOGLINE}`}, {`{PRODUCTION_MEDIUM}`}, etc.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 pt-0">
             <Textarea
               value={templates.trailerBasePrompt}
               onChange={(e) => {
                 setTemplates({ ...templates, trailerBasePrompt: e.target.value });
                 setHasChanges(true);
               }}
-              className="min-h-[200px] resize-y rounded-2xl bg-black/60 text-sm border-white/15 font-mono"
+              className="min-h-[140px] resize-y rounded-lg bg-black/60 text-xs border-white/15 font-mono"
             />
           </CardContent>
         </Card>
 
         {/* Episode Studio Section Divider */}
-        <div className="relative py-4">
+        <div className="relative py-3">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-emerald-500/30" />
+            <div className="w-full border-t border-emerald-500/25" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-black px-4 text-sm font-semibold text-emerald-400 flex items-center gap-2">
-              <Clapperboard className="h-4 w-4" />
+            <span className="bg-black px-3 text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+              <Clapperboard className="h-3.5 w-3.5" />
               Episode Studio Templates
             </span>
           </div>
@@ -360,16 +360,16 @@ export default function PromptsPage() {
 
         {/* Episode Stills Generation */}
         <Card className="border-emerald-500/20 bg-emerald-500/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-emerald-400" />
+          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <ImageIcon className="h-4 w-4 text-emerald-400" />
               Episode Stills Template
             </CardTitle>
-            <CardDescription>
-              Template for generating scene keyframe images. Variables: {`{SECTION_LABEL}`}, {`{EPISODE_TITLE}`}, {`{SCENE_DESCRIPTION}`}, {`{CHARACTER_LIST}`}, {`{SETTING_NOTE}`}, {`{CONTINUITY_NOTE}`}, {`{GENRE}`}, {`{PRODUCTION_MEDIUM}`}, {`{CINEMATIC_REFERENCES}`}, {`{VISUAL_TREATMENT}`}
+            <CardDescription className="text-[11px]">
+              Template for generating scene keyframe images
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 pt-0">
             <Textarea
               value={templates.episodeStillsPrompt || ''}
               onChange={(e) => {
@@ -377,23 +377,23 @@ export default function PromptsPage() {
                 setHasChanges(true);
               }}
               placeholder="Template for generating episode scene stills..."
-              className="min-h-[220px] resize-y rounded-2xl bg-black/60 text-sm border-emerald-500/20 font-mono focus:border-emerald-500/50"
+              className="min-h-[140px] resize-y rounded-lg bg-black/60 text-xs border-emerald-500/20 font-mono focus:border-emerald-500/50"
             />
           </CardContent>
         </Card>
 
         {/* Episode Clips Generation */}
         <Card className="border-violet-500/20 bg-violet-500/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Video className="h-5 w-5 text-violet-400" />
+          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Video className="h-4 w-4 text-violet-400" />
               Episode Clips Template
             </CardTitle>
-            <CardDescription>
-              Template for animating scene stills into video clips (VEO 3.1). Variables: {`{GENRE}`}, {`{SECTION_LABEL}`}, {`{SCENE_DESCRIPTION}`}, {`{EPISODE_TITLE}`}, {`{EPISODE_LOGLINE}`}, {`{CHARACTER_LIST}`}, {`{CONTINUITY_NOTE}`}, {`{PRODUCTION_MEDIUM}`}, {`{CINEMATIC_REFERENCES}`}, {`{VISUAL_TREATMENT}`}
+            <CardDescription className="text-[11px]">
+              Template for animating scene stills into video clips (VEO 3.1)
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4 pt-0">
             <Textarea
               value={templates.episodeClipsPrompt || ''}
               onChange={(e) => {
@@ -401,27 +401,27 @@ export default function PromptsPage() {
                 setHasChanges(true);
               }}
               placeholder="Template for generating episode scene video clips..."
-              className="min-h-[220px] resize-y rounded-2xl bg-black/60 text-sm border-violet-500/20 font-mono focus:border-violet-500/50"
+              className="min-h-[140px] resize-y rounded-lg bg-black/60 text-xs border-violet-500/20 font-mono focus:border-violet-500/50"
             />
           </CardContent>
         </Card>
 
         {/* Updated timestamp */}
-        <p className="text-center text-xs text-foreground/40">
+        <p className="text-center text-[10px] text-foreground/40">
           Last updated: {new Date(templates.updatedAt).toLocaleString()}
         </p>
 
         {/* Sticky Save Button */}
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2">
           <Button
             type="button"
             variant="default"
-            size="lg"
+            size="sm"
             onClick={saveTemplates}
             disabled={saving || !hasChanges}
-            className="gap-3 rounded-full shadow-[0_12px_40px_rgba(229,9,20,0.45)] px-8"
+            className="gap-2 rounded-full shadow-[0_8px_30px_rgba(229,9,20,0.4)] px-5 h-9 text-xs"
           >
-            <Save className="h-5 w-5" />
+            <Save className="h-4 w-4" />
             {saving ? "Saving..." : hasChanges ? "Save All Templates" : "No Changes"}
           </Button>
         </div>

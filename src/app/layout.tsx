@@ -1,17 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Sora, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-// Display font - Bold, modern, Netflix/Apple style
-const inter = Inter({
-  variable: "--font-display",
+// Display + Body font - Modern geometric, clean and punchy
+const sora = Sora({
+  variable: "--font-sans",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   display: "swap",
 });
 
 // Mono font - For code/technical content
-const jetbrainsMono = JetBrains_Mono({
+const geistMono = Geist_Mono({
   variable: "--font-mono",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -109,7 +109,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} font-display antialiased`}
+        className={`${sora.variable} ${geistMono.variable} font-sans antialiased`}
         style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden', margin: 0, padding: 0 }}
       >
         {children}

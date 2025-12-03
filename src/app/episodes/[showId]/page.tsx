@@ -40,6 +40,16 @@ import { type Episode } from "@/components/EpisodeCards";
 import { type ShowFormat } from "@/components/ShowFormatVisualizer";
 import { Navbar } from "@/components/Navbar";
 
+// Helper to pause all other videos when one starts playing
+function pauseOtherVideos(currentVideo: HTMLVideoElement) {
+  const allVideos = document.querySelectorAll('video');
+  allVideos.forEach((video) => {
+    if (video !== currentVideo && !video.paused) {
+      video.pause();
+    }
+  });
+}
+
 type ShowData = {
   id: string;
   title: string;
@@ -383,36 +393,36 @@ function StoryboardSection({
   const [showPromptEditor, setShowPromptEditor] = useState(false);
   
   return (
-    <div className={cn("rounded-xl border p-4", colors.bg, colors.border)}>
+    <div className={cn("rounded-lg border p-3", colors.bg, colors.border)}>
       {/* Header */}
-      <div className="flex items-center gap-3 mb-3">
-        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", colors.icon, colors.text)}>
+      <div className="flex items-center gap-2 mb-2">
+        <div className={cn("w-6 h-6 rounded-md flex items-center justify-center", colors.icon, colors.text)}>
           {icon}
         </div>
         <div className="flex-1 min-w-0">
-          <span className={cn("text-xs font-bold tracking-wider", colors.text)}>{label}</span>
-          <p className="text-xs text-foreground/50 line-clamp-1 mt-0.5">{description}</p>
+          <span className={cn("text-[10px] font-bold tracking-wider", colors.text)}>{label}</span>
+          <p className="text-[10px] text-foreground/50 line-clamp-1">{description}</p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {/* Prompt editor button */}
           <button
             onClick={() => setShowPromptEditor(true)}
-            className="p-1.5 rounded-md bg-white/5 hover:bg-white/10 text-foreground/40 hover:text-foreground/70 transition-colors"
+            className="p-1 rounded-md bg-white/5 hover:bg-white/10 text-foreground/40 hover:text-foreground/70 transition-colors"
             title="View & edit prompts"
           >
-            <FileText className="h-3.5 w-3.5" />
+            <FileText className="h-3 w-3" />
           </button>
           {/* Toggle between image/video when both exist */}
           {imageUrl && videoUrl && (
             <button
               onClick={() => setUserPrefersImage(!userPrefersImage)}
               className={cn(
-                "p-1.5 rounded-md transition-colors",
+                "p-1 rounded-md transition-colors",
                 showVideo ? "bg-violet-500/20 text-violet-400" : "bg-white/10 text-foreground/50 hover:text-foreground/70"
               )}
               title={showVideo ? "Show image" : "Show video"}
             >
-              {showVideo ? <ImageIcon className="h-3.5 w-3.5" /> : <Video className="h-3.5 w-3.5" />}
+              {showVideo ? <ImageIcon className="h-3 w-3" /> : <Video className="h-3 w-3" />}
             </button>
           )}
         </div>
@@ -441,6 +451,7 @@ function StoryboardSection({
             controls
             playsInline
             preload="metadata"
+            onPlay={(e) => pauseOtherVideos(e.currentTarget)}
           />
           {/* Regenerate video overlay on hover */}
           {!isGeneratingVideo && onGenerateVideo && (
@@ -1291,55 +1302,55 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
       )}
 
       {/* Page Content */}
-      <div className="pt-16 lg:pt-20">
-        <div className="flex min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-5rem)]">
+      <div className="pt-14 lg:pt-16">
+        <div className="flex min-h-[calc(100vh-3.5rem)] lg:min-h-[calc(100vh-4rem)]">
           
           {/* Sidebar - Hidden on mobile, visible on desktop */}
         <aside 
           className={cn(
-              "fixed lg:sticky top-16 lg:top-20 left-0 h-[calc(100vh-4rem)] lg:h-[calc(100vh-5rem)] z-40 flex flex-col border-r border-white/10 bg-black/95 lg:bg-black/50 backdrop-blur-xl transition-all duration-300 ease-in-out",
+              "fixed lg:sticky top-14 lg:top-16 left-0 h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-4rem)] z-40 flex flex-col border-r border-white/10 bg-black/95 lg:bg-black/50 backdrop-blur-xl transition-all duration-300 ease-in-out",
               mobileSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-              sidebarCollapsed ? "lg:w-16" : "w-72 lg:w-64"
+              sidebarCollapsed ? "lg:w-14" : "w-64 lg:w-56"
           )}
         >
           {/* Sidebar Header */}
-            <div className="flex items-center justify-between h-12 px-3 border-b border-white/10">
-              <div className="flex items-center gap-2 min-w-0">
-                <Clapperboard className="h-4 w-4 text-primary flex-shrink-0" />
+            <div className="flex items-center justify-between h-10 px-2.5 border-b border-white/10">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Clapperboard className="h-3.5 w-3.5 text-primary flex-shrink-0" />
                 {!sidebarCollapsed && (
-                  <span className="font-medium text-sm truncate">Episodes</span>
+                  <span className="font-medium text-xs truncate">Episodes</span>
                 )}
               </div>
               <div className="flex items-center gap-1">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 hidden lg:flex"
+                  className="h-6 w-6 hidden lg:flex"
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 >
                   {sidebarCollapsed ? (
-                    <PanelLeft className="h-3.5 w-3.5" />
+                    <PanelLeft className="h-3 w-3" />
                   ) : (
-                    <PanelLeftClose className="h-3.5 w-3.5" />
+                    <PanelLeftClose className="h-3 w-3" />
                   )}
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 lg:hidden"
+                  className="h-6 w-6 lg:hidden"
                   onClick={() => setMobileSidebarOpen(false)}
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
           </div>
 
           {/* Show Poster & Info */}
             {!sidebarCollapsed && (
-              <div className="p-3 border-b border-white/10">
-                <div className="flex gap-3">
+              <div className="p-2.5 border-b border-white/10">
+                <div className="flex gap-2">
             {posterUrl ? (
-                    <div className="relative w-16 h-24 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 shadow-lg">
+                    <div className="relative w-12 h-[72px] flex-shrink-0 overflow-hidden rounded-md border border-white/10 shadow-md">
                 <Image
                   src={posterUrl}
                   alt={showData.showTitle || showData.title}
@@ -1348,18 +1359,18 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
                 />
               </div>
             ) : (
-                    <div className="w-16 h-24 flex-shrink-0 flex items-center justify-center rounded-lg border border-white/10 bg-gradient-to-br from-primary/10 to-violet-500/10">
-                      <Film className="h-6 w-6 text-foreground/30" />
+                    <div className="w-12 h-[72px] flex-shrink-0 flex items-center justify-center rounded-md border border-white/10 bg-gradient-to-br from-primary/10 to-violet-500/10">
+                      <Film className="h-5 w-5 text-foreground/30" />
               </div>
             )}
-                  <div className="min-w-0 flex-1 py-1">
-                <h2 className="font-semibold text-sm line-clamp-2 leading-tight">
+                  <div className="min-w-0 flex-1">
+                <h2 className="font-medium text-xs line-clamp-2 leading-tight">
                   {showData.showTitle || showData.title}
                 </h2>
                 {showData.genre && (
-                      <p className="text-[10px] uppercase tracking-wider text-foreground/50 mt-1">{showData.genre}</p>
+                      <p className="text-[9px] uppercase tracking-wider text-foreground/50 mt-0.5">{showData.genre}</p>
                 )}
-                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 mt-2">
+                    <Badge variant="outline" className="text-[8px] h-4 px-1 mt-1">
                       {showData.episodes.length} eps
                     </Badge>
                   </div>
@@ -1368,17 +1379,17 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
             )}
 
           {/* Navigation Links */}
-            <div className="p-2 border-b border-white/10 space-y-1">
+            <div className="p-1.5 border-b border-white/10 space-y-0.5">
                 <Link href={`/show/${showId}`}>
                   <Button
                     variant="ghost"
                     className={cn(
-                    "w-full justify-start gap-2 text-foreground/70 hover:text-foreground h-8 text-xs",
-                      sidebarCollapsed && "justify-center px-2"
+                    "w-full justify-start gap-1.5 text-foreground/70 hover:text-foreground h-7 text-[11px]",
+                      sidebarCollapsed && "justify-center px-1.5"
                     )}
                     size="sm"
                   >
-                  <Home className="h-3.5 w-3.5 flex-shrink-0" />
+                  <Home className="h-3 w-3 flex-shrink-0" />
                     {!sidebarCollapsed && <span>Show Page</span>}
                   </Button>
                 </Link>
@@ -1386,12 +1397,12 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
                   <Button
                     variant="ghost"
                     className={cn(
-                    "w-full justify-start gap-2 text-foreground/70 hover:text-foreground h-8 text-xs",
-                      sidebarCollapsed && "justify-center px-2"
+                    "w-full justify-start gap-1.5 text-foreground/70 hover:text-foreground h-7 text-[11px]",
+                      sidebarCollapsed && "justify-center px-1.5"
                     )}
                     size="sm"
                   >
-                  <ArrowLeft className="h-3.5 w-3.5 flex-shrink-0" />
+                  <ArrowLeft className="h-3 w-3 flex-shrink-0" />
                     {!sidebarCollapsed && <span>All Shows</span>}
                   </Button>
                 </Link>
@@ -1399,7 +1410,7 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
 
           {/* Episode List */}
           <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1">
+              <div className="p-1.5 space-y-0.5">
               {showData.episodes.map((episode, index) => {
                 const isSelected = selectedEpisode === index;
                 const isPilot = episode.episode_number === 1;
@@ -1415,8 +1426,8 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
                         setMobileSidebarOpen(false);
                       }}
                         className={cn(
-                          "w-full text-left rounded-lg border transition-all duration-200",
-                        sidebarCollapsed ? "p-2 flex items-center justify-center" : "p-2.5",
+                          "w-full text-left rounded-md border transition-all duration-200",
+                        sidebarCollapsed ? "p-1.5 flex items-center justify-center" : "p-2",
                           isSelected
                           ? "bg-primary/15 border-primary/30"
                           : "bg-white/5 border-transparent hover:bg-white/10"
@@ -1424,38 +1435,38 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
                       >
                         {sidebarCollapsed ? (
                         <div className={cn(
-                          "w-7 h-7 rounded flex items-center justify-center text-xs font-bold",
+                          "w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold",
                           isSelected ? "bg-primary/30 text-primary" : "bg-white/10 text-foreground/60"
                         )}>
                           {isComplete ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                            <CheckCircle2 className="h-3 w-3 text-emerald-400" />
                           ) : (
                             episode.episode_number
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2">
                           <div className={cn(
-                            "flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-xs font-bold",
+                            "flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold",
                             isSelected ? "bg-primary/30 text-primary" : "bg-white/10 text-foreground/60"
                           )}>
                             {isComplete ? (
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                              <CheckCircle2 className="h-3 w-3 text-emerald-400" />
                               ) : (
                                 episode.episode_number
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1 mb-0.5">
+                            <div className="flex items-center gap-0.5 mb-0.5">
                                 {isPilot && (
-                                  <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">P</span>
+                                  <span className="text-[7px] px-0.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">P</span>
                                 )}
-                              <span className={cn("text-[8px] px-1 py-0.5 rounded font-medium", typeStyle.bg, typeStyle.text)}>
+                              <span className={cn("text-[7px] px-0.5 py-0.5 rounded font-medium", typeStyle.bg, typeStyle.text)}>
                                   {episode.episode_type.split('-')[0]}
                                 </span>
                               </div>
                               <p className={cn(
-                              "text-[11px] font-medium line-clamp-1",
+                              "text-[10px] font-medium line-clamp-1",
                                 isSelected ? "text-foreground" : "text-foreground/70"
                               )}>
                                 {episode.title}
@@ -1476,33 +1487,33 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
             !sidebarCollapsed && "lg:ml-0"
           )}>
           {/* Top Bar */}
-            <header className="sticky top-16 lg:top-20 z-30 h-12 border-b border-white/10 bg-black/80 backdrop-blur-md flex items-center justify-between px-4">
-            <div className="flex items-center gap-3">
+            <header className="sticky top-14 lg:top-16 z-30 h-10 border-b border-white/10 bg-black/80 backdrop-blur-md flex items-center justify-between px-3">
+            <div className="flex items-center gap-2">
                 {/* Mobile menu button */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 lg:hidden"
+                  className="h-7 w-7 lg:hidden"
                   onClick={() => setMobileSidebarOpen(true)}
                 >
-                  <Menu className="h-4 w-4" />
+                  <Menu className="h-3.5 w-3.5" />
                 </Button>
               {currentEpisode && (
                 <>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-foreground/50">S01</span>
-                      <span className="text-sm font-bold">E{currentEpisode.episode_number}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-foreground/50">S01</span>
+                      <span className="text-xs font-bold">E{currentEpisode.episode_number}</span>
                   </div>
-                    <Separator orientation="vertical" className="h-4" />
-                    <h1 className="text-sm font-medium truncate max-w-[200px] sm:max-w-none">
+                    <Separator orientation="vertical" className="h-3" />
+                    <h1 className="text-xs font-medium truncate max-w-[180px] sm:max-w-none">
                       {currentEpisode.title}
                   </h1>
                 </>
               )}
             </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
               <Badge className={cn(
-                  "text-[10px] h-5",
+                  "text-[9px] h-4",
                 getEpisodeTypeStyle(currentEpisode?.episode_type || "").bg,
                 getEpisodeTypeStyle(currentEpisode?.episode_type || "").text,
                 "border",
@@ -1511,46 +1522,46 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
                 {currentEpisode?.episode_type}
               </Badge>
               {currentEpisode?.episode_number === 1 && (
-                  <Badge className="text-[10px] h-5 bg-amber-500/20 text-amber-400 border-amber-500/30">PILOT</Badge>
+                  <Badge className="text-[9px] h-4 bg-amber-500/20 text-amber-400 border-amber-500/30">PILOT</Badge>
               )}
             </div>
           </header>
 
           {/* Content Area - Storyboard */}
           <ScrollArea className="flex-1 min-h-0">
-            <div className="p-4 sm:p-6 space-y-4">
+            <div className="p-3 sm:p-4 space-y-3">
               {currentEpisode && (
                 <>
                   {/* Episode Logline - Compact */}
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-sm text-foreground/70 leading-relaxed">{currentEpisode.logline}</p>
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <p className="text-xs text-foreground/70 leading-relaxed">{currentEpisode.logline}</p>
                   </div>
 
                   {/* Generate All Button */}
                   <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-medium text-foreground/70">Storyboard Scenes</h2>
+                    <h2 className="text-xs font-medium text-foreground/70">Storyboard Scenes</h2>
                     <Button
                       onClick={generateAllScenes}
                       disabled={isAnyGenerating}
                       size="sm"
-                      className="gap-2"
+                      className="gap-1.5 h-7 text-[11px] px-3"
                     >
                       {isAnyGenerating ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           Generating...
                         </>
                       ) : (
                         <>
-                          <Sparkles className="h-4 w-4" />
-                          Generate All Scenes
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Generate All
                         </>
                       )}
                     </Button>
                   </div>
 
                   {/* Storyboard Sections - 2 Column Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                     <StoryboardSection
                       label="TEASER"
                       description={currentEpisode.cold_open_hook}

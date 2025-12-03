@@ -46,6 +46,16 @@ import { ShowFormatVisualizer, type ShowFormat } from "@/components/ShowFormatVi
 import { EpisodeCards, type Episode } from "@/components/EpisodeCards";
 import { Navbar } from "@/components/Navbar";
 
+// Helper to pause all other videos when one starts playing
+function pauseOtherVideos(currentVideo: HTMLVideoElement) {
+  const allVideos = document.querySelectorAll('video');
+  allVideos.forEach((video) => {
+    if (video !== currentVideo && !video.paused) {
+      video.pause();
+    }
+  });
+}
+
 type ShowAssets = {
   portraits: string[];
   characterPortraits?: Record<string, string>;
@@ -450,7 +460,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
 
       {/* Show-specific action bar */}
       <div className="fixed top-[72px] left-0 right-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
-        <div className="mx-auto flex max-w-7xl items-center justify-end px-4 py-2 sm:px-6">
+        <div className="mx-auto flex max-w-7xl items-center justify-end px-3 py-2 sm:px-6">
           <div className="flex gap-1.5 sm:gap-2">
             <Button
               variant="outline"
@@ -490,7 +500,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
       {/* Incomplete Show Banner */}
       {completionStatus && !completionStatus.isFullyComplete && (
         <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-500/20">
-          <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-6">
+          <div className="mx-auto max-w-7xl px-3 py-3 sm:px-6 sm:py-6">
             <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-2.5 sm:gap-4">
                 <div className="flex-shrink-0 mt-0.5">
@@ -548,6 +558,8 @@ export default function ShowPageClient({ showId }: { showId: string }) {
             controls
             onPlay={(e) => {
               const video = e.currentTarget;
+              // Pause other videos
+              pauseOtherVideos(video);
               // On first play, restart from beginning and unmute
               if (!trailerPlaying && video.currentTime > 0) {
                 video.currentTime = 0;
@@ -645,9 +657,9 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           {/* Darkening overlay - Desktop only */}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent hidden lg:block" />
           
-          <div className="absolute bottom-12 sm:bottom-20 lg:bottom-24 left-0 right-0 px-4 sm:px-6 safe-area-inset-bottom">
+          <div className="absolute bottom-12 sm:bottom-20 lg:bottom-24 left-0 right-0 px-3 sm:px-6 safe-area-inset-bottom">
             <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-1 sm:mb-2 leading-tight">
+              <h1 className="font-sans text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-1 sm:mb-2 leading-tight">
                 {displayTitle}
               </h1>
               {generatedContent?.hero_tagline && (
@@ -660,9 +672,9 @@ export default function ShowPageClient({ showId }: { showId: string }) {
         </div>
       ) : (
       <div className="media-frame relative overflow-hidden bg-gradient-to-br from-primary/20 to-transparent" style={{ minHeight: '40vh', maxHeight: '50vh' }}>
-          <div className="absolute bottom-12 sm:bottom-20 lg:bottom-24 left-0 right-0 px-4 sm:px-6 pt-12 sm:pt-20 lg:pt-24 safe-area-inset-bottom">
+          <div className="absolute bottom-12 sm:bottom-20 lg:bottom-24 left-0 right-0 px-3 sm:px-6 pt-8 sm:pt-20 lg:pt-24 safe-area-inset-bottom">
             <div className="mx-auto max-w-7xl">
-              <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-1 sm:mb-2 leading-tight">
+              <h1 className="font-sans text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-1 sm:mb-2 leading-tight">
                 {displayTitle}
               </h1>
               {generatedContent?.hero_tagline && (
@@ -677,8 +689,8 @@ export default function ShowPageClient({ showId }: { showId: string }) {
 
       {/* Show Title Section - Clean, no overlay */}
       {assets.trailer && (
-        <div className="mx-auto max-w-7xl w-full px-4 pt-6 sm:px-6 sm:pt-8 lg:pt-12">
-          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-2 sm:mb-3 leading-tight">
+        <div className="mx-auto max-w-7xl w-full px-3 pt-4 sm:px-6 sm:pt-8 lg:pt-12">
+          <h1 className="font-sans text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight mb-2 sm:mb-3 leading-tight">
             {displayTitle}
           </h1>
           {generatedContent?.hero_tagline && (
@@ -690,7 +702,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
       )}
 
       {/* Main Content */}
-      <div className="mx-auto max-w-7xl w-full space-y-4 sm:space-y-6 lg:space-y-8 px-4 py-4 sm:px-6 sm:py-6 lg:py-8" style={{ boxSizing: 'border-box' }}>
+      <div className="mx-auto max-w-7xl w-full space-y-4 sm:space-y-6 lg:space-y-8 px-3 py-3 sm:px-6 sm:py-6 lg:py-8" style={{ boxSizing: 'border-box' }}>
         
         {/* Quick Info Bar */}
         <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -792,7 +804,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           <section className="space-y-6 sm:space-y-8 w-full">
             <div className="flex items-center gap-2 sm:gap-3">
               <Film className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <h2 className="font-serif text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold leading-tight">Series Format & Season One</h2>
+              <h2 className="font-sans text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold leading-tight">Series Format & Season One</h2>
             </div>
 
             {/* Episode Format Overview - Interactive */}
@@ -819,7 +831,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           <section className="space-y-4 sm:space-y-6 lg:space-y-8 w-full">
             <div className="flex items-center gap-2 sm:gap-3">
               <Palette className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <h2 className="font-serif text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold leading-tight">Lookbook & Keyframes</h2>
+              <h2 className="font-sans text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold leading-tight">Lookbook & Keyframes</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full">
@@ -875,7 +887,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           <section className="space-y-4 sm:space-y-6 lg:space-y-8">
             <div className="flex items-center gap-2 sm:gap-3">
               <Users className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <h2 className="font-serif text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold leading-tight">Full Character Dossiers</h2>
+              <h2 className="font-sans text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold leading-tight">Full Character Dossiers</h2>
             </div>
 
             <div className="space-y-4 sm:space-y-6 lg:space-y-8">
@@ -911,7 +923,10 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                               muted={false}
                               controls
                               className="absolute inset-0 w-full h-full object-cover bg-black rounded-lg sm:rounded-xl"
-                              onPlay={() => setPlayingVideos(prev => ({ ...prev, [character.id]: true }))}
+                              onPlay={(e) => {
+                                pauseOtherVideos(e.currentTarget);
+                                setPlayingVideos(prev => ({ ...prev, [character.id]: true }));
+                              }}
                               onPause={() => setPlayingVideos(prev => ({ ...prev, [character.id]: false }))}
                             />
                         ) : portraitUrl ? (
@@ -1383,7 +1398,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           <section className="space-y-4 sm:space-y-6 lg:space-y-8">
             <div className="flex items-center gap-2 sm:gap-3">
               <Zap className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Character Design System</h2>
+              <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Character Design System</h2>
             </div>
 
             <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
@@ -1463,7 +1478,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
         <section className="space-y-4 sm:space-y-6 lg:space-y-8">
           <div className="flex items-center gap-2 sm:gap-3">
             <Film className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Production Design</h2>
+            <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Production Design</h2>
           </div>
 
           <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
@@ -1655,7 +1670,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           <section className="space-y-4 sm:space-y-6 lg:space-y-8">
             <div className="flex items-center gap-2 sm:gap-3">
               <MapPin className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Locations & Sets</h2>
+              <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Locations & Sets</h2>
             </div>
 
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -1700,7 +1715,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           <section className="space-y-4 sm:space-y-6 lg:space-y-8">
             <div className="flex items-center gap-2 sm:gap-3">
               <Settings2 className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Post-Production</h2>
+              <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Post-Production</h2>
             </div>
 
             <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
@@ -1741,7 +1756,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           <section className="space-y-4 sm:space-y-6 lg:space-y-8">
             <div className="flex items-center gap-2 sm:gap-3">
               <Layers className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Technical Specifications</h2>
+              <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Technical Specifications</h2>
             </div>
 
             <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
@@ -1793,7 +1808,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           <section className="space-y-4 sm:space-y-6 lg:space-y-8">
             <div className="flex items-center gap-2 sm:gap-3">
               <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">What Makes It Special</h2>
+              <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">What Makes It Special</h2>
             </div>
 
             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -1819,7 +1834,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           <section className="space-y-4 sm:space-y-6 lg:space-y-8">
             <div className="flex items-center gap-2 sm:gap-3">
               <Film className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Behind the Scenes</h2>
+              <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Behind the Scenes</h2>
             </div>
 
             <div className="rounded-xl sm:rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-transparent p-4 sm:p-6 lg:p-8">
@@ -1835,7 +1850,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
           <section className="space-y-4 sm:space-y-6 lg:space-y-8">
             <div className="flex items-center gap-2 sm:gap-3">
               <Film className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-              <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Story Concepts</h2>
+              <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Story Concepts</h2>
             </div>
 
             <div className="space-y-3 sm:space-y-4">
@@ -1865,7 +1880,7 @@ export default function ShowPageClient({ showId }: { showId: string }) {
         <section className="space-y-4 sm:space-y-6 lg:space-y-8">
           <div className="flex items-center gap-2 sm:gap-3">
             <Settings2 className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-primary flex-shrink-0" />
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Show Metadata</h2>
+            <h2 className="font-sans text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">Show Metadata</h2>
           </div>
 
           <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -2087,11 +2102,11 @@ export default function ShowPageClient({ showId }: { showId: string }) {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 bg-black/50 px-4 py-8 sm:px-6 sm:py-10 lg:py-12 mt-8 sm:mt-10 lg:mt-16 safe-area-inset-bottom">
+      <footer className="border-t border-white/10 bg-black/50 px-3 py-6 sm:px-6 sm:py-10 lg:py-12 mt-6 sm:mt-10 lg:mt-16 safe-area-inset-bottom">
         <div className="mx-auto max-w-7xl">
           {/* Call to Action */}
           <div className="mb-6 sm:mb-8 lg:mb-12 flex flex-col items-center justify-center gap-3 sm:gap-4 lg:gap-6 text-center">
-            <h3 className="font-serif text-xl sm:text-2xl lg:text-3xl font-bold leading-tight">Explore More Shows</h3>
+            <h3 className="font-sans text-xl sm:text-2xl lg:text-3xl font-bold leading-tight">Explore More Shows</h3>
             <p className="max-w-2xl text-xs sm:text-sm lg:text-base text-foreground/70 px-2">
               Discover other incredible productions in our library
             </p>

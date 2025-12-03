@@ -115,9 +115,16 @@ export default function LibraryPage() {
     void loadLibrary();
   }, []);
 
-  // Close tapped show when clicking outside
+  // Close tapped show when clicking outside - use timeout to avoid interfering with card clicks
   useEffect(() => {
-    const handleClickOutside = () => setTappedShow(null);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Don't clear if clicking inside a show card
+      if (target.closest('[data-show-card]')) {
+        return;
+      }
+      setTappedShow(null);
+    };
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
@@ -126,32 +133,30 @@ export default function LibraryPage() {
     <div className="min-h-screen bg-black text-foreground">
       <Navbar variant="solid" />
 
-      <main className="mx-auto w-full max-w-[1800px] px-4 sm:px-6 py-8 sm:py-12 pt-24">
+      <main className="mx-auto w-full max-w-[1800px] px-2 sm:px-4 lg:px-6 py-4 sm:py-6 pt-20">
         {/* Page Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-          <div className="flex items-center gap-3">
-            <Library className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">Show Library</h1>
-            <Badge variant="outline" className="text-[11px]">
-              {shows.length} {shows.length === 1 ? "show" : "shows"}
-            </Badge>
-          </div>
+        <div className="flex items-center gap-3 mb-4">
+          <Library className="h-5 w-5 text-primary" />
+          <h1 className="text-lg sm:text-xl font-sans font-semibold text-white">Show Library</h1>
+          <Badge variant="outline" className="text-[10px] h-5">
+            {shows.length}
+          </Badge>
         </div>
         {loading ? (
-          <div className="flex flex-col items-center justify-center gap-4 py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-foreground/60">Loading your library...</p>
+          <div className="flex flex-col items-center justify-center gap-3 py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <p className="text-xs text-foreground/60">Loading your library...</p>
           </div>
         ) : shows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Library className="mb-4 h-16 w-16 text-foreground/30" />
-            <p className="text-lg text-foreground/60">No shows saved yet</p>
-            <p className="mt-2 text-sm text-foreground/45">Create a show to start building your library</p>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Library className="mb-3 h-12 w-12 text-foreground/30" />
+            <p className="text-base text-foreground/60">No shows saved yet</p>
+            <p className="mt-1 text-xs text-foreground/45">Create a show to start building your library</p>
             <Button
               type="button"
               variant="default"
               onClick={() => router.push("/")}
-              className="mt-6 rounded-full"
+              className="mt-4 rounded-full h-9 px-5 text-xs"
             >
               Create Your First Show
             </Button>
@@ -159,12 +164,12 @@ export default function LibraryPage() {
         ) : (
           <>
             {imageLoadCount < shows.length ? (
-              <div className="mb-4 flex items-center gap-2 text-xs text-foreground/50">
+              <div className="mb-3 flex items-center gap-2 text-[10px] text-foreground/50">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Loading posters... {imageLoadCount} of {shows.length}
               </div>
             ) : null}
-            <div className="grid gap-4 sm:gap-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            <div className="grid gap-2 sm:gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {shows.map((show, index) => {
               const completion = calculateShowCompletion(show);
               const badgeVariant = getCompletionBadgeVariant(completion.completionPercentage);
@@ -173,17 +178,31 @@ export default function LibraryPage() {
               return (
               <div
                 key={show.id}
-                className="group relative overflow-hidden rounded-2xl border border-white/5 bg-black/30 shadow-[0_12px_40px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-primary/40 hover:shadow-[0_18px_60px_rgba(229,9,20,0.35)] cursor-pointer"
+                data-show-card
+                role="button"
+                tabIndex={0}
+                className={`group relative overflow-hidden rounded-lg sm:rounded-xl border bg-black/30 shadow-[0_6px_20px_rgba(0,0,0,0.4)] transition-all duration-200 cursor-pointer select-none
+                  ${isTapped 
+                    ? 'border-primary ring-1 ring-primary/50 scale-[1.01] shadow-[0_10px_35px_rgba(229,9,20,0.35)]' 
+                    : 'border-white/5 hover:border-primary/40 hover:shadow-[0_10px_35px_rgba(229,9,20,0.25)]'
+                  }
+                  active:scale-[0.98] active:brightness-90
+                `}
                 onDoubleClick={() => loadShow(show)}
+                onTouchStart={() => {
+                  // Provide immediate haptic-like visual feedback on touch
+                }}
                 onClick={(e) => {
+                  e.stopPropagation();
                   // Don't handle clicks on buttons
                   const target = e.target as HTMLElement;
                   if (target.closest('button')) {
                     return;
                   }
                   
-                  // On mobile, first tap shows actions, second tap opens show
-                  if (window.innerWidth < 768) {
+                  // On mobile/touch devices, first tap shows actions, second tap opens show
+                  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768;
+                  if (isTouchDevice) {
                     if (!isTapped) {
                       e.preventDefault();
                       setTappedShow(show.id);
@@ -192,43 +211,59 @@ export default function LibraryPage() {
                   }
                   loadShow(show);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    loadShow(show);
+                  }
+                }}
               >
                 <div className="relative block w-full">
-                  <div className="relative h-0 w-full pb-[177.78%]">
+                  <div className="relative h-0 w-full pb-[150%]">
                     {show.libraryPosterUrl || show.posterUrl ? (
                       <Image
                         src={show.libraryPosterUrl || show.posterUrl || ""}
                         alt={show.showTitle || show.title}
                         fill
-                        className="object-cover transition duration-300 group-hover:scale-[1.015]"
+                        className="object-cover transition duration-300 group-hover:scale-[1.01]"
                         sizes="(min-width: 1536px) 16vw, (min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
                         loading={index < 8 ? "eager" : "lazy"}
-                        quality={85}
+                        quality={80}
                         onLoad={() => setImageLoadCount(prev => prev + 1)}
                       />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/25 to-transparent">
-                        <span className="text-6xl font-bold text-foreground/25">
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-transparent">
+                        <span className="text-4xl sm:text-5xl font-bold text-foreground/20">
                           {(show.showTitle || show.title).charAt(0).toUpperCase()}
                         </span>
                       </div>
                     )}
                     
                     {/* Completion Badge */}
-                    <div className="absolute bottom-3 left-3 flex gap-2">
-                      <Badge variant={badgeVariant} className="text-[10px] font-semibold">
+                    <div className="absolute bottom-2 left-2 flex gap-1">
+                      <Badge variant={badgeVariant} className="text-[9px] font-medium h-5 px-1.5">
                         {completion.isFullyComplete ? (
-                          <><CheckCircle2 className="mr-1 h-3 w-3" /> Complete</>
+                          <><CheckCircle2 className="mr-0.5 h-2.5 w-2.5" /> Done</>
                         ) : (
-                          <><Clock className="mr-1 h-3 w-3" /> {completion.completionPercentage}%</>
+                          <><Clock className="mr-0.5 h-2.5 w-2.5" /> {completion.completionPercentage}%</>
                         )}
                       </Badge>
+                    </div>
+                    
+                    {/* Mobile tap indicator - shows when first tapped */}
+                    <div className={`absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-[1px] pointer-events-none transition-opacity duration-150 ${isTapped ? 'opacity-100' : 'opacity-0'}`}>
+                      <div className="flex flex-col items-center gap-1.5 text-white">
+                        <div className="w-10 h-10 rounded-full bg-primary/90 flex items-center justify-center animate-pulse shadow-md shadow-primary/30">
+                          <Terminal className="h-5 w-5" />
+                        </div>
+                        <span className="text-xs font-medium drop-shadow-lg">Tap again to open</span>
+                      </div>
                     </div>
                   </div>
                 </div>
                 
                 {/* Action buttons - show on hover (desktop) or tap (mobile) */}
-                <div className={`absolute right-2 sm:right-3 top-2 sm:top-3 flex gap-1.5 sm:gap-2 transition-all duration-200 ${
+                <div className={`absolute right-1.5 sm:right-2 top-1.5 sm:top-2 flex gap-1 transition-all duration-200 ${
                   isTapped 
                     ? 'opacity-100' 
                     : 'opacity-0 md:opacity-0 md:group-hover:opacity-100'
@@ -241,96 +276,42 @@ export default function LibraryPage() {
                       e.stopPropagation();
                       loadShow(show);
                     }}
-                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-purple-500/80 active:scale-95"
+                    className="h-8 w-8 sm:h-7 sm:w-7 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-purple-500/80 active:scale-95"
                     title="Open in Console"
                   >
-                    <Terminal className="h-5 w-5 sm:h-4 sm:w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/control-panel?show=${show.id}`);
-                    }}
-                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-blue-500/80 active:scale-95"
-                    title="Edit prompts"
-                  >
-                    <Settings className="h-5 w-5 sm:h-4 sm:w-4" />
+                    <Terminal className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     onClick={(e) => viewShow(show, e)}
-                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-green-500/80 active:scale-95"
+                    className="h-8 w-8 sm:h-7 sm:w-7 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-green-500/80 active:scale-95"
                     title="View show page"
                   >
-                    <Eye className="h-5 w-5 sm:h-4 sm:w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/episodes/${show.id}`);
-                    }}
-                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-emerald-500/80 active:scale-95"
-                    title="Episode Studio"
-                  >
-                    <Clapperboard className="h-5 w-5 sm:h-4 sm:w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => void copyShowUrl(show.id, e)}
-                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-primary/80 active:scale-95"
-                    title={copiedShowId === show.id ? "Copied!" : "Copy show URL"}
-                  >
-                    {copiedShowId === show.id ? (
-                      <CheckCircle2 className="h-5 w-5 sm:h-4 sm:w-4" />
-                    ) : (
-                      <Copy className="h-5 w-5 sm:h-4 sm:w-4" />
-                    )}
+                    <Eye className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     onClick={(e) => void deleteShow(show.id, e)}
-                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-red-500/80 active:scale-95"
+                    className="h-8 w-8 sm:h-7 sm:w-7 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-red-500/80 active:scale-95"
                     title="Delete show"
                   >
-                    <Trash2 className="h-5 w-5 sm:h-4 sm:w-4" />
+                    <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                   </Button>
                 </div>
                 
                 {/* Show title and info */}
-                <div className="p-4 space-y-2">
-                  <h3 className="font-semibold text-sm line-clamp-2 text-foreground">
+                <div className="p-2.5 sm:p-3 space-y-0.5">
+                  <h3 className="font-medium text-xs sm:text-sm line-clamp-1 text-foreground">
                     {show.showTitle || show.title}
                   </h3>
-                  
-                  {!completion.isFullyComplete && completion.missingItems.length > 0 ? (
-                    <p className="text-[11px] text-amber-400/70 line-clamp-2">
-                      Missing: {completion.missingItems.slice(0, 2).join(", ")}
-                      {completion.missingItems.length > 2 ? `, +${completion.missingItems.length - 2} more` : ""}
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-foreground/50">
-                      {new Date(show.updatedAt).toLocaleDateString()}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center gap-2 text-[10px] text-foreground/40">
-                    <span>{show.model}</span>
-                    {completion.stats.totalCharacters > 0 ? (
-                      <span>• {completion.stats.totalCharacters} chars</span>
-                    ) : null}
-                  </div>
+                  <p className="text-[10px] text-foreground/40">
+                    {new Date(show.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {completion.stats.totalCharacters > 0 && <span className="ml-1">• {completion.stats.totalCharacters} chars</span>}
+                  </p>
                 </div>
               </div>
               );

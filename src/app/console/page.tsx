@@ -39,6 +39,16 @@ function sanitizeFilename(name: string): string {
     .toLowerCase();
 }
 
+// Helper to pause all other videos when one starts playing
+function pauseOtherVideos(currentVideo: HTMLVideoElement) {
+  const allVideos = document.querySelectorAll('video');
+  allVideos.forEach((video) => {
+    if (video !== currentVideo && !video.paused) {
+      video.pause();
+    }
+  });
+}
+
 
 type FrameRates = {
   animation_capture: number;
@@ -1187,26 +1197,15 @@ function RawJsonPeek({ rawJson, currentShowId }: { rawJson?: string | null; curr
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Show Page Button - Prominent */}
+      {/* Show Page Button - Compact */}
       {currentShowId && (
         <Link href={`/show/${currentShowId}`} className="block touch-manipulation">
-          <div className="group relative overflow-hidden rounded-xl sm:rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent p-4 sm:p-6 transition-all hover:border-primary/50 hover:shadow-[0_8px_30px_rgba(229,9,20,0.4)] active:scale-[0.98]">
-            <div className="flex items-center justify-between gap-3">
-              <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0" />
-                  <span className="text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] sm:tracking-[0.2em] text-primary">
-                    View Show Page
-                  </span>
-                </div>
-                <p className="text-[11px] sm:text-xs text-foreground/60">
-                  See this show as a beautiful, shareable presentation
-                </p>
-              </div>
-              <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-primary/20 transition-transform group-hover:scale-110 shrink-0">
-                <ArrowLeft className="h-5 w-5 sm:h-6 sm:w-6 rotate-180 text-primary" />
-              </div>
-            </div>
+          <div className="group flex items-center gap-2 px-4 py-2.5 rounded-full border border-primary/30 bg-primary/10 transition-all hover:border-primary/50 hover:bg-primary/20 active:scale-[0.98]">
+            <Eye className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">
+              View Show
+            </span>
+            <ArrowLeft className="h-4 w-4 rotate-180 text-primary/70 group-hover:text-primary transition-colors" />
           </div>
         </Link>
       )}
@@ -1596,35 +1595,35 @@ function ResultView({
     return (
       <div className="flex min-h-[360px] sm:min-h-[420px] items-center justify-center rounded-2xl sm:rounded-3xl border border-dashed border-white/20 bg-gradient-to-br from-primary/5 via-black/50 to-black/45 p-6 sm:p-12 text-center shadow-[0_18px_60px_rgba(0,0,0,0.6)]">
         <div className="max-w-2xl space-y-5 sm:space-y-6">
-          <div className="space-y-2 sm:space-y-3">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground leading-tight">
+          <div className="space-y-3 sm:space-y-4">
+            <h2 className="text-title text-white text-shadow-subtle">
               Create Your Show Bible
             </h2>
-            <p className="text-sm sm:text-base text-foreground/70 leading-relaxed px-2">
+            <p className="text-body text-white/60 px-2 max-w-xl mx-auto">
               Describe your show&apos;s premise, tone, or visual style below.
               We&apos;ll generate a complete look bible with characters, color palettes, lighting plans, and more.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-xs sm:text-xs text-foreground/50">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 text-foreground/50">
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 sm:h-6 sm:w-6 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary font-semibold text-sm sm:text-xs">
                 1
               </span>
-              <span className="text-sm sm:text-xs">Enter your brief</span>
+              <span className="text-small">Enter your brief</span>
             </div>
             <span className="hidden sm:inline text-foreground/30">→</span>
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 sm:h-6 sm:w-6 items-center justify-center rounded-full border border-white/20 bg-white/5 text-foreground/50 font-semibold text-sm sm:text-xs">
                 2
               </span>
-              <span className="text-sm sm:text-xs">Generate show bible</span>
+              <span className="text-small">Generate show bible</span>
             </div>
             <span className="hidden sm:inline text-foreground/30">→</span>
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 sm:h-6 sm:w-6 items-center justify-center rounded-full border border-white/20 bg-white/5 text-foreground/50 font-semibold text-sm sm:text-xs">
                 3
               </span>
-              <span className="text-sm sm:text-xs">Build characters</span>
+              <span className="text-small">Build characters</span>
             </div>
           </div>
         </div>
@@ -1893,6 +1892,7 @@ function ResultView({
               poster={portraitGridUrl ?? undefined}
               playsInline
               preload="metadata"
+              onPlay={(e) => pauseOtherVideos(e.currentTarget)}
             >
               <source src={trailerUrl} type="video/mp4" />
               Your browser does not support the video tag.
@@ -2083,38 +2083,6 @@ function ResultView({
           {blueprint.show_title}
         </h2>
       ) : null}
-      
-      {/* Original Prompt - Subtle collapsible */}
-      {lastPrompt && (
-        <details className="group">
-          <summary className="flex items-center gap-2 cursor-pointer text-xs text-foreground/40 hover:text-foreground/60 transition-colors select-none list-none">
-            <svg 
-              className="h-3 w-3 transition-transform duration-200 group-open:rotate-90" 
-              fill="none" 
-              viewBox="0 0 24 24" 
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            <span className="font-medium">Original prompt</span>
-            <span className="text-foreground/30">•</span>
-            <span className="truncate max-w-[200px] sm:max-w-[300px] italic text-foreground/35">
-              "{lastPrompt.slice(0, 50)}{lastPrompt.length > 50 ? '...' : ''}"
-            </span>
-          </summary>
-          <div className="mt-3 pl-5 pr-2">
-            <div className="rounded-xl border border-white/10 bg-black/30 p-4">
-              <p className="text-sm text-foreground/60 whitespace-pre-wrap leading-relaxed italic">
-                "{lastPrompt}"
-              </p>
-              <p className="mt-2 text-[10px] text-foreground/30">
-                This is the prompt you started with when creating this show
-              </p>
-            </div>
-          </div>
-        </details>
-      )}
-      
       <p className="text-base leading-relaxed text-foreground/80 whitespace-pre-wrap">
         {blueprint.show_logline}
       </p>
@@ -3198,6 +3166,7 @@ function ResultView({
             controls
             className="h-full w-full"
             poster={portraitGridUrl ?? undefined}
+            onPlay={(e) => pauseOtherVideos(e.currentTarget)}
           >
             <source src={trailerUrl} type="video/mp4" />
             Your browser does not support the video tag.
@@ -3355,6 +3324,7 @@ function ResultView({
                   autoPlay={false}
                   playsInline
                   preload="metadata"
+                  onPlay={(e) => pauseOtherVideos(e.currentTarget)}
                 >
                   <source src={trailerUrl} type="video/mp4" />
                   Your browser does not support the video tag.
@@ -3945,6 +3915,43 @@ function ResultView({
         </div>
       </div>
 
+      {/* Your Prompt - Collapsible, minimized by default */}
+      {lastPrompt && (
+        <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-0">
+          <details className="group rounded-xl border border-white/10 bg-black/30 overflow-hidden transition-all hover:border-white/15">
+            <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none list-none">
+              {/* Chevron */}
+              <svg 
+                className="h-4 w-4 text-foreground/40 transition-transform duration-200 group-open:rotate-90" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+              
+              {/* Label */}
+              <span className="text-xs font-medium text-foreground/50">Your prompt</span>
+              
+              {/* Preview */}
+              <span className="flex-1 truncate text-xs text-foreground/35 italic">
+                &ldquo;{lastPrompt.slice(0, 60)}{lastPrompt.length > 60 ? '...' : ''}&rdquo;
+              </span>
+            </summary>
+            
+            {/* Expanded content */}
+            <div className="px-4 pb-4 pt-1">
+              <div className="rounded-lg bg-black/40 border border-white/5 p-4">
+                <p className="text-sm text-foreground/60 leading-relaxed whitespace-pre-wrap">
+                  &ldquo;{lastPrompt}&rdquo;
+                </p>
+              </div>
+            </div>
+          </details>
+        </div>
+      )}
+
       {/* Character Cards */}
       {characterSeeds && characterSeeds.length > 0 ? (
         <div className="w-full max-w-[1400px] mx-auto space-y-4 px-4 sm:px-0">
@@ -4534,6 +4541,7 @@ function ResultView({
                             }}
                             playsInline
                             preload="metadata"
+                            onPlay={(e) => pauseOtherVideos(e.currentTarget)}
                           >
                             <source src={currentVideoUrl} type="video/mp4" />
                             Your browser does not support the video tag.
@@ -5001,21 +5009,21 @@ function ResultView({
 
                 <div
                   ref={tabNavRef}
-                  className="console-tabs-scroll scrollbar-hide overflow-x-auto rounded-2xl border border-white/12 bg-black/40 p-1.5 sm:p-2"
+                  className="console-tabs-scroll scrollbar-hide overflow-x-auto"
                 >
-                  <TabsList className="flex min-w-max gap-2 bg-transparent p-0 text-foreground/70 snap-x snap-mandatory">
+                  <TabsList className="flex min-w-max gap-1 bg-transparent p-0 text-foreground/60 snap-x snap-mandatory border-none h-auto">
                     {navigationTabs.map((tab) => (
                       <TabsTrigger
                         key={tab.value}
                         value={tab.value}
-                        className="flex-none rounded-xl px-3.5 py-2 text-[11px] sm:text-sm font-semibold tracking-wide uppercase text-foreground/70 transition-all duration-200 border border-transparent data-[state=active]:bg-white/15 data-[state=active]:text-foreground data-[state=active]:border-white/20 focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:outline-none whitespace-nowrap snap-center"
+                        className="flex-none h-auto min-w-0 px-3 py-2 text-[11px] sm:text-xs font-medium tracking-wide uppercase text-foreground/50 transition-all duration-200 rounded-none border-0 border-b-2 border-b-transparent bg-transparent shadow-none data-[state=active]:text-foreground data-[state=active]:border-b-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none focus-visible:ring-0 focus-visible:outline-none whitespace-nowrap snap-center hover:text-foreground/70"
                       >
                         <span className="flex items-center gap-1.5">
-                          <tab.icon className="h-3.5 w-3.5 text-primary/80" />
+                          <tab.icon className="h-3.5 w-3.5 text-primary/70" />
                           <span>{tab.label}</span>
                           {tab.busy ? (
                             <span
-                              className="h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_10px_rgba(229,9,20,0.65)] animate-pulse"
+                              className="h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_rgba(229,9,20,0.6)] animate-pulse"
                               aria-label={tab.busyLabel}
                             />
                           ) : null}
@@ -5056,33 +5064,47 @@ function ResultView({
                   </Button>
                 </div>
               </div>
-              <div className="sm:hidden w-full flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setAutopilotMode(!autopilotMode)}
-                  className={cn(
-                    "flex-1 rounded-full px-3 py-2 text-[10px] font-semibold tracking-[0.12em] uppercase transition-colors",
-                    autopilotToggleBaseClasses
-                  )}
-                  title="Auto-generate all media"
-                >
-                  <Zap className="h-3 w-3 text-primary flex-shrink-0" />
-                  <span className="truncate">Auto: {autopilotMode ? "On" : "Off"}</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={toggleStylizationGuardrails}
-                  className={cn(
-                    "flex-1 rounded-full px-3 py-2 text-[10px] font-semibold tracking-[0.12em] uppercase transition-colors",
-                    guardrailToggleBaseClasses
-                  )}
-                  title="Toggle stylization guardrails"
-                >
-                  <Sparkles className="h-3 w-3 text-primary flex-shrink-0" />
-                  <span className="truncate">Guardrails: {stylizationGuardrails ? "On" : "Off"}</span>
-                </Button>
+              {/* Mobile: View Show Page + Controls */}
+              <div className="sm:hidden w-full space-y-2">
+                {/* View Show Page - Mobile */}
+                {currentShowId && (
+                  <Link href={`/show/${currentShowId}`} className="block touch-manipulation">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 active:scale-[0.98]">
+                      <Eye className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-primary">View Show</span>
+                      <ArrowLeft className="h-3 w-3 rotate-180 text-primary/70 shrink-0" />
+                    </div>
+                  </Link>
+                )}
+                {/* Auto + Guardrails buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAutopilotMode(!autopilotMode)}
+                    className={cn(
+                      "flex-1 rounded-full px-3 py-2 text-[10px] font-semibold tracking-[0.12em] uppercase transition-colors",
+                      autopilotToggleBaseClasses
+                    )}
+                    title="Auto-generate all media"
+                  >
+                    <Zap className="h-3 w-3 text-primary flex-shrink-0" />
+                    <span className="truncate">Auto: {autopilotMode ? "On" : "Off"}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={toggleStylizationGuardrails}
+                    className={cn(
+                      "flex-1 rounded-full px-3 py-2 text-[10px] font-semibold tracking-[0.12em] uppercase transition-colors",
+                      guardrailToggleBaseClasses
+                    )}
+                    title="Toggle stylization guardrails"
+                  >
+                    <Sparkles className="h-3 w-3 text-primary flex-shrink-0" />
+                    <span className="truncate">Guardrails: {stylizationGuardrails ? "On" : "Off"}</span>
+                  </Button>
+                </div>
               </div>
             </div>
             
@@ -8163,7 +8185,7 @@ export function Console({ initialShowId }: ConsoleProps) {
       setEditedTrailerPrompt(show.customTrailerPrompt || "");
       setVideoModelId((show.videoModelId as VideoModelId) || VIDEO_MODEL_OPTIONS[0].id);
       setVideoSeconds((show.videoSeconds as VideoDuration) || 8);
-      setVideoAspectRatio((show.videoAspectRatio as VideoAspectRatio) || "landscape");
+      setVideoAspectRatio((show.videoAspectRatio as VideoAspectRatio) || "portrait");
       setVideoResolution((show.videoResolution as VideoResolution) || "standard");
       setTrailerModel(show.trailerModel || null);
       
