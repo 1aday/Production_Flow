@@ -61,35 +61,58 @@ export function EpisodeCards({
     return EPISODE_TYPE_STYLES[normalizedType] || EPISODE_TYPE_STYLES.default;
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold">Season One</h3>
-            <p className="text-xs text-foreground/50">Episode Loglines</p>
+  // Loading state content
+  const loadingContent = (
+    <div className={cn(
+      "transition-all duration-300 ease-out",
+      isLoading ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 absolute inset-0 pointer-events-none"
+    )}>
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-8 sm:p-12">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-primary/5" />
+        <div className="relative flex flex-col items-center justify-center gap-4">
+          <div className="relative h-16 w-16">
+            <div className="absolute inset-0 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            <div className="absolute inset-2 rounded-full border-2 border-primary/20 border-b-primary animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+            <Clapperboard className="absolute inset-0 m-auto h-6 w-6 text-emerald-400 animate-pulse" />
           </div>
-        </div>
-        
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-8 sm:p-12">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-primary/5" />
-          <div className="relative flex flex-col items-center justify-center gap-4">
-            <div className="relative h-16 w-16">
-              <div className="absolute inset-0 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
-              <div className="absolute inset-2 rounded-full border-2 border-primary/20 border-b-primary animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
-              <Clapperboard className="absolute inset-0 m-auto h-6 w-6 text-emerald-400 animate-pulse" />
-            </div>
-            <div className="text-center">
-              <p className="font-medium text-foreground/80">Writing Episode Loglines</p>
-              <p className="text-sm text-foreground/50 mt-1">Crafting 6 compelling stories</p>
-            </div>
+          <div className="text-center">
+            <p className="font-medium text-foreground/80">Writing Episode Loglines</p>
+            <p className="text-sm text-foreground/50 mt-1">Crafting 6 compelling stories</p>
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (!episodes || episodes.length === 0) {
+  // Empty state content
+  const emptyContent = (
+    <div className={cn(
+      "transition-all duration-300 ease-out",
+      !isLoading && (!episodes || episodes.length === 0) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 absolute inset-0 pointer-events-none"
+    )}>
+      <div className="relative overflow-hidden rounded-2xl border border-dashed border-white/20 bg-black/30 p-8 sm:p-12">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-primary/5 opacity-50" />
+        <div className="relative text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mb-4">
+            <BookOpen className="h-8 w-8 text-foreground/30" />
+          </div>
+          <h4 className="text-lg font-semibold mb-2">No Episodes Yet</h4>
+          <p className="text-sm text-foreground/50 max-w-sm mx-auto mb-6">
+            Generate your episode format first, then create loglines for your first season.
+          </p>
+          {onRegenerate && (
+            <Button onClick={onRegenerate} size="lg" className="rounded-full px-6">
+              <Sparkles className="mr-2 h-4 w-4" />
+              Generate Episodes
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Show loading or empty state if no episodes
+  if (isLoading || !episodes || episodes.length === 0) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -98,24 +121,9 @@ export function EpisodeCards({
             <p className="text-xs text-foreground/50">Episode Loglines</p>
           </div>
         </div>
-        
-        <div className="relative overflow-hidden rounded-2xl border border-dashed border-white/20 bg-black/30 p-8 sm:p-12">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-primary/5 opacity-50" />
-          <div className="relative text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mb-4">
-              <BookOpen className="h-8 w-8 text-foreground/30" />
-            </div>
-            <h4 className="text-lg font-semibold mb-2">No Episodes Yet</h4>
-            <p className="text-sm text-foreground/50 max-w-sm mx-auto mb-6">
-              Generate your episode format first, then create loglines for your first season.
-            </p>
-            {onRegenerate && (
-              <Button onClick={onRegenerate} size="lg" className="rounded-full px-6">
-                <Sparkles className="mr-2 h-4 w-4" />
-                Generate Episodes
-              </Button>
-            )}
-          </div>
+        <div className="relative min-h-[200px]">
+          {loadingContent}
+          {emptyContent}
         </div>
       </div>
     );

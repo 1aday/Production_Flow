@@ -144,17 +144,19 @@ export function BackgroundTasksPanel({ isOpen, onClose }: BackgroundTasksPanelPr
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-200 z-40 ${
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        className={`fixed inset-0 bg-black/70 backdrop-blur-sm transition-all duration-200 z-40 ${
+          isOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
         }`}
         onClick={onClose}
+        aria-hidden={!isOpen}
       />
 
       {/* Sliding Panel */}
       <div
-        className={`fixed right-0 top-0 h-full w-full sm:w-[500px] md:w-[560px] bg-black border-l border-white/12 shadow-[0_24px_80px_rgba(0,0,0,0.7)] transition-transform duration-200 ease-out z-50 ${
-          isOpen ? "translate-x-0" : "translate-x-full"
+        className={`fixed right-0 top-0 h-full w-full sm:w-[500px] md:w-[560px] bg-black border-l border-white/12 shadow-[0_24px_80px_rgba(0,0,0,0.7)] transition-all duration-200 ease-out z-50 ${
+          isOpen ? "translate-x-0 visible" : "translate-x-full invisible"
         }`}
+        aria-hidden={!isOpen}
       >
         {/* Header */}
         <div className="sticky top-0 z-10 border-b border-white/12 bg-black/95 backdrop-blur-xl">

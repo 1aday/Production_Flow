@@ -141,35 +141,58 @@ export function ShowFormatVisualizer({ format, showTitle, isLoading, onRegenerat
   const [selectedAct, setSelectedAct] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<"structure" | "elements" | "tone">("structure");
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold">Episode Formula</h3>
-            <p className="text-xs text-foreground/50">Teaser + 4 Acts + Tag</p>
+  // Loading state
+  const loadingContent = (
+    <div className={cn(
+      "transition-all duration-300 ease-out",
+      isLoading ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 absolute inset-0 pointer-events-none"
+    )}>
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-8 sm:p-12">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-violet-500/5" />
+        <div className="relative flex flex-col items-center justify-center gap-4">
+          <div className="relative h-16 w-16">
+            <div className="absolute inset-0 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+            <div className="absolute inset-2 rounded-full border-2 border-violet-500/20 border-b-violet-500 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+            <Sparkles className="absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse" />
           </div>
-        </div>
-        
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-8 sm:p-12">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-violet-500/5" />
-          <div className="relative flex flex-col items-center justify-center gap-4">
-            <div className="relative h-16 w-16">
-              <div className="absolute inset-0 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-              <div className="absolute inset-2 rounded-full border-2 border-violet-500/20 border-b-violet-500 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
-              <Sparkles className="absolute inset-0 m-auto h-6 w-6 text-primary animate-pulse" />
-            </div>
-            <div className="text-center">
-              <p className="font-medium text-foreground/80">Designing Episode Formula</p>
-              <p className="text-sm text-foreground/50 mt-1">Creating the DNA for &quot;{showTitle}&quot;</p>
-            </div>
+          <div className="text-center">
+            <p className="font-medium text-foreground/80">Designing Episode Formula</p>
+            <p className="text-sm text-foreground/50 mt-1">Creating the DNA for &quot;{showTitle}&quot;</p>
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (!format) {
+  // Empty state
+  const emptyContent = (
+    <div className={cn(
+      "transition-all duration-300 ease-out",
+      !format && !isLoading ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 absolute inset-0 pointer-events-none"
+    )}>
+      <div className="relative overflow-hidden rounded-2xl border border-dashed border-white/20 bg-black/30 p-8 sm:p-12">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-violet-500/5 opacity-50" />
+        <div className="relative text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mb-4">
+            <Film className="h-8 w-8 text-foreground/30" />
+          </div>
+          <h4 className="text-lg font-semibold mb-2">No Episode Format Yet</h4>
+          <p className="text-sm text-foreground/50 max-w-sm mx-auto mb-6">
+            Generate the structural DNA that makes every episode feel consistent while allowing creative freedom.
+          </p>
+          {onRegenerate && (
+            <Button onClick={onRegenerate} size="lg" className="rounded-full px-6">
+              <Sparkles className="mr-2 h-4 w-4" />
+              Generate Format
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Show loading or empty state if no format
+  if (isLoading || !format) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -178,24 +201,9 @@ export function ShowFormatVisualizer({ format, showTitle, isLoading, onRegenerat
             <p className="text-xs text-foreground/50">Teaser + 4 Acts + Tag</p>
           </div>
         </div>
-        
-        <div className="relative overflow-hidden rounded-2xl border border-dashed border-white/20 bg-black/30 p-8 sm:p-12">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-violet-500/5 opacity-50" />
-          <div className="relative text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mb-4">
-              <Film className="h-8 w-8 text-foreground/30" />
-            </div>
-            <h4 className="text-lg font-semibold mb-2">No Episode Format Yet</h4>
-            <p className="text-sm text-foreground/50 max-w-sm mx-auto mb-6">
-              Generate the structural DNA that makes every episode feel consistent while allowing creative freedom.
-            </p>
-            {onRegenerate && (
-              <Button onClick={onRegenerate} size="lg" className="rounded-full px-6">
-                <Sparkles className="mr-2 h-4 w-4" />
-                Generate Format
-              </Button>
-            )}
-          </div>
+        <div className="relative min-h-[200px]">
+          {loadingContent}
+          {emptyContent}
         </div>
       </div>
     );

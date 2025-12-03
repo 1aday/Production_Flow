@@ -1416,6 +1416,8 @@ function ResultView({
     Boolean(posterLoading || libraryPosterLoading || portraitGridLoading || trailerLoading);
   const [portraitCopyStates, setPortraitCopyStates] = useState<Record<string, "idle" | "copied" | "error">>({});
   const portraitCopyTimeoutRef = useRef<Record<string, number>>({});
+  const [promptCopied, setPromptCopied] = useState(false);
+  const promptCopyTimeoutRef = useRef<number | null>(null);
   const trailerStatusLower = trailerStatus?.toLowerCase() ?? "";
   const trailerStatusIsVeo = trailerStatusLower.includes("veo");
   const trailerStatusIsSora2Pro = trailerStatusLower.includes("sora2pro");
@@ -1526,6 +1528,24 @@ function ResultView({
       }, 2000);
     }
   }, [buildPortraitPrompt]);
+
+  const handleCopyOriginalPrompt = useCallback(async () => {
+    if (!lastPrompt) return;
+    try {
+      await navigator.clipboard.writeText(lastPrompt);
+      setPromptCopied(true);
+    } catch (error) {
+      console.error("Failed to copy original prompt", error);
+    } finally {
+      if (promptCopyTimeoutRef.current) {
+        window.clearTimeout(promptCopyTimeoutRef.current);
+      }
+      promptCopyTimeoutRef.current = window.setTimeout(() => {
+        setPromptCopied(false);
+        promptCopyTimeoutRef.current = null;
+      }, 2000);
+    }
+  }, [lastPrompt]);
 
   useEffect(() => {
     const registry = portraitCopyTimeoutRef.current;
@@ -3929,14 +3949,71 @@ function ResultView({
               <span className="flex-1 truncate text-xs text-foreground/35 italic">
                 &ldquo;{lastPrompt.slice(0, 60)}{lastPrompt.length > 60 ? '...' : ''}&rdquo;
               </span>
+              
+              {/* Copy button (inline) */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCopyOriginalPrompt();
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium transition-all duration-200 ${
+                  promptCopied 
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                    : "bg-white/5 text-foreground/50 border border-white/10 hover:bg-white/10 hover:text-foreground/70"
+                }`}
+              >
+                {promptCopied ? (
+                  <>
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                    </svg>
+                    Copy
+                  </>
+                )}
+              </button>
             </summary>
             
             {/* Expanded content */}
             <div className="px-4 pb-4 pt-1">
-              <div className="rounded-lg bg-black/40 border border-white/5 p-4">
-                <p className="text-sm text-foreground/60 leading-relaxed whitespace-pre-wrap">
+              <div className="rounded-lg bg-black/40 border border-white/5 p-4 relative group/prompt">
+                <p className="text-sm text-foreground/60 leading-relaxed whitespace-pre-wrap pr-20">
                   &ldquo;{lastPrompt}&rdquo;
                 </p>
+                {/* Copy button (expanded - absolute positioned) */}
+                <button
+                  type="button"
+                  onClick={handleCopyOriginalPrompt}
+                  className={`absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                    promptCopied 
+                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                      : "bg-white/5 text-foreground/50 border border-white/10 hover:bg-white/10 hover:text-foreground/70 opacity-60 group-hover/prompt:opacity-100"
+                  }`}
+                >
+                  {promptCopied ? (
+                    <>
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                      </svg>
+                      Copy prompt
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </details>
@@ -4822,15 +4899,22 @@ function ResultView({
   const episodesContent = (
     <div className="space-y-8">
       {/* Show Format Section */}
-      <ShowFormatVisualizer
-        format={showFormat}
-        showTitle={blueprint?.show_title || "Untitled Show"}
-        isLoading={showFormatLoading}
-        onRegenerate={onGenerateShowFormat}
-      />
+      <div className="transition-all duration-300 ease-out">
+        <ShowFormatVisualizer
+          format={showFormat}
+          showTitle={blueprint?.show_title || "Untitled Show"}
+          isLoading={showFormatLoading}
+          onRegenerate={onGenerateShowFormat}
+        />
+      </div>
       
       {/* Episode Studio Quick Access - shown when episodes exist */}
-      {episodes.length > 0 && currentShowId && (
+      <div className={cn(
+        "transition-all duration-300 ease-out overflow-hidden",
+        episodes.length > 0 && currentShowId 
+          ? "opacity-100 max-h-32 translate-y-0" 
+          : "opacity-0 max-h-0 -translate-y-2 pointer-events-none"
+      )}>
         <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 to-transparent">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
@@ -4841,43 +4925,58 @@ function ResultView({
               <p className="text-xs text-foreground/50">Generate storyboards, keyframes & video clips</p>
             </div>
           </div>
-          <Link href={`/episodes/${currentShowId}`}>
+          <Link href={`/episodes/${currentShowId || ''}`}>
             <Button size="sm" className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white">
               Open Studio
               <PlayCircle className="ml-1.5 h-3.5 w-3.5" />
             </Button>
           </Link>
         </div>
-      )}
+      </div>
 
       {/* Generate Episodes Button (if format exists but no episodes) */}
-      {showFormat && episodes.length === 0 && !episodesLoading && (
-        <div className="flex justify-center">
-          <Button
-            onClick={onGenerateEpisodes}
-            className="rounded-full"
-            size="lg"
-          >
-            <Clapperboard className="mr-2 h-4 w-4" />
-            Generate 6 Episode Loglines
-          </Button>
-        </div>
-      )}
+      <div className={cn(
+        "flex justify-center transition-all duration-300 ease-out overflow-hidden",
+        showFormat && episodes.length === 0 && !episodesLoading
+          ? "opacity-100 max-h-20 translate-y-0"
+          : "opacity-0 max-h-0 -translate-y-2 pointer-events-none"
+      )}>
+        <Button
+          onClick={onGenerateEpisodes}
+          className="rounded-full"
+          size="lg"
+        >
+          <Clapperboard className="mr-2 h-4 w-4" />
+          Generate 6 Episode Loglines
+        </Button>
+      </div>
       
       {/* Episodes Section */}
-      {(showFormat || episodes.length > 0) && (
-        <EpisodeCards
-          episodes={episodes}
-          seasonArc={seasonArc || undefined}
-          characterSeeds={characterSeeds?.map(s => ({ id: s.id, name: s.name }))}
-          isLoading={episodesLoading}
-          onRegenerate={showFormat ? onGenerateEpisodes : undefined}
-          showId={currentShowId || undefined}
-        />
-      )}
+      <div className={cn(
+        "transition-all duration-300 ease-out",
+        (showFormat || episodes.length > 0)
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 translate-y-4 pointer-events-none"
+      )}>
+        {(showFormat || episodes.length > 0) && (
+          <EpisodeCards
+            episodes={episodes}
+            seasonArc={seasonArc || undefined}
+            characterSeeds={characterSeeds?.map(s => ({ id: s.id, name: s.name }))}
+            isLoading={episodesLoading}
+            onRegenerate={showFormat ? onGenerateEpisodes : undefined}
+            showId={currentShowId || undefined}
+          />
+        )}
+      </div>
       
       {/* Empty state - no format and no episodes */}
-      {!showFormat && episodes.length === 0 && !showFormatLoading && !episodesLoading && (
+      <div className={cn(
+        "transition-all duration-300 ease-out overflow-hidden",
+        !showFormat && episodes.length === 0 && !showFormatLoading && !episodesLoading
+          ? "opacity-100 max-h-[500px] translate-y-0"
+          : "opacity-0 max-h-0 -translate-y-2 pointer-events-none"
+      )}>
         <div className="rounded-2xl border border-dashed border-white/15 bg-black/30 p-8 text-center">
           <Clapperboard className="mx-auto h-10 w-10 text-foreground/30 mb-4" />
           <h3 className="text-lg font-semibold mb-2">Create Your Episode Format</h3>
@@ -4899,7 +4998,7 @@ function ResultView({
             </p>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 
