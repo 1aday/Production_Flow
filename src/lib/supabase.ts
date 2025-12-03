@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import sharp from 'sharp';
 
 // Server-side Supabase client with service role key (full access)
 export function createServerSupabaseClient() {
@@ -97,5 +98,65 @@ export async function downloadAsBuffer(url: string): Promise<Buffer | null> {
     console.error('Download failed:', error);
     return null;
   }
+}
+
+/**
+ * Compress an image buffer to reduce file size for faster uploads
+ * Converts to WebP format and resizes to max dimension
+ * @param buffer - Original image buffer
+ * @param maxDimension - Max width/height (default 1024 for portraits)
+ * @param quality - WebP quality 1-100 (default 80)
+ * @returns Compressed buffer and new content type
+ */
+export async function compressImage(
+  buffer: Buffer,
+  maxDimension = 1024,
+  quality = 80
+): Promise<{ buffer: Buffer; contentType: string; originalSize: number; compressedSize: number }> {
+  const originalSize = buffer.length;
+  
+  try {
+    const compressed = await sharp(buffer)
+      .resize(maxDimension, maxDimension, {
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .webp({ quality })
+      .toBuffer();
+    
+    const compressedSize = compressed.length;
+    const savings = Math.round((1 - compressedSize / originalSize) * 100);
+    console.log(`🗜️  Compressed: ${Math.round(originalSize / 1024)}KB → ${Math.round(compressedSize / 1024)}KB (${savings}% smaller)`);
+    
+    return {
+      buffer: compressed,
+      contentType: 'image/webp',
+      originalSize,
+      compressedSize,
+    };
+  } catch (error) {
+    console.warn('Image compression failed, using original:', error);
+    return {
+      buffer,
+      contentType: 'image/png',
+      originalSize,
+      compressedSize: originalSize,
+    };
+  }
+}
+
+/**
+ * Download, compress, and return optimized image buffer
+ */
+export async function downloadAndCompressImage(
+  url: string,
+  maxDimension = 1024,
+  quality = 80
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  const original = await downloadAsBuffer(url);
+  if (!original) return null;
+  
+  const { buffer, contentType } = await compressImage(original, maxDimension, quality);
+  return { buffer, contentType };
 }
 

@@ -962,11 +962,6 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                                 {sanitizeText(character.vibe)}
                               </Badge>
                             )}
-                            {charDoc?.biometrics?.age_years && (
-                              <Badge variant="secondary" className="text-xs sm:text-sm px-2 py-0.5">
-                                Age {charDoc.biometrics.age_years.value}
-                              </Badge>
-                            )}
                           </div>
                           {character.summary && sanitizeText(character.summary) && (
                             <p className="text-base sm:text-lg text-foreground/80 leading-relaxed">

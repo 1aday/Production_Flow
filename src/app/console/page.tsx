@@ -1388,7 +1388,7 @@ function ResultView({
   trailerOriginalPrompt: string | null;
   trailerAdjustedPrompt: string | null;
   onGenerateTrailer: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => void;
-  onRetryTrailerWithSelectedCharacters: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => void;
+  onRetryTrailerWithSelectedCharacters: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string, selectedCharacterIds?: string[]) => void;
   buildDefaultTrailerPrompt: () => string;
   buildDefaultLibraryPosterPrompt: () => string;
   onRegenerateGrid: () => void;
@@ -4314,10 +4314,10 @@ function ResultView({
                   }}
                   onRegenerateWithNewGrid={(model, customPrompt, selectedCharacterIds) => {
                     console.log("🔄 Regenerating trailer with new grid:", model, selectedCharacterIds?.length, "characters");
-                    // Filter the selected characters and trigger the retry
+                    // Pass character IDs directly to avoid state timing issues
                     if (selectedCharacterIds && selectedCharacterIds.length >= 4) {
                       setTrailerSelectedCharacters(new Set(selectedCharacterIds));
-                      void onRetryTrailerWithSelectedCharacters(model, customPrompt);
+                      void onRetryTrailerWithSelectedCharacters(model, customPrompt, selectedCharacterIds);
                     }
                   }}
                   isLoading={trailerLoading}
@@ -8141,21 +8141,27 @@ export function Console({ initialShowId }: ConsoleProps) {
   // Retry trailer with a new character grid based on selected characters
   const retryTrailerWithSelectedCharacters = useCallback(async (
     requestedModel?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', 
-    customPrompt?: string
+    customPrompt?: string,
+    selectedCharacterIds?: string[] // Allow passing character IDs directly to avoid state timing issues
   ) => {
     if (!blueprint) {
       setTrailerError("Blueprint missing.");
       return;
     }
 
-    if (trailerSelectedCharacters.size < 4) {
+    // Use passed character IDs if provided, otherwise fall back to state
+    const characterIdsToUse = selectedCharacterIds 
+      ? new Set(selectedCharacterIds) 
+      : trailerSelectedCharacters;
+
+    if (characterIdsToUse.size < 4) {
       setTrailerError("Need at least 4 characters selected for the grid.");
       return;
     }
 
     // Build portraits data from selected characters
     const portraitsData = characterSeeds
-      ?.filter(seed => trailerSelectedCharacters.has(seed.id))
+      ?.filter(seed => characterIdsToUse.has(seed.id))
       .map(seed => {
         const url = characterPortraits[seed.id];
         if (!url) return null;
@@ -10170,7 +10176,7 @@ TRAILER REQUIREMENTS:
             buildDefaultTrailerPrompt={buildDefaultTrailerPrompt}
             buildDefaultLibraryPosterPrompt={buildDefaultLibraryPosterPrompt}
             onGenerateTrailer={(model, customPrompt) => void generateTrailer(model, customPrompt)}
-            onRetryTrailerWithSelectedCharacters={(model, customPrompt) => void retryTrailerWithSelectedCharacters(model, customPrompt)}
+            onRetryTrailerWithSelectedCharacters={(model, customPrompt, selectedCharacterIds) => void retryTrailerWithSelectedCharacters(model, customPrompt, selectedCharacterIds)}
             trailerSelectedCharacters={trailerSelectedCharacters}
             setTrailerSelectedCharacters={setTrailerSelectedCharacters}
             onRegenerateGrid={() => {

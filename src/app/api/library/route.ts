@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, uploadToSupabase, downloadAsBuffer } from "@/lib/supabase";
+import { createServerSupabaseClient, uploadToSupabase, downloadAsBuffer, compressImage, downloadAndCompressImage } from "@/lib/supabase";
 
 type ShowMetadata = {
   id: string;
@@ -267,34 +267,49 @@ async function uploadAssetsToStorage(
   };
 
   try {
-    // Upload character portraits
+    // Upload character portraits (compressed for faster uploads)
     for (const [charId, url] of Object.entries(assets.characterPortraits)) {
       if (!url) continue;
       
       let buffer: Buffer | null = null;
+      let contentType = 'image/webp'; // Default to WebP after compression
       
       if (url.startsWith('data:')) {
-        buffer = dataUrlToBuffer(url);
+        const rawBuffer = dataUrlToBuffer(url);
+        if (rawBuffer) {
+          const compressed = await compressImage(rawBuffer, 1024, 80);
+          buffer = compressed.buffer;
+          contentType = compressed.contentType;
+        }
       } else if (url.startsWith('http')) {
-        // Download from Replicate
-        buffer = await downloadAsBuffer(url);
-        console.log(`⬇️ Downloaded portrait for ${charId}`);
+        // Download and compress from Replicate
+        console.log(`⬇️ Downloading portrait for ${charId}...`);
+        const compressed = await downloadAndCompressImage(url, 1024, 80);
+        if (compressed) {
+          buffer = compressed.buffer;
+          contentType = compressed.contentType;
+        }
       } else if (url.startsWith('/')) {
         // Local file path
         try {
           const fs = await import('fs/promises');
           const path = await import('path');
           const filePath = path.join(process.cwd(), 'public', url);
-          buffer = await fs.readFile(filePath);
-          console.log(`📁 Read local portrait for ${charId}`);
+          const rawBuffer = await fs.readFile(filePath);
+          const compressed = await compressImage(rawBuffer, 1024, 80);
+          buffer = compressed.buffer;
+          contentType = compressed.contentType;
+          console.log(`📁 Read and compressed local portrait for ${charId}`);
         } catch (fsError) {
           console.warn(`Failed to read local file ${url}:`, fsError);
         }
       }
       
       if (buffer) {
-        const storagePath = `${showId}/portraits/${charId}.png`;
-        const uploaded = await uploadToSupabase(supabase, 'show-assets', storagePath, buffer, 'image/png');
+        // Use .webp extension for compressed images
+        const ext = contentType === 'image/webp' ? 'webp' : 'png';
+        const storagePath = `${showId}/portraits/${charId}.${ext}`;
+        const uploaded = await uploadToSupabase(supabase, 'show-assets', storagePath, buffer, contentType);
         result.characterPortraits[charId] = uploaded || url;
         console.log(`✅ Uploaded portrait for ${charId} to Supabase`);
       } else {
@@ -372,7 +387,7 @@ async function uploadAssetsToStorage(
   return result;
 }
 
-// Helper to upload a single asset
+// Helper to upload a single asset (with compression for images)
 async function uploadAsset(
   supabase: ReturnType<typeof createServerSupabaseClient>,
   showId: string,
@@ -382,20 +397,55 @@ async function uploadAsset(
 ): Promise<string | null> {
   if (!url) return null;
   
+  const isImage = contentType.startsWith('image/');
+  
   try {
     let buffer: Buffer | null = null;
+    let finalContentType = contentType;
+    let finalFilename = filename;
     
     if (url.startsWith('data:')) {
-      buffer = dataUrlToBuffer(url);
+      const rawBuffer = dataUrlToBuffer(url);
+      if (rawBuffer && isImage) {
+        // Compress images (use larger size for posters)
+        const maxDim = filename.includes('poster') ? 1200 : 1024;
+        const compressed = await compressImage(rawBuffer, maxDim, 85);
+        buffer = compressed.buffer;
+        finalContentType = compressed.contentType;
+        finalFilename = filename.replace('.png', '.webp');
+      } else {
+        buffer = rawBuffer;
+      }
     } else if (url.startsWith('http')) {
-      buffer = await downloadAsBuffer(url);
+      if (isImage) {
+        // Download and compress images
+        const maxDim = filename.includes('poster') ? 1200 : 1024;
+        const compressed = await downloadAndCompressImage(url, maxDim, 85);
+        if (compressed) {
+          buffer = compressed.buffer;
+          finalContentType = compressed.contentType;
+          finalFilename = filename.replace('.png', '.webp');
+        }
+      } else {
+        buffer = await downloadAsBuffer(url);
+      }
     } else if (url.startsWith('/')) {
       // Local file path - read from public directory
       try {
         const fs = await import('fs/promises');
         const path = await import('path');
         const filePath = path.join(process.cwd(), 'public', url);
-        buffer = await fs.readFile(filePath);
+        const rawBuffer = await fs.readFile(filePath);
+        
+        if (isImage) {
+          const maxDim = filename.includes('poster') ? 1200 : 1024;
+          const compressed = await compressImage(rawBuffer, maxDim, 85);
+          buffer = compressed.buffer;
+          finalContentType = compressed.contentType;
+          finalFilename = filename.replace('.png', '.webp');
+        } else {
+          buffer = rawBuffer;
+        }
         console.log(`📁 Read local file: ${url}`);
       } catch (fsError) {
         console.warn(`Failed to read local file ${url}:`, fsError);
@@ -405,11 +455,11 @@ async function uploadAsset(
     
     if (!buffer) return url; // Keep original if can't convert
     
-    const storagePath = `${showId}/${filename}`;
-    const uploaded = await uploadToSupabase(supabase, 'show-assets', storagePath, buffer, contentType);
+    const storagePath = `${showId}/${finalFilename}`;
+    const uploaded = await uploadToSupabase(supabase, 'show-assets', storagePath, buffer, finalContentType);
     
     if (uploaded) {
-      console.log(`✅ Uploaded ${filename} to Supabase Storage`);
+      console.log(`✅ Uploaded ${finalFilename} to Supabase Storage`);
     }
     
     return uploaded || url;
