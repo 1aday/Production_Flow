@@ -8070,6 +8070,26 @@ export function Console({ initialShowId }: ConsoleProps) {
           outputUrl: result.url 
         });
         setTimeout(() => removeBackgroundTask(jobId), 5000);
+        
+        // Auto-save the trailer to database immediately
+        console.log("💾 Auto-saving trailer to database for show:", currentShowId);
+        fetch("/api/library", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: currentShowId,
+            trailerUrl: result.url,
+            trailerModel: result.model || "sora-2",
+          }),
+        }).then(response => {
+          if (response.ok) {
+            console.log("✅ Trailer auto-saved successfully");
+          } else {
+            console.error("❌ Failed to auto-save trailer:", response.status);
+          }
+        }).catch(error => {
+          console.error("❌ Error auto-saving trailer:", error);
+        });
       }
       
       console.log("🎵 Playing success sound");
@@ -8301,6 +8321,26 @@ export function Console({ initialShowId }: ConsoleProps) {
       if (currentShowId) {
         updateBackgroundTask(jobId, { status: 'succeeded', outputUrl: result.url });
         setTimeout(() => removeBackgroundTask(jobId), 5000);
+        
+        // Auto-save the trailer to database immediately
+        console.log("💾 Auto-saving trailer to database for show:", currentShowId);
+        fetch("/api/library", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: currentShowId,
+            trailerUrl: result.url,
+            trailerModel: result.model || "sora-2",
+          }),
+        }).then(response => {
+          if (response.ok) {
+            console.log("✅ Trailer auto-saved successfully");
+          } else {
+            console.error("❌ Failed to auto-save trailer:", response.status);
+          }
+        }).catch(error => {
+          console.error("❌ Error auto-saving trailer:", error);
+        });
       }
 
       playSuccessChime();
