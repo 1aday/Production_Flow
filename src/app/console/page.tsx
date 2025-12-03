@@ -1134,46 +1134,37 @@ function CollapsibleSection({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-3xl border border-white/12 bg-[#111]/70 p-[1px] shadow-[0_18px_60px_rgba(0,0,0,0.65)] transition-colors",
-        variant.border,
+        "relative overflow-hidden rounded-xl bg-white/[0.02] transition-colors hover:bg-white/[0.035]",
         className
       )}
     >
-      <div className="absolute inset-0 bg-black/30" aria-hidden />
-      <span
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute inset-y-6 left-6 h-7 w-7 rounded-full blur-sm",
-          variant.indicator
-        )}
-      />
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative z-10 flex w-full items-center justify-between gap-5 rounded-[28px] bg-black/40 px-8 py-6 text-left transition-colors hover:bg-black/55"
+        className="relative z-10 flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2">
           <span
             aria-hidden
             className={cn(
-              "mt-1.5 h-2.5 w-2.5 rounded-full transition",
+              "mt-1.5 h-2 w-2 rounded-full transition shrink-0",
               variant.indicator
             )}
           />
-          <div className="space-y-1">
-            <p className="text-lg font-semibold tracking-[0.02em] text-foreground">
+          <div className="space-y-0.5">
+            <p className="text-sm font-semibold text-foreground/90">
               {title}
             </p>
             {description ? (
-              <p className="text-sm text-foreground/65">{description}</p>
+              <p className="text-xs text-foreground/50">{description}</p>
             ) : null}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {metadata}
           <ChevronDown
             className={cn(
-              "h-5 w-5 flex-shrink-0 text-foreground/50 transition-transform duration-300",
+              "h-4 w-4 flex-shrink-0 text-foreground/40 transition-transform duration-300",
               isOpen ? "rotate-180" : ""
             )}
             aria-hidden
@@ -1181,7 +1172,7 @@ function CollapsibleSection({
         </div>
       </button>
       {isOpen ? (
-        <div className="relative border-t border-white/12 bg-black/55 px-8 py-6 text-sm text-foreground/75">
+        <div className="px-4 py-3 text-sm text-foreground/70 border-t border-white/5">
           {children}
         </div>
       ) : null}
@@ -1746,8 +1737,8 @@ function ResultView({
               </div>
             </div>
           ) : libraryPosterLoading ? (
-            <div className="flex items-center gap-3 rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/70">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <div className="flex items-center gap-2 px-2 py-2 text-xs text-foreground/50">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
               Generating poster…
             </div>
           ) : libraryPosterError ? (
@@ -1803,8 +1794,8 @@ function ResultView({
       defaultOpen
     >
       {portraitGridLoading ? (
-        <div className="flex items-center gap-3 rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/70">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        <div className="flex items-center gap-2 px-2 py-2 text-xs text-foreground/50">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
           Building character grid…
         </div>
        ) : portraitGridUrl ? (
@@ -1880,8 +1871,8 @@ function ResultView({
     >
       <div className="space-y-4">
         {trailerLoading ? (
-          <div className="flex items-center gap-3 rounded-3xl border border-white/12 bg-black/45 px-5 py-4 text-sm text-foreground/70">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <div className="flex items-center gap-2 px-2 py-2 text-xs text-foreground/50">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
             Rendering trailer…
           </div>
         ) : trailerUrl ? (
@@ -2101,8 +2092,8 @@ function ResultView({
   );
 
   const directivePanel = (
-    <div className="rounded-3xl border border-white/12 bg-black/45 p-6 space-y-3 shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-foreground/55">
+    <div className="bg-white/[0.02] rounded-lg p-4 space-y-2">
+      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-foreground/40">
         Look bible directive
       </p>
       <p className="text-lg font-semibold text-foreground">{data.goal}</p>
@@ -2466,8 +2457,8 @@ function ResultView({
   const charactersContent = (() => {
     if (charactersLoading) {
       return (
-        <div className="rounded-3xl border border-white/12 bg-black/45 px-6 py-4 text-sm text-foreground/70">
-          <Loader2 className="mr-2 inline-block h-4 w-4 animate-spin text-primary" />
+        <div className="flex items-center gap-2 px-2 py-3 text-xs text-foreground/50">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
           Curating character lineup…
         </div>
       );
@@ -3288,10 +3279,10 @@ function ResultView({
       </div>
     </button>
   ) : libraryPosterLoading ? (
-    <div className="flex items-center justify-center rounded-3xl border border-white/12 bg-black/45 w-full max-w-full" style={{ aspectRatio: '9/16' }}>
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm font-medium text-foreground/70">Generating poster…</p>
+    <div className="flex items-center justify-center bg-white/[0.02] rounded-lg w-full max-w-full" style={{ aspectRatio: '9/16' }}>
+      <div className="flex flex-col items-center gap-2">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <p className="text-xs text-foreground/50">Generating poster…</p>
       </div>
     </div>
   ) : (
@@ -3954,12 +3945,12 @@ function ResultView({
 
       {/* Character Cards */}
       {characterSeeds && characterSeeds.length > 0 ? (
-        <div className="w-full max-w-[1400px] mx-auto space-y-4 px-4 sm:px-0">
+        <div className="w-full max-w-[1400px] mx-auto space-y-3">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground/90">
               Character Lineup
             </h2>
-            <p className="mt-2 text-sm text-foreground/60">
+            <p className="mt-1 text-xs sm:text-sm text-foreground/50">
               {characterSeeds.length} character{characterSeeds.length === 1 ? '' : 's'} in the series
             </p>
           </div>
@@ -3968,12 +3959,12 @@ function ResultView({
       ) : null}
 
       {/* Visual Direction Section */}
-      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-0">
-        <div className="mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+      <div className="w-full max-w-[1400px] mx-auto">
+        <div className="mb-4">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground/90">
             Look Bible
           </h2>
-          <p className="mt-2 text-sm text-foreground/60">
+          <p className="mt-1 text-xs sm:text-sm text-foreground/50">
             Complete visual aesthetics framework for the series
           </p>
         </div>
@@ -3981,12 +3972,12 @@ function ResultView({
       </div>
 
       {/* Technical Specs Grid */}
-      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-0">
-        <div className="mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+      <div className="w-full max-w-[1400px] mx-auto">
+        <div className="mb-4">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground/90">
             Production Specifications
           </h2>
-          <p className="mt-2 text-sm text-foreground/60">
+          <p className="mt-1 text-xs sm:text-sm text-foreground/50">
             Pipeline, camera, lighting, and finishing guardrails
           </p>
         </div>
@@ -4242,12 +4233,12 @@ function ResultView({
       </div>
 
       {/* Species Design */}
-      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-0">
-        <div className="mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+      <div className="w-full max-w-[1400px] mx-auto">
+        <div className="mb-4">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground/90">
             Species Design
           </h2>
-          <p className="mt-2 text-sm text-foreground/60">
+          <p className="mt-1 text-xs sm:text-sm text-foreground/50">
             Character sheets for every performer type
           </p>
         </div>
@@ -4330,7 +4321,7 @@ function ResultView({
       </div>
 
       {/* Global Rules */}
-      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-0">
+      <div className="w-full max-w-[1400px] mx-auto">
         <CollapsibleSection
           title="Global prohibitions"
           description="Do-not-cross guardrails to keep the look coherent."
@@ -4345,7 +4336,7 @@ function ResultView({
   const videosContent = (() => {
     if (!posterAvailable) {
       return (
-        <div className="rounded-3xl border border-white/12 bg-black/45 p-6 text-sm text-foreground/65">
+        <div className="px-2 py-3 text-xs text-foreground/50">
           Video generation is disabled. Add a Replicate token to unlock character showcases.
         </div>
       );
@@ -4353,8 +4344,8 @@ function ResultView({
 
     if (charactersLoading && (!characterSeeds || characterSeeds.length === 0)) {
       return (
-        <div className="rounded-3xl border border-white/12 bg-black/45 px-6 py-4 text-sm text-foreground/70">
-          <Loader2 className="mr-2 inline-block h-4 w-4 animate-spin text-primary" />
+        <div className="flex items-center gap-2 px-2 py-3 text-xs text-foreground/50">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
           Preparing character lineup…
         </div>
       );
@@ -4945,29 +4936,29 @@ function ResultView({
   return (
     <>
       {/* Show Overview with Integrated Tabs */}
-      <div className="max-w-[1600px] mx-auto mb-4 sm:mb-6 px-3 sm:px-4 min-w-0 w-full box-border" style={{ maxWidth: 'calc(100vw - 24px)' }}>
-        <div className="rounded-2xl sm:rounded-3xl border border-white/12 bg-black/45 shadow-[0_18px_60px_rgba(0,0,0,0.55)] overflow-hidden w-full min-w-0 max-w-full box-border">
+      <div className="max-w-[1600px] mx-auto mb-3 sm:mb-4 min-w-0 w-full box-border" style={{ maxWidth: 'calc(100vw - 16px)' }}>
+        <div className="overflow-hidden w-full min-w-0 max-w-full box-border">
           {/* Show Header */}
-          <div className="p-4 sm:p-6 pb-3 sm:pb-4 space-y-3 sm:space-y-4 border-b border-white/12 overflow-hidden max-w-full box-border">
+          <div className="py-3 sm:py-4 space-y-2 sm:space-y-3 overflow-hidden max-w-full box-border">
             <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
-              <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.28em] sm:tracking-[0.32em] text-foreground/55">
+              <p className="text-[10px] sm:text-[11px] font-medium uppercase tracking-[0.2em] sm:tracking-[0.24em] text-foreground/40">
                 Show overview
               </p>
               {usageBadge}
             </div>
             {blueprint.show_title ? (
-              <h2 className="text-xl sm:text-2xl font-bold text-foreground/90 leading-tight break-words">
+              <h2 className="text-xl sm:text-2xl font-bold text-foreground/95 leading-tight break-words">
                 {blueprint.show_title}
               </h2>
             ) : null}
-            <p className="text-sm sm:text-base leading-relaxed text-foreground/80 whitespace-pre-wrap break-words max-w-full overflow-hidden overflow-wrap-anywhere" style={{ wordBreak: 'break-word' }}>
+            <p className="text-sm sm:text-base leading-relaxed text-foreground/70 whitespace-pre-wrap break-words max-w-full overflow-hidden overflow-wrap-anywhere" style={{ wordBreak: 'break-word' }}>
               {blueprint.show_logline}
             </p>
           </div>
 
           {/* Tabs Section */}
           <Tabs defaultValue="master" className="space-y-0 overflow-hidden w-full max-w-full" id="main-tabs">
-            <div className="flex flex-col gap-3 px-3 sm:px-6 pt-3 sm:pt-4 pb-2 overflow-hidden w-full max-w-full box-border">
+            <div className="flex flex-col gap-2 pt-2 sm:pt-3 pb-1 overflow-hidden w-full max-w-full box-border border-t border-white/8">
               <div className="relative w-full max-w-full overflow-hidden">
                 <div
                   className={cn(
@@ -5109,8 +5100,8 @@ function ResultView({
             </div>
             
             {/* Tab Content - All inside the show overview container */}
-            <div className="console-master-shell px-3 sm:px-6 pb-4 sm:pb-6">
-              <TabsContent value="master" className="mt-4 sm:mt-6">
+            <div className="console-master-shell pb-3 sm:pb-4">
+              <TabsContent value="master" className="mt-3 sm:mt-4">
                 {masterContent}
               </TabsContent>
               <TabsContent value="assets" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
@@ -9317,7 +9308,7 @@ TRAILER REQUIREMENTS:
       </div>
 
       <main className="flex-1 pb-[100px] sm:pb-[120px] md:pb-32 pt-[72px] sm:pt-[130px] overflow-x-hidden">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 sm:gap-5 md:gap-6 px-4 sm:px-5 md:px-6 py-4 sm:py-6 md:py-10">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 sm:gap-4 md:gap-5 px-2 sm:px-3 md:px-4 py-3 sm:py-4 md:py-6">
           {error ? (
             <div className="space-y-2 rounded-xl sm:rounded-2xl md:rounded-3xl border border-red-500/40 bg-red-500/10 px-4 sm:px-5 md:px-6 py-3 sm:py-3.5 md:py-4 text-xs sm:text-sm animate-in slide-in-from-top-2 duration-300">
               <p className="font-semibold text-red-200 text-sm sm:text-base">Request failed</p>
@@ -9338,11 +9329,11 @@ TRAILER REQUIREMENTS:
             });
             
             return (
-              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <div className="bg-white/[0.03] px-1 py-1.5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Clock className="h-3.5 w-3.5 text-white/40 shrink-0" />
-                    <p className="text-xs text-white/50">Show loaded - {completion.completionPercentage}% complete</p>
+                    <Clock className="h-3 w-3 text-white/30 shrink-0" />
+                    <p className="text-[11px] text-white/40">Show loaded - {completion.completionPercentage}% complete</p>
                   </div>
                   <Button
                     type="button"

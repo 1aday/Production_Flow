@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Library, Loader2, Trash2, Copy, CheckCircle2, Clock, Settings, Eye, Terminal, Clapperboard } from "lucide-react";
+import { Library, Loader2, Trash2, CheckCircle2, Clock, Eye, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Navbar } from "@/components/Navbar";
@@ -34,8 +34,6 @@ export default function LibraryPage() {
   const [shows, setShows] = useState<LibraryShow[]>([]);
   const [loading, setLoading] = useState(true);
   const [imageLoadCount, setImageLoadCount] = useState(0);
-  const [copiedShowId, setCopiedShowId] = useState<string | null>(null);
-  const [tappedShow, setTappedShow] = useState<string | null>(null);
 
   const loadLibrary = async () => {
     setLoading(true);
@@ -92,19 +90,6 @@ export default function LibraryPage() {
     router.push(consoleUrl);
   };
 
-  const copyShowUrl = async (showId: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    const url = `${window.location.origin}/show/${showId}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopiedShowId(showId);
-      setTimeout(() => setCopiedShowId(null), 2000);
-      console.log("✅ Show URL copied:", url);
-    } catch (error) {
-      console.error("Failed to copy URL:", error);
-    }
-  };
-
   const viewShow = (show: LibraryShow, event: React.MouseEvent) => {
     event.stopPropagation();
     const url = getShowUrl({ id: show.id, title: show.title, showTitle: show.showTitle });
@@ -115,19 +100,6 @@ export default function LibraryPage() {
     void loadLibrary();
   }, []);
 
-  // Close tapped show when clicking outside - use timeout to avoid interfering with card clicks
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      // Don't clear if clicking inside a show card
-      if (target.closest('[data-show-card]')) {
-        return;
-      }
-      setTappedShow(null);
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
 
   return (
     <div className="min-h-screen bg-black text-foreground">
@@ -173,7 +145,6 @@ export default function LibraryPage() {
             {shows.map((show, index) => {
               const completion = calculateShowCompletion(show);
               const badgeVariant = getCompletionBadgeVariant(completion.completionPercentage);
-              const isTapped = tappedShow === show.id;
               
               return (
               <div
@@ -181,33 +152,12 @@ export default function LibraryPage() {
                 data-show-card
                 role="button"
                 tabIndex={0}
-                className={`group relative overflow-hidden rounded-lg sm:rounded-xl border bg-black/30 shadow-[0_6px_20px_rgba(0,0,0,0.4)] transition-all duration-200 cursor-pointer select-none
-                  ${isTapped 
-                    ? 'border-primary ring-1 ring-primary/50 scale-[1.01] shadow-[0_10px_35px_rgba(229,9,20,0.35)]' 
-                    : 'border-white/5 hover:border-primary/40 hover:shadow-[0_10px_35px_rgba(229,9,20,0.25)]'
-                  }
-                  active:scale-[0.98] active:brightness-90
-                `}
-                onDoubleClick={() => loadShow(show)}
-                onTouchStart={() => {
-                  // Provide immediate haptic-like visual feedback on touch
-                }}
+                className="group relative overflow-hidden rounded-lg sm:rounded-xl border bg-black/30 shadow-[0_6px_20px_rgba(0,0,0,0.4)] transition-all duration-200 cursor-pointer select-none border-white/5 hover:border-primary/40 hover:shadow-[0_10px_35px_rgba(229,9,20,0.25)] active:scale-[0.98] active:brightness-90"
                 onClick={(e) => {
-                  e.stopPropagation();
                   // Don't handle clicks on buttons
                   const target = e.target as HTMLElement;
                   if (target.closest('button')) {
                     return;
-                  }
-                  
-                  // On mobile/touch devices, first tap shows actions, second tap opens show
-                  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768;
-                  if (isTouchDevice) {
-                    if (!isTapped) {
-                      e.preventDefault();
-                      setTappedShow(show.id);
-                      return;
-                    }
                   }
                   loadShow(show);
                 }}
@@ -250,24 +200,11 @@ export default function LibraryPage() {
                       </Badge>
                     </div>
                     
-                    {/* Mobile tap indicator - shows when first tapped */}
-                    <div className={`absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-[1px] pointer-events-none transition-opacity duration-150 ${isTapped ? 'opacity-100' : 'opacity-0'}`}>
-                      <div className="flex flex-col items-center gap-1.5 text-white">
-                        <div className="w-10 h-10 rounded-full bg-primary/90 flex items-center justify-center animate-pulse shadow-md shadow-primary/30">
-                          <Terminal className="h-5 w-5" />
-                        </div>
-                        <span className="text-xs font-medium drop-shadow-lg">Tap again to open</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
                 
-                {/* Action buttons - show on hover (desktop) or tap (mobile) */}
-                <div className={`absolute right-1.5 sm:right-2 top-1.5 sm:top-2 flex gap-1 transition-all duration-200 ${
-                  isTapped 
-                    ? 'opacity-100' 
-                    : 'opacity-0 md:opacity-0 md:group-hover:opacity-100'
-                }`}>
+                {/* Action buttons - show on hover (desktop) */}
+                <div className="absolute right-1.5 sm:right-2 top-1.5 sm:top-2 flex gap-1 transition-all duration-200 opacity-0 group-hover:opacity-100">
                   <Button
                     type="button"
                     variant="ghost"
