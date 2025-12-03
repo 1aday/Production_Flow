@@ -1235,6 +1235,7 @@ function ResultView({
   onSelectCharacter,
   onClearActiveCharacter,
   onGeneratePortrait,
+  onCancelPortrait,
   onPortraitLoaded,
   onGenerateVideo,
   activeCharacterId,
@@ -1334,6 +1335,7 @@ function ResultView({
   onSelectCharacter: (characterId: string) => void;
   onClearActiveCharacter: () => void;
   onGeneratePortrait: (characterId: string, customPrompt?: string) => void;
+  onCancelPortrait: (characterId: string) => void;
   onPortraitLoaded: (characterId: string) => void;
   onGenerateVideo: (characterId: string, customPrompt?: string) => void;
   activeCharacterId: string | null;
@@ -2714,6 +2716,7 @@ function ResultView({
                     {portraitLoading ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/80 p-2 z-10">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <span className="text-[10px] text-foreground/60 uppercase tracking-wider">Rendering</span>
                         {portraitRetryCount > 0 && (
                           <div className="flex flex-wrap items-center justify-center gap-1">
                             <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-medium text-amber-300">
@@ -2726,6 +2729,18 @@ function ResultView({
                             )}
                           </div>
                         )}
+                        {/* Cancel button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            onCancelPortrait(seed.id);
+                          }}
+                          className="mt-2 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-[10px] font-medium text-foreground/80 hover:bg-white/20 hover:text-foreground transition-colors"
+                        >
+                          Cancel
+                        </button>
                       </div>
                     ) : !portraitLoaded ? (
                       /* Light loading state: image downloading */
@@ -5428,6 +5443,7 @@ export function Console({ initialShowId }: ConsoleProps) {
   const [trailerAdjustingPrompt, setTrailerAdjustingPrompt] = useState<boolean>(false);
   const [trailerOriginalPrompt, setTrailerOriginalPrompt] = useState<string | null>(null); // The prompt before LLM adjustment
   const [trailerAdjustedPrompt, setTrailerAdjustedPrompt] = useState<string | null>(null); // The LLM-adjusted prompt
+  const [trailerSelectedCharacters, setTrailerSelectedCharacters] = useState<Set<string>>(new Set()); // Characters selected for retry grid
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   
   // Episode format and loglines
@@ -5932,6 +5948,44 @@ export function Console({ initialShowId }: ConsoleProps) {
     });
   }, [blueprint, characterSeeds, characterDocs, characterBuilding, buildCharacter]);
 
+  // Cancel a stuck portrait generation without restarting
+  const cancelPortraitGeneration = useCallback(
+    (characterId: string) => {
+      console.log(`🛑 Canceling portrait generation for: ${characterId}`);
+      
+      // Clear polling interval
+      const existingPoll = portraitPollsRef.current.get(characterId);
+      if (existingPoll) {
+        console.log(`   🧹 Clearing poll interval for ${characterId}`);
+        clearInterval(existingPoll);
+        portraitPollsRef.current.delete(characterId);
+      }
+      
+      // Cancel background task
+      const existingJob = portraitJobsRef.current.get(characterId);
+      if (existingJob && currentShowId) {
+        console.log(`   🧹 Canceling background task ${existingJob} for ${characterId}`);
+        updateBackgroundTask(existingJob, { status: 'canceled', error: 'Canceled by user' });
+        setTimeout(() => removeBackgroundTask(existingJob), 3000);
+        portraitJobsRef.current.delete(characterId);
+      }
+      
+      // Clear all refs
+      portraitStartTimesRef.current.delete(characterId);
+      portraitRetryCountRef.current.delete(characterId);
+      portraitPollCountRef.current.delete(characterId);
+      portraitLlmAdjustedPromptRef.current.delete(characterId);
+      
+      // Clear UI state
+      setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+      setPortraitRetryCounts(prev => { const n = { ...prev }; delete n[characterId]; return n; });
+      setPortraitLlmAdjustments(prev => { const n = { ...prev }; delete n[characterId]; return n; });
+      
+      console.log(`   ✅ Portrait generation canceled for ${characterId}`);
+    },
+    [currentShowId]
+  );
+
   const generateCharacterPortrait = useCallback(
     async (characterId: string, customPrompt?: string) => {
       console.log(`🎯 generateCharacterPortrait called for: ${characterId}`);
@@ -5941,10 +5995,10 @@ export function Console({ initialShowId }: ConsoleProps) {
       
       console.log(`   Blueprint exists: ${!!blueprint}, ShowId: ${targetShowId}`);
       
-      // GUARD: Skip if already loading (prevent double-clicks)
-      if (characterPortraitLoading[characterId]) {
-        console.log(`   ⏭️ Portrait already loading for ${characterId}, skipping duplicate request`);
-        return;
+      // Check if already loading - if so, we're doing a FORCE RESTART (cancel & restart)
+      const isForceRestart = characterPortraitLoading[characterId];
+      if (isForceRestart) {
+        console.log(`   🔄 Portrait already loading for ${characterId}, FORCE RESTARTING (cancel current generation)`);
       }
       
       // FORCE CLEANUP: Always clear any potentially stuck state first
@@ -9479,6 +9533,7 @@ TRAILER REQUIREMENTS:
             onSelectCharacter={handleSelectCharacter}
             onClearActiveCharacter={handleClearActiveCharacter}
             onGeneratePortrait={generateCharacterPortrait}
+            onCancelPortrait={cancelPortraitGeneration}
             onPortraitLoaded={handlePortraitLoaded}
             onGenerateVideo={generateCharacterVideo}
             activeCharacterId={activeCharacterId}
