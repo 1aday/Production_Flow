@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Library, Loader2, Trash2, Copy, CheckCircle2, Clock, Settings, Eye, Terminal } from "lucide-react";
+import { Library, Loader2, Trash2, Copy, CheckCircle2, Clock, Settings, Eye, Terminal, Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Navbar } from "@/components/Navbar";
@@ -268,6 +268,19 @@ export default function LibraryPage() {
                     title="View show page"
                   >
                     <Eye className="h-5 w-5 sm:h-4 sm:w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/episodes/${show.id}`);
+                    }}
+                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-full bg-black/70 backdrop-blur-md transition duration-200 hover:bg-emerald-500/80 active:scale-95"
+                    title="Episode Studio"
+                  >
+                    <Clapperboard className="h-5 w-5 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     type="button"

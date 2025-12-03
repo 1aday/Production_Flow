@@ -807,7 +807,8 @@ export default function ShowPageClient({ showId }: { showId: string }) {
             {showData?.episodes && showData.episodes.length > 0 && (
               <EpisodeCards 
                 episodes={showData.episodes} 
-                characterSeeds={showData.characterSeeds?.map(s => ({ id: s.id, name: s.name }))} 
+                characterSeeds={showData.characterSeeds?.map(s => ({ id: s.id, name: s.name }))}
+                showId={showId}
               />
             )}
           </section>

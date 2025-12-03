@@ -144,8 +144,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build the prompt - use custom prompt if provided, otherwise build default
+    // Build the prompt - use custom prompt if provided, otherwise use template/default
     const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
+    
+    // Fetch the global template from database
+    const supabase = createServerSupabaseClient();
+    const { data: templateData } = await supabase
+      .from('prompt_templates')
+      .select('episode_stills_prompt')
+      .eq('id', 'default')
+      .single();
     
     let prompt: string;
     
@@ -153,23 +161,51 @@ export async function POST(request: NextRequest) {
       // Use custom prompt - prepend safety prefix if not already there
       prompt = customPrompt.includes("hesitations") ? customPrompt : SAFETY_PREFIX + customPrompt;
       console.log("📝 Using CUSTOM PROMPT");
-    } else {
-      // Build character string
+    } else if (templateData?.episode_stills_prompt) {
+      // Use the global template with variable substitution
       const characterString = characterNames?.length 
         ? `Characters in this scene: ${characterNames.join(", ")}. Show these characters clearly, depicting their actions and emotions.`
         : "";
 
-      // Build narrative continuity note
       const continuityNote = previousScene 
         ? `This scene follows: "${previousScene}". Maintain visual and narrative continuity from the previous scene.`
         : "";
 
-      // Build setting description
+      const settingNote = setting 
+        ? `Setting: ${setting}.`
+        : genre 
+          ? `Setting: A ${genre.toLowerCase()} TV series.`
+          : "";
+
+      prompt = templateData.episode_stills_prompt
+        .replace(/{SECTION_LABEL}/g, sectionLabel)
+        .replace(/{EPISODE_TITLE}/g, episodeTitle)
+        .replace(/{SCENE_DESCRIPTION}/g, sectionDescription)
+        .replace(/{CHARACTER_LIST}/g, characterString)
+        .replace(/{SETTING_NOTE}/g, settingNote)
+        .replace(/{CONTINUITY_NOTE}/g, continuityNote)
+        .replace(/{GENRE}/g, genre || "drama")
+        .replace(/{PRODUCTION_MEDIUM}/g, "")
+        .replace(/{CINEMATIC_REFERENCES}/g, "")
+        .replace(/{VISUAL_TREATMENT}/g, "");
+      
+      // Prepend safety prefix if not already there
+      prompt = prompt.includes("hesitations") ? prompt : SAFETY_PREFIX + prompt;
+      console.log("📝 Using GLOBAL TEMPLATE for stills prompt");
+    } else {
+      // Fallback to hardcoded default
+      const characterString = characterNames?.length 
+        ? `Characters in this scene: ${characterNames.join(", ")}. Show these characters clearly, depicting their actions and emotions.`
+        : "";
+
+      const continuityNote = previousScene 
+        ? `This scene follows: "${previousScene}". Maintain visual and narrative continuity from the previous scene.`
+        : "";
+
       const settingNote = setting 
         ? `Setting: ${setting}.`
         : "";
 
-      // Build the prompt for the still - detailed and narrative-driven
       prompt = SAFETY_PREFIX + (characterGridUrl 
         ? `Create a detailed scene for "${sectionLabel}" of episode "${episodeTitle}":
 

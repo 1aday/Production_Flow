@@ -52,17 +52,17 @@ export function Navbar({
           {showBackButton ? (
             <Link 
               href={backHref}
-              className="flex items-center gap-2 text-foreground/70 hover:text-foreground transition-colors"
+              className="flex items-center gap-2 text-foreground/70 hover:text-foreground transition-all duration-150 cursor-pointer hover:scale-105 active:scale-95"
             >
               <Home className="h-4 w-4" />
               <span className="text-sm font-medium">{backLabel}</span>
             </Link>
           ) : (
-            <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
-              <span className="text-base sm:text-lg font-semibold uppercase tracking-[0.28em] sm:tracking-[0.32em] text-primary drop-shadow-lg group-hover:text-primary/80 transition-colors">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3 group cursor-pointer">
+              <span className="text-base sm:text-lg font-semibold uppercase tracking-[0.28em] sm:tracking-[0.32em] text-primary drop-shadow-lg group-hover:text-primary/80 group-hover:drop-shadow-[0_0_12px_rgba(229,9,20,0.5)] transition-all duration-200">
                 Production Flow
               </span>
-              <span className="hidden md:inline text-xs text-white/70 drop-shadow">AI Show Bible Generator</span>
+              <span className="hidden md:inline text-xs text-white/70 drop-shadow group-hover:text-white/90 transition-colors">AI Show Bible Generator</span>
             </Link>
           )}
         </div>
@@ -81,10 +81,10 @@ export function Navbar({
                 size="sm"
                 onClick={() => router.push(item.href)}
                 className={cn(
-                  "gap-1.5 sm:gap-2 rounded-full",
+                  "gap-1.5 sm:gap-2 rounded-full cursor-pointer transition-all duration-150",
                   active 
-                    ? "bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30"
-                    : "backdrop-blur-md bg-white/5 hover:bg-white/10 border border-white/10"
+                    ? "bg-primary/20 text-primary hover:bg-primary/30 hover:shadow-[0_0_20px_rgba(229,9,20,0.3)] border border-primary/30"
+                    : "backdrop-blur-md bg-white/5 hover:bg-white/15 hover:border-white/20 hover:shadow-lg border border-white/10"
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -97,5 +97,7 @@ export function Navbar({
     </header>
   );
 }
+
+
 
 

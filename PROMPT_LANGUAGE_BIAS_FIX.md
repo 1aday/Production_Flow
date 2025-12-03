@@ -479,3 +479,5 @@ The system now uses:
 **When you turn guardrails OFF and request "cinematic/realistic", you'll get photorealistic output with NO language-based bias pushing it toward animation.**
 
 
+
+

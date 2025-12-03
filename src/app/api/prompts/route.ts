@@ -30,6 +30,8 @@ export async function GET() {
       videoBasePrompt: data.video_base_prompt,
       posterBasePrompt: data.poster_base_prompt,
       trailerBasePrompt: data.trailer_base_prompt,
+      episodeStillsPrompt: data.episode_stills_prompt || '',
+      episodeClipsPrompt: data.episode_clips_prompt || '',
       updatedAt: data.updated_at,
     };
     
@@ -55,22 +57,30 @@ export async function PATCH(request: NextRequest) {
       videoBasePrompt,
       posterBasePrompt,
       trailerBasePrompt,
+      episodeStillsPrompt,
+      episodeClipsPrompt,
     } = body;
     
     const supabase = createServerSupabaseClient();
     
+    // Build update object, only including defined fields
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    
+    if (showGenerationDirective !== undefined) updateData.show_generation_directive = showGenerationDirective;
+    if (characterExtractionDirective !== undefined) updateData.character_extraction_directive = characterExtractionDirective;
+    if (characterBuildDirective !== undefined) updateData.character_build_directive = characterBuildDirective;
+    if (portraitBasePrompt !== undefined) updateData.portrait_base_prompt = portraitBasePrompt;
+    if (videoBasePrompt !== undefined) updateData.video_base_prompt = videoBasePrompt;
+    if (posterBasePrompt !== undefined) updateData.poster_base_prompt = posterBasePrompt;
+    if (trailerBasePrompt !== undefined) updateData.trailer_base_prompt = trailerBasePrompt;
+    if (episodeStillsPrompt !== undefined) updateData.episode_stills_prompt = episodeStillsPrompt;
+    if (episodeClipsPrompt !== undefined) updateData.episode_clips_prompt = episodeClipsPrompt;
+    
     const { error } = await supabase
       .from('prompt_templates')
-      .update({
-        show_generation_directive: showGenerationDirective,
-        character_extraction_directive: characterExtractionDirective,
-        character_build_directive: characterBuildDirective,
-        portrait_base_prompt: portraitBasePrompt,
-        video_base_prompt: videoBasePrompt,
-        poster_base_prompt: posterBasePrompt,
-        trailer_base_prompt: trailerBasePrompt,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', 'default');
     
     if (error) {

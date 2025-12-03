@@ -877,6 +877,9 @@ export default function ShowEpisodesPage({ params }: { params: Promise<{ showId:
       .filter((name: string | undefined): name is string => !!name);
   };
 
+  // Current episode - needed for prompt building
+  const currentEpisode = showData?.episodes?.[selectedEpisode];
+
   // Build image prompt for a section
   const buildImagePrompt = useCallback((sectionLabel: string, sectionDescription: string) => {
     if (!currentEpisode || !showData) return "";
@@ -1199,7 +1202,6 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
     }
   }, [videoGenerationStatuses, showData]);
 
-  const currentEpisode = showData?.episodes?.[selectedEpisode];
   const posterUrl = showData?.libraryPosterUrl || showData?.posterUrl;
   const currentStills = currentEpisode ? generatedStills[currentEpisode.episode_number] || {} : {};
   const currentClips = currentEpisode ? generatedClips[currentEpisode.episode_number] || {} : {};

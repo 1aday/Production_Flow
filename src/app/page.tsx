@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Sparkles, ArrowRight, Play, Loader2, Trash2, Zap, CheckCircle2, ChevronDown, Settings2 } from "lucide-react";
+import { Sparkles, ArrowRight, Play, Loader2, Trash2, Zap, CheckCircle2, ChevronDown, Settings2, Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/Navbar";
 import { STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
@@ -65,6 +65,7 @@ type Show = {
   posterUrl?: string;
   trailerUrl?: string;
   updatedAt: string;
+  hasEpisodes?: boolean;
 };
 
 export default function LandingPage() {
@@ -498,7 +499,8 @@ export default function LandingPage() {
                           return;
                         }
                       }
-                      const url = getShowUrl({ id: show.id, title: show.title });
+                      // Go to console page (not show page) - replace /show/ with /console/
+                      const url = getShowUrl({ id: show.id, title: show.title }).replace('/show/', '/console/');
                       router.push(url);
                     }}
                   >
@@ -562,13 +564,26 @@ export default function LandingPage() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const url = getShowUrl({ id: show.id, title: show.title, showTitle: show.showTitle });
+                            // Go to console page (not show page)
+                            const url = getShowUrl({ id: show.id, title: show.title, showTitle: show.showTitle }).replace('/show/', '/console/');
                             router.push(url);
                           }}
                           size="sm"
                           className="flex-1 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-xs h-10 shadow-lg"
                         >
-                          Open Show
+                          Open Console
+                        </Button>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/episodes/${show.id}`);
+                          }}
+                          size="sm"
+                          variant="outline"
+                          className="rounded-lg border-emerald-500/50 hover:border-emerald-400 hover:bg-emerald-500/20 text-emerald-400 font-medium text-xs h-10 px-3"
+                          title="Episode Studio"
+                        >
+                          <Clapperboard className="h-4 w-4" />
                         </Button>
                         {hasTrailer && show.trailerUrl ? (
                           <Button

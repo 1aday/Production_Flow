@@ -18,6 +18,8 @@ type PromptTemplates = {
   videoBasePrompt: string;
   posterBasePrompt: string;
   trailerBasePrompt: string;
+  episodeStillsPrompt: string;
+  episodeClipsPrompt: string;
   updatedAt: string;
 };
 
@@ -58,6 +60,8 @@ export default function PromptsPage() {
           videoBasePrompt: templates.videoBasePrompt,
           posterBasePrompt: templates.posterBasePrompt,
           trailerBasePrompt: templates.trailerBasePrompt,
+          episodeStillsPrompt: templates.episodeStillsPrompt,
+          episodeClipsPrompt: templates.episodeClipsPrompt,
         }),
       });
 
@@ -337,6 +341,67 @@ export default function PromptsPage() {
                 setHasChanges(true);
               }}
               className="min-h-[200px] resize-y rounded-2xl bg-black/60 text-sm border-white/15 font-mono"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Episode Studio Section Divider */}
+        <div className="relative py-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-emerald-500/30" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-black px-4 text-sm font-semibold text-emerald-400 flex items-center gap-2">
+              <Clapperboard className="h-4 w-4" />
+              Episode Studio Templates
+            </span>
+          </div>
+        </div>
+
+        {/* Episode Stills Generation */}
+        <Card className="border-emerald-500/20 bg-emerald-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-emerald-400" />
+              Episode Stills Template
+            </CardTitle>
+            <CardDescription>
+              Template for generating scene keyframe images. Variables: {`{SECTION_LABEL}`}, {`{EPISODE_TITLE}`}, {`{SCENE_DESCRIPTION}`}, {`{CHARACTER_LIST}`}, {`{SETTING_NOTE}`}, {`{CONTINUITY_NOTE}`}, {`{GENRE}`}, {`{PRODUCTION_MEDIUM}`}, {`{CINEMATIC_REFERENCES}`}, {`{VISUAL_TREATMENT}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={templates.episodeStillsPrompt || ''}
+              onChange={(e) => {
+                setTemplates({ ...templates, episodeStillsPrompt: e.target.value });
+                setHasChanges(true);
+              }}
+              placeholder="Template for generating episode scene stills..."
+              className="min-h-[220px] resize-y rounded-2xl bg-black/60 text-sm border-emerald-500/20 font-mono focus:border-emerald-500/50"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Episode Clips Generation */}
+        <Card className="border-violet-500/20 bg-violet-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5 text-violet-400" />
+              Episode Clips Template
+            </CardTitle>
+            <CardDescription>
+              Template for animating scene stills into video clips (VEO 3.1). Variables: {`{GENRE}`}, {`{SECTION_LABEL}`}, {`{SCENE_DESCRIPTION}`}, {`{EPISODE_TITLE}`}, {`{EPISODE_LOGLINE}`}, {`{CHARACTER_LIST}`}, {`{CONTINUITY_NOTE}`}, {`{PRODUCTION_MEDIUM}`}, {`{CINEMATIC_REFERENCES}`}, {`{VISUAL_TREATMENT}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              value={templates.episodeClipsPrompt || ''}
+              onChange={(e) => {
+                setTemplates({ ...templates, episodeClipsPrompt: e.target.value });
+                setHasChanges(true);
+              }}
+              placeholder="Template for generating episode scene video clips..."
+              className="min-h-[220px] resize-y rounded-2xl bg-black/60 text-sm border-violet-500/20 font-mono focus:border-violet-500/50"
             />
           </CardContent>
         </Card>

@@ -30,14 +30,18 @@ export async function GET(request: NextRequest) {
         headers: {
           "Authorization": `Bearer ${replicateToken}`,
         },
+        // Add timeout to prevent hanging
+        signal: AbortSignal.timeout(10000), // 10 second timeout
       });
     } catch (fetchError) {
-      console.error(`❌ Network error fetching from Replicate:`, fetchError);
+      const errorMsg = fetchError instanceof Error ? fetchError.message : "Failed to connect to Replicate API";
+      console.warn(`⚠️ Transient network error fetching from Replicate (will retry):`, errorMsg);
+      // Return a special response that frontend knows to retry
       return NextResponse.json(
         { 
-          error: "Network error",
-          detail: fetchError instanceof Error ? fetchError.message : "Failed to connect to Replicate API",
-          status: null
+          status: null, // null status indicates "unknown" not "failed"
+          detail: `Network error: ${errorMsg}`,
+          isTransient: true, // Flag for frontend to know this is retryable
         },
         { status: 200 } // Return 200 so frontend can handle gracefully
       );

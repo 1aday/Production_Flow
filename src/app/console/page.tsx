@@ -662,6 +662,10 @@ function CharacterDossierContent({
   portraitUrl,
   portraitError,
   portraitLoading,
+  portraitRetryCount,
+  portraitUsedLlmAdjustment,
+  portraitLlmAdjustmentReason,
+  portraitLlmAdjustedPrompt,
   posterAvailable,
   onGeneratePortrait,
   onClear,
@@ -679,6 +683,10 @@ function CharacterDossierContent({
   portraitUrl: string | null | undefined;
   portraitError?: string;
   portraitLoading: boolean;
+  portraitRetryCount?: number;
+  portraitUsedLlmAdjustment?: boolean;
+  portraitLlmAdjustmentReason?: string;
+  portraitLlmAdjustedPrompt?: string;
   posterAvailable: boolean;
   onGeneratePortrait: (characterId: string, customPrompt?: string) => void;
   onClear: () => void;
@@ -887,11 +895,13 @@ function CharacterDossierContent({
                   <div className="relative h-0 w-full pb-[100%]">
                     {portraitUrl ? (
                       <Image
+                        key={portraitUrl}
                         src={portraitUrl}
                         alt={`${doc.character} portrait`}
                         fill
                         className="object-cover"
                         sizes="(min-width: 768px) 360px, 100vw"
+                        unoptimized={portraitUrl.includes('replicate.delivery')}
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(229,9,20,0.25),_transparent)]">
@@ -901,14 +911,39 @@ function CharacterDossierContent({
                       </div>
                     )}
                     {portraitLoading ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 p-2">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        {(portraitRetryCount && portraitRetryCount > 0) ? (
+                          <div className="flex flex-wrap items-center justify-center gap-1">
+                            <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                              Attempt #{portraitRetryCount + 1}
+                            </span>
+                            {portraitUsedLlmAdjustment && (
+                              <span className="rounded-full bg-violet-500/20 border border-violet-500/30 px-2 py-0.5 text-[10px] font-medium text-violet-300 flex items-center gap-1">
+                                <svg className="h-2 w-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                AI
+                              </span>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
                 </div>
                 {portraitError ? (
-                  <p className="text-xs text-red-300">{portraitError}</p>
+                  <div className="space-y-1">
+                    <p className="text-xs text-red-300">{portraitError}</p>
+                    {portraitError.includes('AI-adjusted') && (
+                      <div className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5">
+                        <svg className="h-2.5 w-2.5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span className="text-[10px] font-medium text-violet-300">AI prompt was used</span>
+                      </div>
+                    )}
+                  </div>
                 ) : null}
                 <Button
                   type="button"
@@ -1195,6 +1230,8 @@ function ResultView({
   characterPortraitLoading,
   characterPortraitLoaded,
   characterPortraitErrors,
+  portraitRetryCounts,
+  portraitLlmAdjustments,
   editedPortraitPrompts,
   onSetEditedPortraitPrompt,
   characterVideos,
@@ -1246,6 +1283,11 @@ function ResultView({
   trailerRetryModel,
   setTrailerRetryModel,
   trailerRetryCount,
+  trailerUsedLlmAdjustment,
+  trailerLlmAdjustmentReason,
+  trailerAdjustingPrompt,
+  trailerOriginalPrompt,
+  trailerAdjustedPrompt,
   onGenerateTrailer,
   buildDefaultTrailerPrompt,
   onRegenerateGrid,
@@ -1269,6 +1311,8 @@ function ResultView({
   seasonArc,
   onGenerateShowFormat,
   onGenerateEpisodes,
+  // Original user prompt
+  lastPrompt,
 }: {
   blueprint: ShowBlueprint | null;
   usage?: ApiResponse["usage"];
@@ -1285,6 +1329,8 @@ function ResultView({
   characterPortraitLoading: Record<string, boolean>;
   characterPortraitLoaded: Record<string, boolean>;
   characterPortraitErrors: Record<string, string>;
+  portraitRetryCounts: Record<string, number>;
+  portraitLlmAdjustments: Record<string, { used: boolean; reason?: string; adjustedPrompt?: string }>;
   editedPortraitPrompts: Record<string, string>;
   onSetEditedPortraitPrompt: (value: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => void;
   characterVideos: Record<string, string[]>;
@@ -1336,6 +1382,11 @@ function ResultView({
   trailerRetryModel: "sora-2" | "sora-2-pro" | "veo-3.1";
   setTrailerRetryModel: (value: "sora-2" | "sora-2-pro" | "veo-3.1") => void;
   trailerRetryCount: number;
+  trailerUsedLlmAdjustment: boolean;
+  trailerLlmAdjustmentReason: string | null;
+  trailerAdjustingPrompt: boolean;
+  trailerOriginalPrompt: string | null;
+  trailerAdjustedPrompt: string | null;
   onGenerateTrailer: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => void;
   buildDefaultTrailerPrompt: () => string;
   buildDefaultLibraryPosterPrompt: () => string;
@@ -1359,6 +1410,8 @@ function ResultView({
   seasonArc: string | null;
   onGenerateShowFormat: () => void;
   onGenerateEpisodes: () => void;
+  // Original user prompt
+  lastPrompt: string | null;
 }) {
   const loaderActive = !blueprint && isLoading;
   const loaderMessage = useRotatingMessage(loaderActive, LOADING_MESSAGES, 1700);
@@ -1407,6 +1460,9 @@ function ResultView({
     return "Rendering";
   })();
   const trailerStatusDetailLabel = (() => {
+    if (trailerAdjustingPrompt || trailerStatus === "adjusting-prompt") {
+      return "GPT-4 is rewriting prompt to bypass filters";
+    }
     if (trailerStatusIsFinalFallback) {
       return trailerStatusIsStarting 
         ? "Trying Sora 2 without character grid (final fallback)"
@@ -1597,7 +1653,7 @@ function ResultView({
       : (
         <CollapsibleSection
           title="Show poster"
-          description="Netflix-style 9:16 poster featuring your characters."
+          description="Cinematic 9:16 poster featuring your characters."
           accent="lagoon"
           defaultOpen
         >
@@ -1920,7 +1976,7 @@ function ResultView({
                   }
                 }}
                 placeholder="Click to load default prompt, then edit as needed..."
-                className="min-h-[180px] text-xs font-mono resize-y bg-black/40 border-white/15"
+                className="min-h-[350px] max-h-[500px] text-xs font-mono resize-y bg-black/40 border-white/15 overflow-auto"
               />
               
               {/* Model Selector */}
@@ -2027,6 +2083,38 @@ function ResultView({
           {blueprint.show_title}
         </h2>
       ) : null}
+      
+      {/* Original Prompt - Subtle collapsible */}
+      {lastPrompt && (
+        <details className="group">
+          <summary className="flex items-center gap-2 cursor-pointer text-xs text-foreground/40 hover:text-foreground/60 transition-colors select-none list-none">
+            <svg 
+              className="h-3 w-3 transition-transform duration-200 group-open:rotate-90" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <span className="font-medium">Original prompt</span>
+            <span className="text-foreground/30">•</span>
+            <span className="truncate max-w-[200px] sm:max-w-[300px] italic text-foreground/35">
+              "{lastPrompt.slice(0, 50)}{lastPrompt.length > 50 ? '...' : ''}"
+            </span>
+          </summary>
+          <div className="mt-3 pl-5 pr-2">
+            <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+              <p className="text-sm text-foreground/60 whitespace-pre-wrap leading-relaxed italic">
+                "{lastPrompt}"
+              </p>
+              <p className="mt-2 text-[10px] text-foreground/30">
+                This is the prompt you started with when creating this show
+              </p>
+            </div>
+          </div>
+        </details>
+      )}
+      
       <p className="text-base leading-relaxed text-foreground/80 whitespace-pre-wrap">
         {blueprint.show_logline}
       </p>
@@ -2512,6 +2600,10 @@ function ResultView({
           const portraitLoading = Boolean(characterPortraitLoading[seed.id]);
           const portraitLoaded = Boolean(characterPortraitLoaded[seed.id]);
           const portraitError = characterPortraitErrors[seed.id];
+          const portraitRetryCount = portraitRetryCounts[seed.id] || 0;
+          const portraitUsedLlmAdjustment = portraitLlmAdjustments[seed.id]?.used || false;
+          const portraitLlmAdjustmentReason = portraitLlmAdjustments[seed.id]?.reason;
+          const portraitLlmAdjustedPrompt = portraitLlmAdjustments[seed.id]?.adjustedPrompt;
           const isActive = Boolean(doc && activeCharacterId === seed.id);
 
           const metadata = doc?.metadata ?? {};
@@ -2639,19 +2731,44 @@ function ResultView({
                   )}
                 >
                   <div className="relative h-0 w-full max-w-full pb-[100%]">
-                    {(portraitLoading || !portraitLoaded) ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    {/* Full loading state: still generating */}
+                    {portraitLoading ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/80 p-2 z-10">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        {portraitRetryCount > 0 && (
+                          <div className="flex flex-wrap items-center justify-center gap-1">
+                            <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-medium text-amber-300">
+                              #{portraitRetryCount + 1}
+                            </span>
+                            {portraitUsedLlmAdjustment && (
+                              <span className="rounded-full bg-violet-500/20 border border-violet-500/30 px-1.5 py-0.5 text-[9px] font-medium text-violet-300">
+                                AI
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : !portraitLoaded ? (
+                      /* Light loading state: image downloading */
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10">
+                        <div className="h-4 w-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
                       </div>
                     ) : null}
                     <Image
+                      key={portraitUrl}
                       src={portraitUrl}
                       alt={`${seed.name} portrait`}
                       fill
                       className="object-cover object-center transition-opacity duration-500"
                       sizes="(min-width: 768px) 280px, 100vw"
+                      unoptimized={portraitUrl.includes('replicate.delivery')}
                       onLoad={(e) => {
+                        console.log(`🖼️ Image onLoad fired for ${seed.id}`);
                         e.currentTarget.style.opacity = "1";
+                        onPortraitLoaded(seed.id);
+                      }}
+                      onError={(e) => {
+                        console.warn(`❌ Portrait image failed to load for ${seed.id}:`, e);
                         onPortraitLoaded(seed.id);
                       }}
                       style={{ opacity: 0 }}
@@ -2664,10 +2781,18 @@ function ResultView({
               ) : !isActive && portraitError ? (
                 <div className="relative overflow-hidden bg-black/60">
                   <div className="relative h-0 w-full pb-[100%]">
-                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-amber-500/20 to-black/60">
-                      <span className="text-sm uppercase tracking-[0.3em] text-amber-300/70">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-br from-amber-500/20 to-black/60 p-2">
+                      <span className="text-xs uppercase tracking-[0.2em] text-amber-300/70">
                         Retry
                       </span>
+                      {portraitUsedLlmAdjustment && (
+                        <span className="rounded-full bg-violet-500/20 border border-violet-500/30 px-1.5 py-0.5 text-[9px] font-medium text-violet-300 flex items-center gap-0.5">
+                          <svg className="h-2 w-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          AI tried
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2860,87 +2985,34 @@ function ResultView({
                 {buildError ? (
                   <p className="text-xs text-red-300 break-words">{buildError}</p>
                 ) : null}
-                {portraitError ? (
-                  <div className="w-full space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
-                    <p className="text-xs font-semibold text-amber-200">Portrait needs attention</p>
-                    <p className="text-xs text-amber-200/80 break-words leading-relaxed">{portraitError}</p>
-                    <details className="group">
-                      <summary 
-                        className="cursor-pointer text-xs font-medium text-amber-200/80 hover:text-amber-200 underline decoration-dotted"
-                        onClick={(e) => {
-                          // Pre-populate with original prompt when expanded
-                          if (!editedPortraitPrompts[seed.id] && doc) {
-                            const showJson = JSON.stringify(blueprint, null, 2).slice(0, 3000);
-                            const characterJson = JSON.stringify(doc, null, 2).slice(0, 3000);
-                            const defaultPrompt = [
-                              "Create a highly production character portrait.",
-                              "Focus on cinematic lighting, intentional wardrobe, and expressive posture.",
-                              "Respect the show's aesthetic while capturing the essence of the character.",
-                              "Every choice must adhere to the aesthetic, palette, lighting, and creative rules specified in the show blueprint JSON.",
-                              "",
-                              "Show blueprint JSON:",
-                              showJson,
-                              "",
-                              "Character blueprint JSON:",
-                              characterJson,
-                            ].join("\n");
-                            
-                            onSetEditedPortraitPrompt((prev) => ({
-                              ...prev,
-                              [seed.id]: defaultPrompt,
-                            }));
-                          }
-                        }}
-                      >
-                        Customize prompt & retry →
-                      </summary>
-                      <div className="mt-2 space-y-2">
-                        <Textarea
-                          value={editedPortraitPrompts[seed.id] ?? ""}
-                          onChange={(e) => {
-                            onSetEditedPortraitPrompt((prev) => ({
-                              ...prev,
-                              [seed.id]: e.target.value,
-                            }));
-                          }}
-                          placeholder="Edit the portrait prompt..."
-                          className="min-h-[120px] text-xs font-mono"
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => {
-                              const customPrompt = editedPortraitPrompts[seed.id];
-                              if (customPrompt) {
-                                onGeneratePortrait(seed.id, customPrompt);
-                              }
-                            }}
-                            disabled={!editedPortraitPrompts[seed.id] || portraitLoading}
-                            className="flex-1 rounded-full text-xs"
-                          >
-                            Retry with custom prompt
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              onSetEditedPortraitPrompt((prev) => {
-                                const next = { ...prev };
-                                delete next[seed.id];
-                                return next;
-                              });
-                            }}
-                            className="rounded-full text-xs"
-                          >
-                            Clear
-                          </Button>
-                        </div>
-                      </div>
-                    </details>
+                {/* Error indicator with retry count and AI status */}
+                {portraitError && (
+                  <div className="w-full space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-amber-400 flex-shrink-0" />
+                      <span className="text-[10px] font-semibold text-amber-300 uppercase tracking-wider">Failed</span>
+                      {portraitRetryCount > 0 && (
+                        <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[9px] font-medium text-amber-200">
+                          {portraitRetryCount + 1} attempts
+                        </span>
+                      )}
+                      {portraitUsedLlmAdjustment && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/20 border border-violet-500/30 px-2 py-0.5 text-[9px] font-medium text-violet-300">
+                          <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          AI rewrote prompt
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-amber-200/80 leading-relaxed">{portraitError}</p>
+                    {portraitLlmAdjustmentReason && (
+                      <p className="text-[10px] text-violet-300/80 leading-relaxed">
+                        <span className="font-medium">AI adjustment:</span> {portraitLlmAdjustmentReason}
+                      </p>
+                    )}
                   </div>
-                ) : null}
+                )}
                 <Button
                   type="button"
                   variant={doc ? "default" : "outline"}
@@ -3085,6 +3157,7 @@ function ResultView({
                     fill
                     className="object-cover"
                     sizes="80px"
+                    unoptimized={portraitUrl.includes('replicate.delivery')}
                   />
                 ) : isLoading ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/60">
@@ -3157,7 +3230,7 @@ function ResultView({
                     }
                   }}
                   placeholder="Click to load default prompt with style guide, then edit as needed..."
-                  className="min-h-[200px] text-xs font-mono resize-y"
+                  className="min-h-[350px] max-h-[500px] text-xs font-mono resize-y overflow-auto"
                 />
                 <p className="text-xs text-foreground/50">
                   Includes style guide from your show bible. Edit to customize the trailer prompt.
@@ -3310,17 +3383,27 @@ function ResultView({
                   <p className="text-xl font-bold tracking-tight text-foreground/95">
                     Rendering Series Trailer
                   </p>
-                  <div className="flex items-center justify-center gap-3">
+                  <div className="flex flex-wrap items-center justify-center gap-3">
                     <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5">
                       <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                       <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                        {trailerStatusBadgeLabel}
+                        {trailerAdjustingPrompt ? "AI Adjusting Prompt" : trailerStatusBadgeLabel}
                       </p>
                     </div>
                     {trailerRetryCount > 0 && (
                       <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
                         <p className="text-xs font-semibold text-amber-300">
-                          Retry #{trailerRetryCount}
+                          Attempt #{trailerRetryCount + 1}
+                        </p>
+                      </div>
+                    )}
+                    {trailerUsedLlmAdjustment && (
+                      <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5">
+                        <svg className="h-3 w-3 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <p className="text-xs font-semibold text-violet-300">
+                          AI-Adjusted Prompt
                         </p>
                       </div>
                     )}
@@ -3369,6 +3452,75 @@ function ResultView({
                     />
                   ))}
                 </div>
+                
+                {/* AI Prompt Adjustment Panel - shown while AI is rewriting */}
+                {trailerAdjustingPrompt && (
+                  <div className="mt-8 w-full max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/10 via-black/60 to-black/80 p-6 backdrop-blur-sm">
+                      {/* Header */}
+                      <div className="flex items-center justify-center gap-3 mb-5">
+                        <div className="relative">
+                          <div className="h-10 w-10 rounded-full bg-violet-500/20 flex items-center justify-center">
+                            <svg className="h-5 w-5 text-violet-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                          </div>
+                          <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-violet-400 animate-ping" />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-semibold text-violet-300">AI Rewriting Prompt</p>
+                          <p className="text-xs text-foreground/50">Bypassing content filters while preserving intent</p>
+                        </div>
+                      </div>
+                      
+                      {/* Before/After comparison */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* Original Prompt */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-red-400" />
+                            <p className="text-xs font-semibold text-red-300 uppercase tracking-wider">Original (Flagged)</p>
+                          </div>
+                          <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 h-32 overflow-y-auto">
+                            <p className="text-[11px] text-foreground/60 whitespace-pre-wrap font-mono leading-relaxed">
+                              {trailerOriginalPrompt?.slice(0, 500) || "Loading original prompt..."}
+                              {(trailerOriginalPrompt?.length || 0) > 500 ? '...' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Adjusted Prompt - Skeleton while loading */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+                            <p className="text-xs font-semibold text-green-300 uppercase tracking-wider">Adjusted (AI)</p>
+                          </div>
+                          <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-3 h-32 overflow-hidden">
+                            {/* Skeleton animation */}
+                            <div className="space-y-2 animate-pulse">
+                              <div className="h-2 bg-green-500/20 rounded w-full" />
+                              <div className="h-2 bg-green-500/20 rounded w-11/12" />
+                              <div className="h-2 bg-green-500/20 rounded w-10/12" />
+                              <div className="h-2 bg-green-500/20 rounded w-full" />
+                              <div className="h-2 bg-green-500/20 rounded w-9/12" />
+                              <div className="h-2 bg-green-500/20 rounded w-11/12" />
+                              <div className="h-2 bg-green-500/20 rounded w-8/12" />
+                            </div>
+                            <p className="text-[10px] text-green-400/60 text-center mt-3 animate-pulse">
+                              ✨ GPT-4 is crafting a safer prompt...
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Progress bar */}
+                      <div className="mt-4 h-1 w-full bg-violet-500/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-violet-500 to-violet-400 rounded-full animate-[shimmer_2s_ease-in-out_infinite]" 
+                             style={{ width: '60%', backgroundSize: '200% 100%' }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : trailerError ? (
@@ -3376,7 +3528,7 @@ function ResultView({
               <div className="space-y-6 max-w-3xl mx-auto">
                 {/* Error Header */}
                 <div className="text-center">
-                  <div className="flex items-center justify-center gap-3 mb-4">
+                  <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
                     <div className="inline-flex items-center gap-3 rounded-full border border-amber-500/40 bg-amber-500/15 px-5 py-2">
                       <div className="h-2 w-2 rounded-full bg-amber-400" />
                       <span className="text-xs font-semibold uppercase tracking-[0.26em] text-amber-300">
@@ -3390,10 +3542,88 @@ function ResultView({
                         </span>
                       </div>
                     )}
+                    {trailerUsedLlmAdjustment && (
+                      <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-2">
+                        <svg className="h-3 w-3 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span className="text-xs font-semibold text-violet-300">
+                          AI-Adjusted
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <p className="text-lg font-semibold text-amber-200">Trailer generation failed</p>
                   <p className="mt-2 text-sm text-amber-200/70 max-w-lg mx-auto">{trailerError}</p>
+                  {trailerRetryCount === 1 && !trailerUsedLlmAdjustment && (
+                    <p className="mt-2 text-xs text-foreground/50 max-w-md mx-auto">
+                      💡 Next retry will use AI to automatically adjust the prompt
+                    </p>
+                  )}
+                  {trailerRetryCount === 0 && (
+                    <p className="mt-2 text-xs text-foreground/50 max-w-md mx-auto">
+                      💡 After 2 failures, AI will automatically adjust the prompt to bypass content filters
+                    </p>
+                  )}
                 </div>
+                
+                {/* AI Prompt Adjustment Comparison - show when LLM was used */}
+                {trailerUsedLlmAdjustment && (trailerOriginalPrompt || trailerAdjustedPrompt || trailerLlmAdjustmentReason) && (
+                  <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-5 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <svg className="h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <p className="text-sm font-semibold text-violet-300">AI Prompt Adjustment</p>
+                    </div>
+                    
+                    {/* Rejection Reason */}
+                    {trailerLlmAdjustmentReason && (
+                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+                        <p className="text-xs font-medium text-amber-300 mb-1">Why it was adjusted:</p>
+                        <p className="text-sm text-amber-200/80">{trailerLlmAdjustmentReason}</p>
+                      </div>
+                    )}
+                    
+                    {/* Side-by-side prompt comparison */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Original Prompt */}
+                      {trailerOriginalPrompt && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-red-400" />
+                            <p className="text-xs font-semibold text-red-300 uppercase tracking-wider">Original (Failed)</p>
+                          </div>
+                          <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 max-h-48 overflow-y-auto">
+                            <p className="text-xs text-foreground/70 whitespace-pre-wrap font-mono leading-relaxed">
+                              {trailerOriginalPrompt.slice(0, 800)}{trailerOriginalPrompt.length > 800 ? '...' : ''}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Adjusted Prompt */}
+                      {trailerAdjustedPrompt && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-green-400" />
+                            <p className="text-xs font-semibold text-green-300 uppercase tracking-wider">AI Adjusted (Used)</p>
+                          </div>
+                          <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 max-h-48 overflow-y-auto">
+                            <p className="text-xs text-foreground/70 whitespace-pre-wrap font-mono leading-relaxed">
+                              {trailerAdjustedPrompt.slice(0, 800)}{trailerAdjustedPrompt.length > 800 ? '...' : ''}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Info about retry */}
+                    <p className="text-xs text-violet-300/60 text-center">
+                      The AI-adjusted prompt was used but still failed. You can edit below or try again.
+                    </p>
+                  </div>
+                )}
                 
                 {/* Find & Replace Section */}
                 <div className="rounded-xl border border-white/10 bg-black/40 p-5 space-y-4">
@@ -3458,7 +3688,7 @@ function ResultView({
                       }
                     }}
                     placeholder="Click to load default prompt, then edit as needed..."
-                    className="w-full min-h-[150px] rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-sm text-foreground placeholder:text-foreground/30 focus:border-primary/50 focus:outline-none font-mono"
+                    className="w-full min-h-[350px] max-h-[500px] rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-sm text-foreground placeholder:text-foreground/30 focus:border-primary/50 focus:outline-none font-mono overflow-auto resize-y"
                   />
                   
                   {/* Model Selection */}
@@ -3570,6 +3800,7 @@ function ResultView({
                                 fill
                                 className="object-cover transition-opacity duration-500"
                                 sizes="120px"
+                                unoptimized={portraitUrl.includes('replicate.delivery')}
                               />
                             ) : isLoading ? (
                               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-black/60">
@@ -3656,6 +3887,7 @@ function ResultView({
                                 fill
                                 className="object-cover transition-opacity duration-500"
                                 sizes="120px"
+                                unoptimized={portraitUrl.includes('replicate.delivery')}
                               />
                             ) : isLoading ? (
                               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-black/60">
@@ -4598,6 +4830,27 @@ function ResultView({
         onRegenerate={onGenerateShowFormat}
       />
       
+      {/* Episode Studio Quick Access - shown when episodes exist */}
+      {episodes.length > 0 && currentShowId && (
+        <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 to-transparent">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+              <Clapperboard className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold">Episode Studio</h4>
+              <p className="text-xs text-foreground/50">Generate storyboards, keyframes & video clips</p>
+            </div>
+          </div>
+          <Link href={`/episodes/${currentShowId}`}>
+            <Button size="sm" className="rounded-full bg-emerald-600 hover:bg-emerald-700 text-white">
+              Open Studio
+              <PlayCircle className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {/* Generate Episodes Button (if format exists but no episodes) */}
       {showFormat && episodes.length === 0 && !episodesLoading && (
         <div className="flex justify-center">
@@ -4620,27 +4873,8 @@ function ResultView({
           characterSeeds={characterSeeds?.map(s => ({ id: s.id, name: s.name }))}
           isLoading={episodesLoading}
           onRegenerate={showFormat ? onGenerateEpisodes : undefined}
+          showId={currentShowId || undefined}
         />
-      )}
-      
-      {/* Go to Episode Studio Button */}
-      {episodes.length > 0 && currentShowId && (
-        <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-violet-500/10 p-6 sm:p-8 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 mb-4">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-medium text-primary">Ready for Production</span>
-          </div>
-          <h3 className="text-xl font-semibold mb-2">Take it to Episode Studio</h3>
-          <p className="text-sm text-foreground/60 mb-6 max-w-md mx-auto">
-            Your episode loglines are ready. Continue in Episode Studio to generate storyboards, keyframes, and video clips.
-          </p>
-          <Link href={`/episodes/${currentShowId}`}>
-            <Button size="lg" className="rounded-full px-8">
-              <Clapperboard className="mr-2 h-4 w-4" />
-              Open Episode Studio
-            </Button>
-          </Link>
-        </div>
       )}
       
       {/* Empty state - no format and no episodes */}
@@ -4928,6 +5162,8 @@ export function Console({ initialShowId }: ConsoleProps) {
   const [stylizationGuardrails, setStylizationGuardrails] = useState(false); // Default matches home page
   const [autopilotMode, setAutopilotMode] = useState(true); // Auto-generate all media - Default ON
   const [blueprint, setBlueprint] = useState<ShowBlueprint | null>(null);
+  // Global prompt template for trailers (loaded from database)
+  const [trailerTemplate, setTrailerTemplate] = useState<string | null>(null);
   const [usage, setUsage] = useState<ApiResponse["usage"]>();
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -4966,6 +5202,23 @@ export function Console({ initialShowId }: ConsoleProps) {
         setVideoGenModel(storedVideoModel as VideoGenerationModelId);
       }
     }
+    
+    // Load global prompt templates from database
+    async function loadTemplates() {
+      try {
+        const response = await fetch("/api/prompts");
+        if (response.ok) {
+          const data = await response.json() as { templates: { trailerBasePrompt: string } };
+          if (data.templates?.trailerBasePrompt) {
+            setTrailerTemplate(data.templates.trailerBasePrompt);
+            console.log("✅ Loaded trailer template from database");
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to load prompt templates:", error);
+      }
+    }
+    void loadTemplates();
   }, []);
 
   useEffect(() => {
@@ -5058,6 +5311,11 @@ export function Console({ initialShowId }: ConsoleProps) {
   const [trailerReplaceText, setTrailerReplaceText] = useState<string>("");
   const [trailerRetryModel, setTrailerRetryModel] = useState<"sora-2" | "sora-2-pro" | "veo-3.1">(videoGenModel);
   const [trailerRetryCount, setTrailerRetryCount] = useState<number>(0);
+  const [trailerUsedLlmAdjustment, setTrailerUsedLlmAdjustment] = useState<boolean>(false);
+  const [trailerLlmAdjustmentReason, setTrailerLlmAdjustmentReason] = useState<string | null>(null);
+  const [trailerAdjustingPrompt, setTrailerAdjustingPrompt] = useState<boolean>(false);
+  const [trailerOriginalPrompt, setTrailerOriginalPrompt] = useState<string | null>(null); // The prompt before LLM adjustment
+  const [trailerAdjustedPrompt, setTrailerAdjustedPrompt] = useState<string | null>(null); // The LLM-adjusted prompt
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   
   // Episode format and loglines
@@ -5069,9 +5327,12 @@ export function Console({ initialShowId }: ConsoleProps) {
   
   const portraitJobsRef = useRef<Map<string, string>>(new Map()); // characterId -> jobId
   const portraitPollsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
-  const portraitRetryCountRef = useRef<Map<string, number>>(new Map()); // characterId -> retry count (max 4 retries)
+  const portraitRetryCountRef = useRef<Map<string, number>>(new Map()); // characterId -> retry count (max 8 with LLM adjustment)
   const portraitStartTimesRef = useRef<Map<string, number>>(new Map()); // characterId -> start timestamp for timeout
   const portraitPollCountRef = useRef<Map<string, number>>(new Map()); // characterId -> poll count for stuck detection
+  const portraitLlmAdjustedPromptRef = useRef<Map<string, string>>(new Map()); // characterId -> LLM-adjusted prompt
+  const [portraitLlmAdjustments, setPortraitLlmAdjustments] = useState<Record<string, { used: boolean; reason?: string; adjustedPrompt?: string }>>({});
+  const [portraitRetryCounts, setPortraitRetryCounts] = useState<Record<string, number>>({}); // characterId -> retry count for UI display;
   const videoJobsRef = useRef<Map<string, string>>(new Map()); // characterId -> jobId
   const videoPollsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const videoStartTimesRef = useRef<Map<string, number>>(new Map()); // characterId -> start timestamp
@@ -5598,6 +5859,9 @@ export function Console({ initialShowId }: ConsoleProps) {
       portraitStartTimesRef.current.delete(characterId);
       portraitRetryCountRef.current.delete(characterId);
       portraitPollCountRef.current.delete(characterId);
+      // Clear UI state
+      setPortraitRetryCounts(prev => { const n = { ...prev }; delete n[characterId]; return n; });
+      setPortraitLlmAdjustments(prev => { const n = { ...prev }; delete n[characterId]; return n; });
       
       // Force clear loading state - this is the key for stuck portraits
       setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
@@ -5649,6 +5913,8 @@ export function Console({ initialShowId }: ConsoleProps) {
       
       // Reset retry count for fresh generation
       portraitRetryCountRef.current.delete(characterId);
+      setPortraitRetryCounts(prev => { const n = { ...prev }; delete n[characterId]; return n; });
+      setPortraitLlmAdjustments(prev => { const n = { ...prev }; delete n[characterId]; return n; });
       
       // Track start time for timeout detection
       portraitStartTimesRef.current.set(characterId, Date.now());
@@ -5712,33 +5978,167 @@ export function Console({ initialShowId }: ConsoleProps) {
               return;
             }
             
-            // Check for max poll count (stuck detection)
+            // Check for max poll count (stuck detection) - trigger retry with LLM adjustment
             if (pollCount >= MAX_POLL_COUNT) {
-              console.error(`🔄 Portrait ${characterId} exceeded max poll count (${MAX_POLL_COUNT}), marking as failed`);
+              const currentRetryCount = portraitRetryCountRef.current.get(characterId) || 0;
+              const MAX_RETRIES = 8;
+              const LLM_ADJUSTMENT_THRESHOLD = 2;
               
-              setCharacterPortraitErrors((prev) => ({
-                ...prev,
-                [characterId]: "Portrait generation appears stuck. The job may have failed silently. Please try again.",
-              }));
-              setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+              console.warn(`🔄 Portrait ${characterId} stuck (poll ${pollCount}), retry ${currentRetryCount + 1}/${MAX_RETRIES}`);
               
-              if (currentShowId) {
-                updateBackgroundTask(replicateJobId, { 
-                  status: 'failed', 
-                  error: "Exceeded max poll count - job appears stuck" 
-                });
-                setTimeout(() => removeBackgroundTask(replicateJobId), 10000);
-              }
-              
+              // Stop current polling
               const interval = portraitPollsRef.current.get(characterId);
               if (interval) {
                 clearInterval(interval);
                 portraitPollsRef.current.delete(characterId);
               }
               portraitJobsRef.current.delete(characterId);
+              portraitPollCountRef.current.delete(characterId);
+              
+              // If we can retry, do so with LLM adjustment
+              if (currentRetryCount < MAX_RETRIES) {
+                const retryNumber = currentRetryCount + 1;
+                portraitRetryCountRef.current.set(characterId, retryNumber);
+                setPortraitRetryCounts(prev => ({ ...prev, [characterId]: retryNumber }));
+                
+                console.log(`🔄 Retrying stuck portrait (attempt ${retryNumber + 1}) for ${characterId}`);
+                
+                // Retry after delay with LLM adjustment if threshold met
+                const needsLlmAdjustment = retryNumber >= LLM_ADJUSTMENT_THRESHOLD && !portraitLlmAdjustedPromptRef.current.has(characterId);
+                const retryDelay = needsLlmAdjustment ? 3000 : 1500;
+                
+                setTimeout(async () => {
+                  try {
+                    // LLM prompt adjustment for stuck retries
+                    let promptToUse = customPrompt || portraitLlmAdjustedPromptRef.current.get(characterId) || undefined;
+                    
+                    if (retryNumber >= LLM_ADJUSTMENT_THRESHOLD && !portraitLlmAdjustedPromptRef.current.has(characterId)) {
+                      console.log(`🤖 Requesting LLM prompt adjustment for stuck portrait ${characterId}`);
+                      
+                      try {
+                        const seed = characterSeeds?.find(s => s.id === characterId);
+                        // Build a proper prompt with character details for LLM to adjust
+                        const charName = seed?.name || (doc?.metadata as Record<string, unknown>)?.name as string || characterId;
+                        const charRole = seed?.role || doc?.metadata?.role || 'character';
+                        const charSummary = seed?.summary || doc?.metadata?.function || '';
+                        const charVibe = seed?.vibe || '';
+                        const appearance = doc?.look?.silhouette || doc?.look?.surface?.materials || '';
+                        const expression = doc?.performance?.expression_set?.[0] || 'neutral';
+                        const pose = doc?.performance?.pose_defaults || 'natural pose';
+                        
+                        // Build a meaningful prompt that includes character details
+                        const detailedPrompt = [
+                          `Create a high-quality character portrait for a TV show.`,
+                          ``,
+                          `CHARACTER: ${charName}`,
+                          `ROLE: ${charRole}`,
+                          charSummary ? `DESCRIPTION: ${charSummary}` : '',
+                          charVibe ? `VIBE: ${charVibe}` : '',
+                          appearance ? `APPEARANCE: ${appearance}` : '',
+                          `EXPRESSION: ${expression}`,
+                          `POSE: ${pose}`,
+                          ``,
+                          `Style: ${blueprint?.production_style?.medium || 'Cinematic'}`,
+                          `Genre: ${(blueprint as Record<string, unknown>)?.genre as string || 'drama'}`,
+                          ``,
+                          `Create a professional, cinematic portrait with theatrical lighting and expressive posture.`,
+                        ].filter(Boolean).join('\n');
+                        
+                        const adjustResponse = await fetch("/api/adjust-prompt", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            originalPrompt: customPrompt || detailedPrompt,
+                            generationType: "portrait",
+                            errorMessage: "Generation timed out/stuck - may need simpler or clearer prompt",
+                            attemptNumber: retryNumber + 1,
+                          }),
+                        });
+                        
+                        if (adjustResponse.ok) {
+                          const adjustResult = await adjustResponse.json() as {
+                            success: boolean;
+                            adjustedPrompt?: string;
+                            adjustmentReason?: string;
+                          };
+                          
+                          if (adjustResult.success && adjustResult.adjustedPrompt) {
+                            promptToUse = adjustResult.adjustedPrompt;
+                            portraitLlmAdjustedPromptRef.current.set(characterId, adjustResult.adjustedPrompt);
+                            console.log(`✅ LLM adjusted prompt for stuck portrait ${characterId}`);
+                            
+                            setPortraitLlmAdjustments(prev => ({
+                              ...prev,
+                              [characterId]: { 
+                                used: true, 
+                                reason: adjustResult.adjustmentReason,
+                                adjustedPrompt: adjustResult.adjustedPrompt 
+                              }
+                            }));
+                          }
+                        }
+                      } catch (adjustError) {
+                        console.error(`⚠️ LLM adjustment failed for stuck portrait:`, adjustError);
+                      }
+                    }
+                    
+                    // Retry the generation
+                    const retryResponse = await fetch("/api/characters/portrait", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        show: blueprint,
+                        character: doc,
+                        customPrompt: promptToUse,
+                        imageModel,
+                      }),
+                    });
+                    
+                    if (retryResponse.ok) {
+                      const retryResult = await retryResponse.json() as { jobId?: string };
+                      if (retryResult.jobId) {
+                        console.log(`✅ Retry started for stuck portrait: ${retryResult.jobId}`);
+                        portraitJobsRef.current.set(characterId, retryResult.jobId);
+                        portraitStartTimesRef.current.set(characterId, Date.now());
+                        startPolling(retryResult.jobId);
+                      }
+                    } else {
+                      throw new Error(`Retry failed: ${retryResponse.status}`);
+                    }
+                  } catch (retryError) {
+                    console.error(`❌ Retry failed for stuck portrait:`, retryError);
+                    setCharacterPortraitErrors((prev) => ({
+                      ...prev,
+                      [characterId]: `Portrait failed after ${retryNumber + 1} attempts (stuck/timeout).`,
+                    }));
+                    setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+                    portraitRetryCountRef.current.delete(characterId);
+                    portraitLlmAdjustedPromptRef.current.delete(characterId);
+                  }
+                }, retryDelay);
+                
+                return; // Don't mark as failed yet
+              }
+              
+              // All retries exhausted
+              const usedLlm = portraitLlmAdjustedPromptRef.current.has(characterId);
+              setCharacterPortraitErrors((prev) => ({
+                ...prev,
+                [characterId]: `Portrait generation failed after ${currentRetryCount + 1} attempts (stuck/timeout).${usedLlm ? ' AI-adjusted prompt was used.' : ''}`,
+              }));
+              setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+              
+              if (currentShowId) {
+                updateBackgroundTask(replicateJobId, { 
+                  status: 'failed', 
+                  error: `Exceeded max retries - job stuck after ${currentRetryCount + 1} attempts` 
+                });
+                setTimeout(() => removeBackgroundTask(replicateJobId), 10000);
+              }
+              
               portraitStartTimesRef.current.delete(characterId);
               portraitRetryCountRef.current.delete(characterId);
-              portraitPollCountRef.current.delete(characterId);
+              portraitLlmAdjustedPromptRef.current.delete(characterId);
               return;
             }
             
@@ -5816,24 +6216,41 @@ export function Console({ initialShowId }: ConsoleProps) {
               status: string | null;
               detail?: string;
               outputUrl?: string;
+              isTransient?: boolean;
             };
+            
+            // Skip transient errors and wait for next poll
+            if (data.isTransient) {
+              console.warn(`⚠️ Portrait ${characterId} transient error, waiting for next poll...`);
+              return;
+            }
             
             console.log(`📊 Portrait ${characterId} status:`, data.status);
             
             if (data.status === "succeeded" && data.outputUrl) {
               console.log(`✅ Portrait ${characterId} completed:`, data.outputUrl.slice(0, 60) + "...");
+              console.log(`🔧 Setting state: portraits[${characterId}] = URL, loading = false, loaded = false (waiting for image onLoad)`);
               
-              setCharacterPortraits((prev) => ({
-                ...prev,
-                [characterId]: data.outputUrl ?? null,
-              }));
+              setCharacterPortraits((prev) => {
+                console.log(`📝 Portrait state update for ${characterId}:`, { 
+                  prevCount: Object.keys(prev).length,
+                  newUrl: data.outputUrl?.slice(0, 40) + '...' 
+                });
+                return {
+                  ...prev,
+                  [characterId]: data.outputUrl ?? null,
+                };
+              });
               setCharacterPortraitLoaded((prev) => ({
                 ...prev,
-                [characterId]: false,
+                [characterId]: false, // Will be set to true when Image.onLoad fires
               }));
               
-              // Clear loading state
-              setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+              // Clear loading state IMMEDIATELY
+              setCharacterPortraitLoading((prev) => {
+                console.log(`📝 Loading state update for ${characterId}: false`);
+                return { ...prev, [characterId]: false };
+              });
               
               // Update background task
               if (currentShowId) {
@@ -5853,6 +6270,10 @@ export function Console({ initialShowId }: ConsoleProps) {
               portraitJobsRef.current.delete(characterId);
               portraitStartTimesRef.current.delete(characterId);
               portraitRetryCountRef.current.delete(characterId);
+              portraitLlmAdjustedPromptRef.current.delete(characterId);
+              // Clear UI state on success (but keep LLM adjustment info briefly so user knows it worked)
+              setPortraitRetryCounts(prev => { const n = { ...prev }; delete n[characterId]; return n; });
+              // Note: Keep portraitLlmAdjustments briefly visible on success
               
               // Play success sound
               playSuccessChime();
@@ -5875,22 +6296,40 @@ export function Console({ initialShowId }: ConsoleProps) {
                 console.log(`⏳ ${completedCount}/${characterSeeds?.length || 0} portraits complete`);
               }
             } else if (data.status === "failed" || data.status === null) {
+              let errorMessage = data.detail || "Failed to generate portrait.";
+              
+              // Check if this is a transient network error - if so, just skip this poll and wait for next one
+              const isNetworkError = errorMessage.includes("fetch failed") || 
+                                     errorMessage.includes("network") || 
+                                     errorMessage.includes("ECONNREFUSED") ||
+                                     errorMessage.includes("timeout");
+              
+              if (isNetworkError && data.status === null) {
+                console.warn(`⚠️ Portrait ${characterId} network error (will retry on next poll):`, errorMessage);
+                // Don't treat as failure - just skip this poll and let the next one try
+                return;
+              }
+              
               console.error(`❌ Portrait ${characterId} failed:`, data.detail);
               
-              let errorMessage = data.detail || "Failed to generate portrait.";
               const isContentFilterError = errorMessage.includes("E005") || errorMessage.includes("flagged as sensitive") || errorMessage.includes("content filter");
               const isRateLimitError = errorMessage.includes("429") || errorMessage.includes("rate limit") || errorMessage.includes("too many requests");
-              const isRetryableError = isContentFilterError || isRateLimitError;
+              const isStuckError = errorMessage.includes("stuck") || errorMessage.includes("silently");
+              // ALL errors are now retryable (we'll use LLM adjustment to fix prompt issues)
+              const isRetryableError = true;
               
-              // Check if we should retry for content filter or rate limit errors
+              // Check if we should retry
               const currentRetryCount = portraitRetryCountRef.current.get(characterId) || 0;
-              const MAX_RETRIES = 4;
+              const MAX_RETRIES = 8; // Extended from 4 to allow for LLM-adjusted retries
+              const LLM_ADJUSTMENT_THRESHOLD = 2; // Start LLM adjustment at retry 2 (lowered for faster response)
               
               if (isRetryableError && currentRetryCount < MAX_RETRIES) {
                 // Retry the generation
                 const retryNumber = currentRetryCount + 1;
                 portraitRetryCountRef.current.set(characterId, retryNumber);
-                const errorType = isRateLimitError ? "Rate limit (429)" : "Content filter";
+                // Update state for UI display
+                setPortraitRetryCounts(prev => ({ ...prev, [characterId]: retryNumber }));
+                const errorType = isRateLimitError ? "Rate limit" : isContentFilterError ? "Content filter" : isStuckError ? "Stuck/timeout" : "Generation error";
                 console.log(`🔄 ${errorType} - retrying portrait (attempt ${retryNumber + 1}/${MAX_RETRIES + 1}) for ${characterId}`);
                 
                 // Stop current polling
@@ -5905,13 +6344,15 @@ export function Console({ initialShowId }: ConsoleProps) {
                 if (currentShowId) {
                   updateBackgroundTask(replicateJobId, { 
                     status: 'processing', 
-                    metadata: { retryAttempt: retryNumber }
+                    metadata: { retryAttempt: retryNumber, usesLlmAdjustment: retryNumber >= LLM_ADJUSTMENT_THRESHOLD }
                   });
                 }
                 
-                // Retry after delay (longer for rate limits)
-                const retryDelay = isRateLimitError ? 3000 + (retryNumber * 2000) : 1500;
-                console.log(`⏳ Waiting ${retryDelay}ms before retry...`);
+                // Retry after delay (longer for rate limits, even longer if we need LLM adjustment)
+                // LLM adjustment now triggers for ANY error after threshold, not just content filter
+                const needsLlmAdjustment = retryNumber >= LLM_ADJUSTMENT_THRESHOLD && !portraitLlmAdjustedPromptRef.current.has(characterId);
+                const retryDelay = isRateLimitError ? 3000 + (retryNumber * 2000) : (needsLlmAdjustment ? 3000 : 1500);
+                console.log(`⏳ Waiting ${retryDelay}ms before retry${needsLlmAdjustment ? ' (with LLM adjustment)' : ''}...`);
                 
                 // Capture the job ID at the time of scheduling the retry
                 const retryFromJobId = replicateJobId;
@@ -5926,7 +6367,83 @@ export function Console({ initialShowId }: ConsoleProps) {
                       return; // Abort this retry, a new generation was started
                     }
                     
-                    console.log(`🎨 Retrying portrait for ${characterId} (attempt ${retryNumber + 1})`);
+                    // LLM prompt adjustment for ANY error at retry 2+
+                    let promptToUse = customPrompt || portraitLlmAdjustedPromptRef.current.get(characterId) || undefined;
+                    
+                    // Trigger LLM adjustment for any error after threshold (not just content filter)
+                    if (retryNumber >= LLM_ADJUSTMENT_THRESHOLD && !portraitLlmAdjustedPromptRef.current.has(characterId)) {
+                      console.log(`🤖 Requesting LLM prompt adjustment for ${characterId} (attempt ${retryNumber + 1})`);
+                      
+                      try {
+                        // Build a proper prompt with character details for LLM to adjust
+                        const seed = characterSeeds?.find(s => s.id === characterId);
+                        const charName = seed?.name || (doc?.metadata as Record<string, unknown>)?.name as string || characterId;
+                        const charRole = seed?.role || doc?.metadata?.role || 'character';
+                        const charSummary = seed?.summary || doc?.metadata?.function || '';
+                        const charVibe = seed?.vibe || '';
+                        const appearance = doc?.look?.silhouette || doc?.look?.surface?.materials || '';
+                        const expression = doc?.performance?.expression_set?.[0] || 'neutral';
+                        const pose = doc?.performance?.pose_defaults || 'natural pose';
+                        
+                        // Build a meaningful prompt that includes character details
+                        const detailedPrompt = [
+                          `Create a high-quality character portrait for a TV show.`,
+                          ``,
+                          `CHARACTER: ${charName}`,
+                          `ROLE: ${charRole}`,
+                          charSummary ? `DESCRIPTION: ${charSummary}` : '',
+                          charVibe ? `VIBE: ${charVibe}` : '',
+                          appearance ? `APPEARANCE: ${appearance}` : '',
+                          `EXPRESSION: ${expression}`,
+                          `POSE: ${pose}`,
+                          ``,
+                          `Style: ${blueprint?.production_style?.medium || 'Cinematic'}`,
+                          `Genre: ${(blueprint as Record<string, unknown>)?.genre as string || 'drama'}`,
+                          ``,
+                          `Create a professional, cinematic portrait with theatrical lighting and expressive posture.`,
+                        ].filter(Boolean).join('\n');
+                        
+                        const adjustResponse = await fetch("/api/adjust-prompt", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            originalPrompt: customPrompt || detailedPrompt,
+                            generationType: "portrait",
+                            errorMessage: errorMessage,
+                            attemptNumber: retryNumber + 1,
+                          }),
+                        });
+                        
+                        if (adjustResponse.ok) {
+                          const adjustResult = await adjustResponse.json() as {
+                            success: boolean;
+                            adjustedPrompt?: string;
+                            adjustmentReason?: string;
+                          };
+                          
+                          if (adjustResult.success && adjustResult.adjustedPrompt) {
+                            promptToUse = adjustResult.adjustedPrompt;
+                            portraitLlmAdjustedPromptRef.current.set(characterId, adjustResult.adjustedPrompt);
+                            console.log(`✅ LLM adjusted portrait prompt for ${characterId}`);
+                            
+                            // Track LLM adjustment usage and store the adjusted prompt
+                            setPortraitLlmAdjustments(prev => ({
+                              ...prev,
+                              [characterId]: { 
+                                used: true, 
+                                reason: adjustResult.adjustmentReason,
+                                adjustedPrompt: adjustResult.adjustedPrompt 
+                              }
+                            }));
+                          }
+                        }
+                      } catch (adjustError) {
+                        console.error(`⚠️ LLM adjustment failed for portrait:`, adjustError);
+                        // Continue with original prompt
+                      }
+                    }
+                    
+                    console.log(`🎨 Retrying portrait for ${characterId} (attempt ${retryNumber + 1})${promptToUse ? ' with adjusted prompt' : ''}`);
                     
                     const retryResponse = await fetch("/api/characters/portrait", {
                       method: "POST",
@@ -5934,7 +6451,7 @@ export function Console({ initialShowId }: ConsoleProps) {
                       body: JSON.stringify({
                         show: blueprint,
                         character: doc,
-                        customPrompt: customPrompt || undefined,
+                        customPrompt: promptToUse,
                         imageModel,
                       }),
                     });
@@ -5955,9 +6472,10 @@ export function Console({ initialShowId }: ConsoleProps) {
                     }
                   } catch (retryError) {
                     console.error(`❌ Retry ${retryNumber} failed:`, retryError);
+                    const usedLlm = portraitLlmAdjustedPromptRef.current.has(characterId);
                     const retryErrorMsg = isRateLimitError 
                       ? `Portrait generation failed after ${retryNumber + 1} attempts due to rate limiting. Please wait a moment and try again.`
-                      : `Portrait generation failed after ${retryNumber + 1} attempts. Content was flagged by filters.`;
+                      : `Portrait generation failed after ${retryNumber + 1} attempts. Content was flagged by filters.${usedLlm ? ' (AI-adjusted prompt was used)' : ''}`;
                     setCharacterPortraitErrors((prev) => ({
                       ...prev,
                       [characterId]: retryErrorMsg,
@@ -5965,6 +6483,7 @@ export function Console({ initialShowId }: ConsoleProps) {
                     setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
                     portraitRetryCountRef.current.delete(characterId);
                     portraitStartTimesRef.current.delete(characterId);
+                    portraitLlmAdjustedPromptRef.current.delete(characterId);
                   }
                 }, retryDelay);
                 
@@ -5972,11 +6491,15 @@ export function Console({ initialShowId }: ConsoleProps) {
               }
               
               // All retries exhausted or non-retryable error
+              const usedLlmAdjustment = portraitLlmAdjustedPromptRef.current.has(characterId);
               if (isContentFilterError) {
-                errorMessage = `Portrait was flagged by content filters after ${currentRetryCount + 1} attempts. Try editing the character description or regenerating with a custom prompt.`;
+                errorMessage = `Portrait was flagged by content filters after ${currentRetryCount + 1} attempts${usedLlmAdjustment ? ' (including AI-adjusted prompt)' : ''}. Try editing the character description or regenerating with a custom prompt.`;
               } else if (isRateLimitError) {
                 errorMessage = `Portrait generation rate limited after ${currentRetryCount + 1} attempts. Please wait a few minutes and try again.`;
               }
+              
+              // Clean up LLM adjustment ref
+              portraitLlmAdjustedPromptRef.current.delete(characterId);
               
               // Clear retry count on final failure
               portraitRetryCountRef.current.delete(characterId);
@@ -6088,6 +6611,7 @@ export function Console({ initialShowId }: ConsoleProps) {
   );
 
   const handlePortraitLoaded = useCallback((characterId: string) => {
+    console.log(`✅ Portrait image loaded/rendered for ${characterId}, setting portraitLoaded = true`);
     setCharacterPortraitLoaded((prev) => ({
       ...prev,
       [characterId]: true,
@@ -6821,6 +7345,7 @@ export function Console({ initialShowId }: ConsoleProps) {
 
       try {
         console.log("🚀 Starting trailer generation with jobId:", jobId);
+        console.log("   Current retry count:", trailerRetryCount);
         
         // Create a clean, serializable copy of blueprint data
         // Only include simple, serializable data to avoid circular references
@@ -6842,6 +7367,78 @@ export function Console({ initialShowId }: ConsoleProps) {
           };
         }
         
+        // Auto LLM prompt adjustment after 2 failures (lowered from 4 for faster response)
+        const LLM_ADJUSTMENT_THRESHOLD = 2;
+        let finalPrompt = customPrompt || undefined;
+        let usedLlmAdjustment = false;
+        let adjustmentReason: string | null = null;
+        let originalPromptForDisplay: string | null = null;
+        let adjustedPromptForDisplay: string | null = null;
+        
+        // Build the base prompt that will be used (either custom or default)
+        const basePrompt = customPrompt || buildDefaultTrailerPrompt();
+        
+        if (trailerRetryCount >= LLM_ADJUSTMENT_THRESHOLD) {
+          console.log("🤖 Auto-adjusting prompt with LLM (attempt #" + (trailerRetryCount + 1) + ")...");
+          setTrailerAdjustingPrompt(true);
+          setTrailerStatus("adjusting-prompt");
+          
+          // Store the original prompt for display - set immediately so UI shows it while loading
+          originalPromptForDisplay = basePrompt;
+          setTrailerOriginalPrompt(basePrompt);
+          
+          try {
+            const adjustResponse = await fetch("/api/adjust-prompt", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                originalPrompt: basePrompt,
+                generationType: "trailer",
+                errorMessage: trailerError || "Content flagged by moderation",
+                attemptNumber: trailerRetryCount + 1,
+              }),
+            });
+            
+            if (adjustResponse.ok) {
+              const adjustResult = await adjustResponse.json() as {
+                success: boolean;
+                adjustedPrompt?: string;
+                adjustmentReason?: string;
+                confidenceLevel?: string;
+                refusal?: string;
+              };
+              
+              if (adjustResult.success && adjustResult.adjustedPrompt) {
+                finalPrompt = adjustResult.adjustedPrompt;
+                adjustedPromptForDisplay = adjustResult.adjustedPrompt;
+                usedLlmAdjustment = true;
+                adjustmentReason = adjustResult.adjustmentReason || null;
+                console.log("✅ LLM adjusted prompt successfully");
+                console.log("   Reason:", adjustmentReason);
+                console.log("   Confidence:", adjustResult.confidenceLevel);
+              } else if (adjustResult.refusal) {
+                console.log("⚠️ LLM refused to adjust:", adjustResult.refusal);
+                adjustmentReason = `LLM refused: ${adjustResult.refusal}`;
+              }
+            } else {
+              const errorText = await adjustResponse.text().catch(() => "Unknown error");
+              console.error("❌ LLM adjustment API error:", errorText);
+              adjustmentReason = `API error: ${errorText.slice(0, 100)}`;
+            }
+          } catch (adjustError) {
+            console.error("⚠️ LLM adjustment failed:", adjustError);
+            adjustmentReason = adjustError instanceof Error ? adjustError.message : "Unknown error";
+          } finally {
+            setTrailerAdjustingPrompt(false);
+          }
+        }
+        
+        // Track LLM adjustment usage and store prompts for UI display
+        setTrailerUsedLlmAdjustment(usedLlmAdjustment);
+        setTrailerLlmAdjustmentReason(adjustmentReason);
+        setTrailerOriginalPrompt(originalPromptForDisplay);
+        setTrailerAdjustedPrompt(adjustedPromptForDisplay);
+        
         const response = await fetch("/api/trailer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -6852,7 +7449,7 @@ export function Console({ initialShowId }: ConsoleProps) {
             show: cleanBlueprint,
             jobId,
             model: modelToUse,
-            customPrompt: customPrompt || undefined,
+            customPrompt: finalPrompt,
           }),
         }).catch((fetchError) => {
           throw new Error(`Network error: ${fetchError.message || "Check your connection and try again"}`);
@@ -6899,6 +7496,7 @@ export function Console({ initialShowId }: ConsoleProps) {
       
       setTrailerUrl(result.url);
       setTrailerRetryCount(0); // Reset retry count on success
+      // Note: Keep LLM adjustment info visible even on success so user knows it was used
       
       // Update background task as succeeded
       if (currentShowId) {
@@ -6918,14 +7516,11 @@ export function Console({ initialShowId }: ConsoleProps) {
       console.error("Failed to generate trailer:", err);
       let message = err instanceof Error ? err.message : "Unable to generate trailer.";
       
-      // Handle E005 sensitivity flag - check if VEO fallback was attempted
-      if (message.includes("E005") || message.includes("flagged as sensitive")) {
-        // Check if both models failed (VEO was attempted)
-        if (message.includes("VEO") || message.includes("also failed")) {
-          message = "Both Sora 2 and VEO 3.1 flagged this content. Please edit the prompt below to adjust the trailer description.";
-        } else {
-          message = "Trailer was flagged by content filters. Attempting VEO 3.1 fallback automatically, or edit the prompt below.";
-        }
+      // Handle E005 sensitivity flag - all automatic retries have already been attempted by backend
+      // Backend flow: Sora → AI rewrite → Sora retry → VEO → Sora (no grid)
+      if (message.includes("E005") || message.includes("flagged as sensitive") || message.includes("All trailer generation methods failed")) {
+        // All automatic retries (including AI prompt rewrite) have been attempted
+        message = "Content was flagged. Automatic retries (AI prompt rewrite + VEO fallback) were attempted. Please edit the prompt below.";
         
         // Pre-populate edit field with default prompt if not already set
         if (!editedTrailerPrompt && blueprint) {
@@ -6963,6 +7558,8 @@ export function Console({ initialShowId }: ConsoleProps) {
         setTrailerElapsed(0);
       }, 3000);
     }
+  // Note: buildDefaultTrailerPrompt is intentionally not in deps - it's defined later in file
+  // and its dependencies (blueprint, trailerTemplate) are already captured here
   }, [
     blueprint,
     portraitGridUrl,
@@ -6972,6 +7569,8 @@ export function Console({ initialShowId }: ConsoleProps) {
     stopTrailerStatusPolling,
     currentShowId,
     videoGenModel,
+    trailerRetryCount,
+    trailerError,
   ]);
 
   // REMOVED: Old auto-poster effect - We only use library poster now
@@ -7906,7 +8505,24 @@ export function Console({ initialShowId }: ConsoleProps) {
     
     const showTitle = blueprint.show_title || "Untitled Show";
     const logline = blueprint.show_logline || "";
+    const productionStyle = blueprint.production_style;
+    const productionMedium = productionStyle?.medium || "";
+    const cinematicReferences = (productionStyle?.cinematic_references || []).join(", ");
+    const visualTreatment = productionStyle?.visual_treatment || "";
+    const stylizationLevel = productionStyle?.stylization_level || "";
 
+    // Use the global template if available
+    if (trailerTemplate) {
+      return trailerTemplate
+        .replace(/{SHOW_TITLE}/g, showTitle)
+        .replace(/{LOGLINE}/g, logline)
+        .replace(/{PRODUCTION_MEDIUM}/g, productionMedium)
+        .replace(/{CINEMATIC_REFERENCES}/g, cinematicReferences)
+        .replace(/{VISUAL_TREATMENT}/g, visualTreatment)
+        .replace(/{STYLIZATION_LEVEL}/g, stylizationLevel);
+    }
+
+    // Fallback to hardcoded default
     return `Create an iconic teaser trailer for the series "${showTitle}".
 
 ${logline}
@@ -7943,7 +8559,7 @@ TRAILER REQUIREMENTS:
 4. Create a well-paced, exciting montage that captures the show's core vibe and genre
 5. Showcase the MOST INTERESTING and ICONIC moments that would make viewers want to watch
 6. Build anticipation and intrigue through dynamic editing, compelling visuals, and punchy narration`;
-  }, [blueprint]);
+  }, [blueprint, trailerTemplate]);
 
   const generateLibraryPoster = useCallback(async (customPrompt?: string) => {
     const canGenerate = canGenerateLibraryPoster();
@@ -8736,6 +9352,8 @@ TRAILER REQUIREMENTS:
             characterPortraitLoading={characterPortraitLoading}
             characterPortraitLoaded={characterPortraitLoaded}
             characterPortraitErrors={characterPortraitErrors}
+            portraitRetryCounts={portraitRetryCounts}
+            portraitLlmAdjustments={portraitLlmAdjustments}
             editedPortraitPrompts={editedPortraitPrompts}
             onSetEditedPortraitPrompt={setEditedPortraitPrompts}
             characterVideos={characterVideos}
@@ -8787,6 +9405,11 @@ TRAILER REQUIREMENTS:
             trailerRetryModel={trailerRetryModel}
             setTrailerRetryModel={setTrailerRetryModel}
             trailerRetryCount={trailerRetryCount}
+            trailerUsedLlmAdjustment={trailerUsedLlmAdjustment}
+            trailerLlmAdjustmentReason={trailerLlmAdjustmentReason}
+            trailerAdjustingPrompt={trailerAdjustingPrompt}
+            trailerOriginalPrompt={trailerOriginalPrompt}
+            trailerAdjustedPrompt={trailerAdjustedPrompt}
             buildDefaultTrailerPrompt={buildDefaultTrailerPrompt}
             buildDefaultLibraryPosterPrompt={buildDefaultLibraryPosterPrompt}
             onGenerateTrailer={(model, customPrompt) => void generateTrailer(model, customPrompt)}
@@ -8933,6 +9556,7 @@ TRAILER REQUIREMENTS:
             seasonArc={seasonArc}
             onGenerateShowFormat={generateShowFormat}
             onGenerateEpisodes={generateEpisodes}
+            lastPrompt={lastPrompt}
           />
         </div>
       </main>

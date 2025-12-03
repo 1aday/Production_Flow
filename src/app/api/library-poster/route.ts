@@ -194,7 +194,7 @@ RENDERING FREEDOM:
     let posterRequirements = "";
     
     if (stylizationGuardrails) {
-      // Guardrails ON: Use theatrical/Netflix-style language
+      // Guardrails ON: Use theatrical language
       posterRequirements = `
 CRITICAL POSTER REQUIREMENTS:
 
@@ -204,8 +204,8 @@ CRITICAL POSTER REQUIREMENTS:
    - Font choice should match the show's aesthetic and tone
    - Consider cinematic title treatment (gradients, shadows, artistic styling)
 
-2. NETFLIX-STYLE DESIGN:
-   - Modern streaming service aesthetic with premium typography
+2. PREMIUM POSTER DESIGN:
+   - Modern cinematic aesthetic with premium typography
    - Character-focused composition using the provided character reference images
    - Moody atmospheric background that sets the tone
    - Premium quality, theatrical release aesthetic

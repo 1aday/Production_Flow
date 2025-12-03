@@ -84,6 +84,14 @@ export async function POST(request: NextRequest) {
 
   const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines. We want to make a guideline compatible video given this, thats the task, so figure it out.\n\n";
 
+  // Fetch the global template from database
+  const supabase = createServerSupabaseClient();
+  const { data: templateData } = await supabase
+    .from('prompt_templates')
+    .select('episode_clips_prompt')
+    .eq('id', 'default')
+    .single();
+
   // Build the video prompt - use custom if provided
   let prompt: string;
   
@@ -91,8 +99,33 @@ export async function POST(request: NextRequest) {
     // Use custom prompt - prepend safety prefix if not already there
     prompt = customPrompt.includes("hesitations") ? customPrompt : SAFETY_PREFIX + customPrompt;
     console.log("📝 Using CUSTOM VIDEO PROMPT");
+  } else if (templateData?.episode_clips_prompt) {
+    // Use the global template with variable substitution
+    const characterList = characterNames?.length 
+      ? `Characters in this scene: ${characterNames.join(", ")}.` 
+      : "";
+    
+    const continuityNote = previousScene 
+      ? `CONTINUITY: This follows from "${previousScene.slice(0, 100)}..."` 
+      : "";
+    
+    prompt = templateData.episode_clips_prompt
+      .replace(/{GENRE}/g, genre || "dramatic")
+      .replace(/{SECTION_LABEL}/g, sectionLabel)
+      .replace(/{SCENE_DESCRIPTION}/g, sectionDescription)
+      .replace(/{EPISODE_TITLE}/g, episodeTitle)
+      .replace(/{EPISODE_LOGLINE}/g, episodeLogline)
+      .replace(/{CHARACTER_LIST}/g, characterList)
+      .replace(/{CONTINUITY_NOTE}/g, continuityNote)
+      .replace(/{PRODUCTION_MEDIUM}/g, "")
+      .replace(/{CINEMATIC_REFERENCES}/g, "")
+      .replace(/{VISUAL_TREATMENT}/g, "");
+    
+    // Prepend safety prefix if not already there
+    prompt = prompt.includes("hesitations") ? prompt : SAFETY_PREFIX + prompt;
+    console.log("📝 Using GLOBAL TEMPLATE for video prompt");
   } else {
-    // Build default prompt
+    // Fallback to hardcoded default
     const characterList = characterNames?.length 
       ? `Characters in this scene: ${characterNames.join(", ")}.` 
       : "";

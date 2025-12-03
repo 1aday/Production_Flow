@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, RotateCcw, Sparkles, Play, Users, Clapperboard, Zap, BookOpen } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, RotateCcw, Sparkles, Play, Users, Clapperboard, Zap, BookOpen, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ type Props = {
   isLoading?: boolean;
   onRegenerate?: () => void;
   onEditEpisode?: (episode: Episode, index: number) => void;
+  showId?: string; // For linking to Episode Studio
 };
 
 const EPISODE_TYPE_STYLES: Record<string, { bg: string; border: string; text: string }> = {
@@ -45,6 +47,7 @@ export function EpisodeCards({
   characterSeeds,
   isLoading, 
   onRegenerate,
+  showId,
 }: Props) {
   const [selectedEpisode, setSelectedEpisode] = useState<number>(0);
 
@@ -129,12 +132,23 @@ export function EpisodeCards({
           <h3 className="text-base sm:text-lg font-semibold">Season One</h3>
           <p className="text-xs text-foreground/50">{episodes.length} Episodes</p>
         </div>
-        {onRegenerate && (
-          <Button variant="ghost" size="sm" onClick={onRegenerate} className="rounded-full h-8 px-3 text-xs">
-            <RotateCcw className="h-3 w-3 mr-1.5" />
-            Regenerate
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {showId && (
+            <Link href={`/episodes/${showId}`}>
+              <Button variant="outline" size="sm" className="rounded-full h-8 px-3 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50">
+                <Clapperboard className="h-3 w-3 mr-1.5" />
+                Episode Studio
+                <ArrowRight className="h-3 w-3 ml-1" />
+              </Button>
+            </Link>
+          )}
+          {onRegenerate && (
+            <Button variant="ghost" size="sm" onClick={onRegenerate} className="rounded-full h-8 px-3 text-xs">
+              <RotateCcw className="h-3 w-3 mr-1.5" />
+              Regenerate
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Season Arc */}
