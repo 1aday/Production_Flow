@@ -259,25 +259,64 @@
   /* Thin scrollbars for non-hidden areas */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.15) transparent;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
   }
   
   .scrollbar-thin::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+    width: 5px;
+    height: 5px;
   }
   
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
+    margin: 4px 0;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.15);
-    border-radius: 2px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.2);
+  }
+  
+  /* Glow scrollbar for focused input areas */
+  .scrollbar-thin:focus::-webkit-scrollbar-thumb {
+    background: rgba(229, 9, 20, 0.25);
+  }
+  
+  /* Premium input scrollbar - subtle and elegant */
+  .input-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+  }
+  
+  .input-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .input-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 8px 0;
+  }
+  
+  .input-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    transition: background 0.2s ease;
+  }
+  
+  .input-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.15);
+  }
+  
+  .input-scrollbar:focus::-webkit-scrollbar-thumb {
+    background: rgba(229, 9, 20, 0.2);
+  }
+  
+  .input-scrollbar:focus::-webkit-scrollbar-thumb:hover {
+    background: rgba(229, 9, 20, 0.3);
   }
   
   /* Hidden scrollbar but still scrollable */

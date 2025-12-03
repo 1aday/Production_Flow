@@ -19,10 +19,9 @@ const nextConfig: NextConfig = {
         pathname: "/storage/v1/object/public/**",
       },
     ],
-    // Skip optimization for external images - they're already optimized at source
-    // This prevents the 7-second timeout errors from Next.js image optimization
+    // Skip Next.js optimization - use Supabase image transforms instead
+    // This avoids slow on-the-fly conversion timeouts
     unoptimized: true,
-    // Cache images longer
     minimumCacheTTL: 3600,
   },
 };

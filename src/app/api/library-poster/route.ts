@@ -353,7 +353,7 @@ Remember: The show title "${showTitle}" MUST be clearly visible with beautiful t
             image_input: [characterImageUrl], // Reference image array
             aspect_ratio: "2:3",
             resolution: "2K",
-            output_format: "png",
+            output_format: "png", // PNG for compatibility
             safety_filter_level: "block_only_high",
           },
         }),
@@ -406,7 +406,7 @@ Remember: The show title "${showTitle}" MUST be clearly visible with beautiful t
           image: characterImageUrl,
           prompt_strength: 0.85, // Strong adherence to prompt while keeping character
           aspect_ratio: "9:16",
-          output_format: "png",
+          output_format: "png", // PNG for compatibility
           safety_tolerance: 2,
         },
       });

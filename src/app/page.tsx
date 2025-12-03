@@ -9,6 +9,7 @@ import { Navbar } from "@/components/Navbar";
 import { STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
 import { getShowUrl } from "@/lib/slug";
 import { cn } from "@/lib/utils";
+import { getPosterDisplayUrl } from "@/lib/image-utils";
 
 type ImageModelId = "gpt-image" | "flux" | "nano-banana-pro";
 type VideoModelId = "sora-2" | "sora-2-pro" | "veo-3.1";
@@ -161,19 +162,6 @@ export default function LandingPage() {
     window.localStorage.setItem("production-flow.autopilot-mode", autopilotMode ? "true" : "false");
   }, [autopilotMode]);
 
-  // Close tapped show when clicking outside - don't interfere with card clicks
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      // Don't clear if clicking inside a show card
-      if (target.closest('[data-show-card]')) {
-        return;
-      }
-      setTappedShow(null);
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
 
   const toggleStylizationGuardrails = () => {
     setStylizationGuardrails((prev) => !prev);
@@ -190,8 +178,8 @@ export default function LandingPage() {
 
   const [videoLightbox, setVideoLightbox] = useState<{ url: string; title: string } | null>(null);
   const [hoveredShow, setHoveredShow] = useState<string | null>(null);
-  const [tappedShow, setTappedShow] = useState<string | null>(null);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea based on content
@@ -202,9 +190,11 @@ export default function LandingPage() {
     // Reset height to auto to get the correct scrollHeight
     textarea.style.height = 'auto';
     
-    // Calculate new height (min 56px for mobile, 80px for desktop, max 200px)
-    const minHeight = window.innerWidth >= 640 ? 80 : 56;
-    const maxHeight = 200;
+    // Calculate new height - generous limits for long content
+    // Mobile: min 60px, max 200px | Desktop: min 72px, max 340px
+    const isMobile = window.innerWidth < 640;
+    const minHeight = isMobile ? 60 : 72;
+    const maxHeight = isMobile ? 200 : 340;
     const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
     
     textarea.style.height = `${newHeight}px`;
@@ -214,6 +204,10 @@ export default function LandingPage() {
   useEffect(() => {
     adjustTextareaHeight();
   }, [input, adjustTextareaHeight]);
+
+  // Character count for UI feedback
+  const charCount = input.length;
+  const hasContent = charCount > 0;
 
   return (
     <div className="min-h-screen bg-black text-foreground overflow-x-hidden w-full max-w-full">
@@ -267,140 +261,166 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Input */}
-          <div className="max-w-4xl mx-auto space-y-4">
-            <div className="relative group">
-              {/* Animated glow - appears when typing */}
-              <div className={`absolute -inset-0.5 bg-gradient-to-r from-primary via-primary/60 to-primary/40 rounded-xl blur-xl transition-opacity duration-700 ${
-                input.trim() ? 'opacity-25' : 'opacity-0'
-              }`} />
-              
-              {/* Subtle border animation when typing */}
-              <div className={`absolute -inset-px bg-gradient-to-r from-primary/50 via-primary/30 to-transparent rounded-xl transition-opacity duration-500 ${
-                input.trim() ? 'opacity-100' : 'opacity-0'
-              }`} />
-              
-              {/* Focus glow */}
-              <div className="absolute -inset-0.5 bg-primary/15 rounded-xl blur-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
-              
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  // Submit on Enter (without shift) or Cmd/Ctrl+Enter
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    void handleSubmit();
-                  }
-                }}
-                placeholder="A robot family navigating suburban life..."
-                disabled={isSubmitting}
-                rows={1}
-                className="relative w-full min-h-[48px] sm:min-h-[64px] max-h-[160px] bg-zinc-900/50 border border-white/20 focus:border-primary/40 rounded-lg sm:rounded-xl px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-xl text-white placeholder:text-white/25 focus:outline-none focus:bg-zinc-900/70 transition-all duration-300 backdrop-blur-2xl font-light resize-none overflow-y-auto leading-relaxed"
-                style={{ height: 'auto' }}
-              />
-            </div>
-
-            {/* Collapsible Settings Panel */}
-            <div className="rounded-lg border border-white/10 bg-black/30 backdrop-blur-sm overflow-hidden">
-              {/* Settings Header - Always Visible */}
-              <button
-                type="button"
-                onClick={() => setSettingsExpanded(!settingsExpanded)}
-                className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-white/5 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <Settings2 className="h-3.5 w-3.5 text-white/50" />
-                  <span className="text-xs font-medium text-white/80">Settings</span>
-                </div>
-                
-                {/* Compact Summary when collapsed */}
-                <div className="flex items-center gap-2">
-                  {!settingsExpanded && (
-                    <div className="flex items-center gap-1 text-[10px] text-white/50">
-                      <span className="px-1.5 py-0.5 rounded bg-white/10">
-                        {IMAGE_MODEL_OPTIONS.find(m => m.id === imageModel)?.label}
-                      </span>
-                      <span className="text-white/30">•</span>
-                      <span className="px-1.5 py-0.5 rounded bg-white/10">
-                        {VIDEO_MODEL_OPTIONS.find(m => m.id === videoModel)?.label}
-                      </span>
-                      {autopilotMode && (
-                        <>
-                          <span className="text-white/30">•</span>
-                          <span className="px-1.5 py-0.5 rounded bg-primary/20 text-primary">
-                            <Zap className="h-2.5 w-2.5 inline" />
-                          </span>
-                        </>
-                      )}
-                  </div>
-                  )}
-                  <ChevronDown className={cn(
-                    "h-3.5 w-3.5 text-white/40 transition-transform duration-200",
-                    settingsExpanded && "rotate-180"
-                  )} />
-                </div>
-              </button>
-
-              {/* Expandable Content */}
+          {/* Input Card */}
+          <div className="max-w-3xl mx-auto">
+            <div className={cn(
+              "relative rounded-2xl transition-all duration-300",
+              "bg-zinc-900/70 backdrop-blur-xl",
+              "border border-white/10",
+              isFocused && "border-white/20 shadow-[0_0_40px_rgba(229,9,20,0.15)]",
+              hasContent && "shadow-lg"
+            )}>
+              {/* Subtle glow effect when focused */}
               <div className={cn(
-                "grid transition-all duration-300 ease-out",
-                settingsExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                "absolute -inset-px rounded-2xl transition-opacity duration-500 pointer-events-none",
+                "bg-gradient-to-b from-white/[0.08] to-transparent",
+                isFocused ? "opacity-100" : "opacity-0"
+              )} />
+
+              {/* Main Textarea */}
+              <div className="relative">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSubmit();
+                    }
+                  }}
+                  placeholder="What's your show about?"
+                  disabled={isSubmitting}
+                  rows={1}
+                  className={cn(
+                    "w-full bg-transparent resize-none",
+                    "px-5 sm:px-6 pt-5 sm:pt-6",
+                    "pb-3 sm:pb-4",
+                    "text-[15px] sm:text-[17px] text-white/95 placeholder:text-white/35",
+                    "leading-[1.7] tracking-[0.01em]",
+                    "focus:outline-none",
+                    // Custom scrollbar
+                    "scrollbar-thin"
+                  )}
+                  style={{ height: 'auto' }}
+                />
+              </div>
+
+              {/* Bottom Toolbar */}
+              <div className="relative flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-t border-white/[0.06]">
+                {/* Left: Settings & Options */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Autopilot Chip */}
+                  <button
+                    type="button"
+                    onClick={() => setAutopilotMode(!autopilotMode)}
+                    className={cn(
+                      "flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium transition-all",
+                      autopilotMode
+                        ? "bg-primary/20 text-primary border border-primary/30"
+                        : "bg-white/5 text-white/50 border border-white/10 hover:bg-white/10"
+                    )}
+                  >
+                    <Zap className="h-3 w-3" />
+                    <span className="hidden sm:inline">Autopilot</span>
+                  </button>
+
+                  {/* Settings Dropdown Trigger */}
+                  <button
+                    type="button"
+                    onClick={() => setSettingsExpanded(!settingsExpanded)}
+                    className={cn(
+                      "flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] font-medium transition-all",
+                      "bg-white/5 text-white/50 border border-white/10 hover:bg-white/10 hover:text-white/70",
+                      settingsExpanded && "bg-white/10 text-white/70"
+                    )}
+                  >
+                    <Settings2 className="h-3 w-3" />
+                    <span className="hidden sm:inline">Options</span>
+                    <ChevronDown className={cn(
+                      "h-3 w-3 transition-transform duration-200",
+                      settingsExpanded && "rotate-180"
+                    )} />
+                  </button>
+
+                  {/* Character count - appears for long content */}
+                  {charCount > 100 && (
+                    <span className={cn(
+                      "text-[10px] font-mono tabular-nums px-2",
+                      charCount > 3000 ? "text-amber-400/60" : "text-white/30"
+                    )}>
+                      {charCount.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+
+                {/* Right: Submit Button */}
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!input.trim() || isSubmitting}
+                  size="sm"
+                  className={cn(
+                    "h-8 sm:h-9 px-4 sm:px-5 rounded-full font-semibold text-xs sm:text-sm",
+                    "bg-primary hover:bg-primary/90 text-white",
+                    "shadow-[0_0_20px_rgba(229,9,20,0.4)] hover:shadow-[0_0_25px_rgba(229,9,20,0.5)]",
+                    "disabled:shadow-none disabled:opacity-40",
+                    "transition-all duration-200"
+                  )}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Generate</span>
+                      <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Expandable Settings Panel */}
+              <div className={cn(
+                "grid transition-all duration-300 ease-out border-t border-white/[0.06]",
+                settingsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
               )}>
                 <div className="overflow-hidden">
-                  <div className="px-3 pb-3 space-y-3 border-t border-white/10 pt-3">
-                    {/* Quick Toggles */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {/* Autopilot Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => setAutopilotMode(!autopilotMode)}
-                        className={cn(
-                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all",
-                          autopilotMode
-                            ? "border-primary/60 bg-primary/15 text-white"
-                            : "border-white/20 bg-transparent text-white/60 hover:bg-white/5"
-                        )}
-                      >
-                        <Zap className={cn("h-3 w-3", autopilotMode ? "text-primary" : "text-white/40")} />
-                        Autopilot
-                        {autopilotMode && <CheckCircle2 className="h-2.5 w-2.5 text-primary" />}
-                      </button>
-
-                      {/* Guardrails Toggle */}
+                  <div className="p-4 sm:p-5 space-y-4">
+                    {/* Features Row */}
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={toggleStylizationGuardrails}
                         className={cn(
-                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-[11px] font-medium transition-all",
+                          "flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium transition-all",
                           stylizationGuardrails
-                            ? "border-primary/60 bg-primary/15 text-white"
-                            : "border-white/20 bg-transparent text-white/60 hover:bg-white/5"
+                            ? "bg-primary/15 text-white border border-primary/40"
+                            : "bg-white/5 text-white/60 border border-white/10 hover:bg-white/10"
                         )}
                       >
-                        <Sparkles className={cn("h-3 w-3", stylizationGuardrails ? "text-primary" : "text-white/40")} />
-                        Stylization
-                        {stylizationGuardrails && <CheckCircle2 className="h-2.5 w-2.5 text-primary" />}
+                        <Sparkles className={cn("h-3.5 w-3.5", stylizationGuardrails && "text-primary")} />
+                        Stylization Guardrails
+                        {stylizationGuardrails && <CheckCircle2 className="h-3 w-3 text-primary" />}
                       </button>
                     </div>
 
-                    {/* Model Selection - Horizontal Scrollable */}
-                    <div className="space-y-2">
+                    {/* Model Selection */}
+                    <div className="grid gap-4 sm:grid-cols-2">
                       {/* Image Model */}
-                      <div className="space-y-1">
-                        <p className="text-[9px] uppercase tracking-wider text-white/40 font-medium">Image Model</p>
-                        <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+                      <div className="space-y-2">
+                        <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Image Model</p>
+                        <div className="flex flex-wrap gap-1.5">
                           {IMAGE_MODEL_OPTIONS.map((option) => (
                             <button
                               key={option.id}
                               type="button"
                               onClick={() => setImageModel(option.id)}
                               className={cn(
-                                "flex-shrink-0 px-2.5 py-1.5 rounded-md border text-[11px] transition-all whitespace-nowrap",
+                                "h-8 px-3 rounded-lg text-xs font-medium transition-all",
                                 imageModel === option.id
-                                  ? "border-primary bg-primary/15 text-white font-medium"
-                                  : "border-white/15 bg-transparent text-white/60 hover:bg-white/5 hover:border-white/25"
+                                  ? "bg-white/15 text-white border border-white/20"
+                                  : "bg-white/5 text-white/50 border border-transparent hover:bg-white/10 hover:text-white/70"
                               )}
                             >
                               {option.label}
@@ -410,19 +430,19 @@ export default function LandingPage() {
                       </div>
 
                       {/* Video Model */}
-                      <div className="space-y-1">
-                        <p className="text-[9px] uppercase tracking-wider text-white/40 font-medium">Video Model</p>
-                        <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+                      <div className="space-y-2">
+                        <p className="text-[10px] uppercase tracking-widest text-white/40 font-semibold">Video Model</p>
+                        <div className="flex flex-wrap gap-1.5">
                           {VIDEO_MODEL_OPTIONS.map((option) => (
                             <button
                               key={option.id}
                               type="button"
                               onClick={() => setVideoModel(option.id)}
                               className={cn(
-                                "flex-shrink-0 px-2.5 py-1.5 rounded-md border text-[11px] transition-all whitespace-nowrap",
+                                "h-8 px-3 rounded-lg text-xs font-medium transition-all",
                                 videoModel === option.id
-                                  ? "border-primary bg-primary/15 text-white font-medium"
-                                  : "border-white/15 bg-transparent text-white/60 hover:bg-white/5 hover:border-white/25"
+                                  ? "bg-white/15 text-white border border-white/20"
+                                  : "bg-white/5 text-white/50 border border-transparent hover:bg-white/10 hover:text-white/70"
                               )}
                             >
                               {option.label}
@@ -435,27 +455,11 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
-            
-            <div className="flex items-center justify-center">
-              <Button
-                onClick={handleSubmit}
-                disabled={!input.trim() || isSubmitting}
-                size="lg"
-                className="h-11 sm:h-12 px-6 sm:px-10 rounded-full bg-gradient-to-r from-primary to-orange-600 hover:from-primary/90 hover:to-orange-600/90 text-white font-bold text-sm sm:text-base shadow-[0_0_30px_rgba(229,9,20,0.5)] sm:shadow-[0_0_50px_rgba(229,9,20,0.6)] hover:shadow-[0_0_40px_rgba(229,9,20,0.7)] hover:scale-[1.02] transition-all duration-300 border-0 w-full sm:w-auto"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                    <span>Creating...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Generate Show Bible</span>
-                    <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
-                  </>
-                )}
-              </Button>
-            </div>
+
+            {/* Keyboard hint */}
+            <p className="text-center text-[11px] text-white/25 mt-3 hidden sm:block">
+              Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-[10px]">Enter</kbd> to generate • <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-[10px]">Shift+Enter</kbd> for new line
+            </p>
           </div>
         </div>
       </section>
@@ -475,15 +479,14 @@ export default function LandingPage() {
             </div>
 
             {/* Shows Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3">
               {shows.map((show, index) => {
                 const posterUrl = show.libraryPosterUrl || show.posterUrl;
                 const title = show.showTitle || show.title;
                 const hasTrailer = !!show.trailerUrl;
                 
                 const isHovered = hoveredShow === show.id;
-                const isTapped = tappedShow === show.id;
-                const showActions = isHovered || isTapped;
+                const showActions = isHovered;
                 
                 return (
                   <div
@@ -491,13 +494,7 @@ export default function LandingPage() {
                     data-show-card
                     role="button"
                     tabIndex={0}
-                    className={`group relative overflow-hidden rounded-lg bg-zinc-900 transition-all duration-200 cursor-pointer select-none
-                      ${isTapped 
-                        ? 'ring-2 ring-primary scale-105 z-10 shadow-xl shadow-primary/30' 
-                        : 'hover:ring-2 hover:ring-white/20 hover:scale-105 hover:z-10'
-                      }
-                      active:scale-100 active:brightness-90
-                    `}
+                    className="group relative overflow-hidden rounded-lg bg-zinc-900 transition-all duration-200 cursor-pointer select-none hover:ring-2 hover:ring-white/20 hover:scale-105 hover:z-10 active:scale-100 active:brightness-90"
                     onMouseEnter={() => setHoveredShow(show.id)}
                     onMouseLeave={() => setHoveredShow(null)}
                     onClick={(e) => {
@@ -508,16 +505,7 @@ export default function LandingPage() {
                         return;
                       }
                       
-                      // On mobile/touch devices, first tap shows actions, second tap opens show
-                      const isTouchDevice = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768;
-                      if (isTouchDevice) {
-                        if (!isTapped) {
-                          e.preventDefault();
-                          setTappedShow(show.id);
-                          return;
-                        }
-                      }
-                      // Go to console page (not show page) - replace /show/ with /console/
+                      // Go directly to console page on tap/click
                       const url = getShowUrl({ id: show.id, title: show.title }).replace('/show/', '/console/');
                       router.push(url);
                     }}
@@ -542,12 +530,14 @@ export default function LandingPage() {
                         />
                       ) : posterUrl ? (
                         <Image
-                          src={posterUrl}
+                          src={getPosterDisplayUrl(posterUrl)}
                           alt={title}
                           fill
                           className="object-cover"
                           sizes="(min-width: 1536px) 280px, (min-width: 1024px) 240px, (min-width: 768px) 200px, 160px"
                           loading={index < 6 ? "eager" : "lazy"}
+                          placeholder="blur"
+                          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAYH/8QAIBAAAgEEAgMBAAAAAAAAAAAAAQIDBBEABQYSITFBUf/EABQBAQAAAAAAAAAAAAAAAAAAAAX/xAAdEQACAQQDAAAAAAAAAAAAAAABAgADBAURITFB/9oADAMBAAIRAxEAPwCVq+P7K0lptzPcvM9Wq/aqIv8ATRj5YZHY+aVGLMxJJJJyxm/P/9k="
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900">
@@ -560,15 +550,6 @@ export default function LandingPage() {
                       {/* Gradient overlay - always visible */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
                       
-                      {/* Mobile tap indicator */}
-                      <div className={`absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm pointer-events-none transition-opacity duration-150 z-20 ${isTapped ? 'opacity-100' : 'opacity-0'}`}>
-                        <div className="flex flex-col items-center gap-2 text-white">
-                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center animate-pulse shadow-lg shadow-primary/40">
-                            <Play className="h-5 w-5 ml-0.5" />
-                          </div>
-                          <span className="text-xs font-medium drop-shadow-lg">Tap again to open</span>
-                        </div>
-                      </div>
                       
                       {/* Delete button - top right, always visible on tap/hover */}
                       <div className={`absolute top-2 right-2 transition-all duration-200 ${showActions ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none md:opacity-0 md:group-hover:opacity-100 md:group-hover:translate-y-0 md:group-hover:pointer-events-auto'}`}>

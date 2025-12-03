@@ -8,6 +8,46 @@ import {
 
 export const maxDuration = 300; // 5 minutes for trailer generation
 
+// Helper function to fetch with retry for transient network errors
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 3,
+  retryDelay: number = 2000
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      const errorCode = (error as NodeJS.ErrnoException)?.code;
+      
+      // Only retry on transient network errors
+      const isTransient = 
+        errorCode === 'ECONNRESET' ||
+        errorCode === 'ETIMEDOUT' ||
+        errorCode === 'ECONNREFUSED' ||
+        errorCode === 'ENOTFOUND' ||
+        lastError.message.includes('fetch failed') ||
+        lastError.message.includes('network');
+      
+      if (!isTransient || attempt === maxRetries) {
+        throw lastError;
+      }
+      
+      console.warn(`⚠️ Network error (${errorCode || lastError.message}), retrying in ${retryDelay}ms... (attempt ${attempt}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      // Exponential backoff
+      retryDelay = Math.min(retryDelay * 1.5, 10000);
+    }
+  }
+  
+  throw lastError || new Error('fetchWithRetry failed');
+}
+
 type TrailerBody = {
   title: string;
   logline: string;
@@ -63,14 +103,15 @@ async function generateWithSora(
   const prediction = await response.json() as { id: string; status: string; error?: string; output?: unknown };
   console.log("Sora prediction created:", prediction.id);
 
-  // Poll for completion
+  // Poll for completion with retry logic for transient network errors
   let result = prediction;
   setTrailerStatusRecord(jobId, `${modelId}-${result.status}`);
   while (result.status === "starting" || result.status === "processing") {
     await new Promise(resolve => setTimeout(resolve, 3000));
-    const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-      headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
-    });
+    const statusResponse = await fetchWithRetry(
+      `https://api.replicate.com/v1/predictions/${result.id}`,
+      { headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` } }
+    );
     result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
     console.log(`${modelName} status:`, result.status);
     setTrailerStatusRecord(jobId, `${modelId}-${result.status}`);
@@ -140,14 +181,15 @@ async function generateWithVeo(
   const prediction = await response.json() as { id: string; status: string; error?: string; output?: unknown };
   console.log("VEO prediction created:", prediction.id);
 
-  // Poll for completion
+  // Poll for completion with retry logic for transient network errors
   let result = prediction;
   setTrailerStatusRecord(jobId, `veo-${result.status}`);
   while (result.status === "starting" || result.status === "processing") {
     await new Promise(resolve => setTimeout(resolve, 3000));
-    const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-      headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
-    });
+    const statusResponse = await fetchWithRetry(
+      `https://api.replicate.com/v1/predictions/${result.id}`,
+      { headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` } }
+    );
     result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
     console.log("VEO status:", result.status);
     setTrailerStatusRecord(jobId, `veo-${result.status}`);
@@ -434,14 +476,15 @@ TRAILER REQUIREMENTS:
         const veoPrediction = await veoResponse.json() as { id: string; status: string; error?: string; output?: unknown };
         console.log("VEO prediction created:", veoPrediction.id);
 
-        // Poll for VEO completion
+        // Poll for VEO completion with retry logic for transient network errors
         let veoResult = veoPrediction;
         setTrailerStatusRecord(jobId, `veo-${veoResult.status}`);
         while (veoResult.status === "starting" || veoResult.status === "processing") {
           await new Promise(resolve => setTimeout(resolve, 3000));
-          const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${veoResult.id}`, {
-            headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
-          });
+          const statusResponse = await fetchWithRetry(
+            `https://api.replicate.com/v1/predictions/${veoResult.id}`,
+            { headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` } }
+          );
           veoResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
           console.log("VEO status:", veoResult.status);
           setTrailerStatusRecord(jobId, `veo-${veoResult.status}`);
@@ -513,14 +556,15 @@ TRAILER REQUIREMENTS:
           const soraFallbackPrediction = await soraFallbackResponse.json() as { id: string; status: string; error?: string; output?: unknown };
           console.log("Sora 2 (no grid) prediction created:", soraFallbackPrediction.id);
 
-          // Poll for completion
+          // Poll for completion with retry logic for transient network errors
           let soraFallbackResult = soraFallbackPrediction;
           setTrailerStatusRecord(jobId, `final-fallback-${soraFallbackResult.status}`);
           while (soraFallbackResult.status === "starting" || soraFallbackResult.status === "processing") {
             await new Promise(resolve => setTimeout(resolve, 3000));
-            const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${soraFallbackResult.id}`, {
-              headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
-            });
+            const statusResponse = await fetchWithRetry(
+              `https://api.replicate.com/v1/predictions/${soraFallbackResult.id}`,
+              { headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` } }
+            );
             soraFallbackResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
             console.log("Sora 2 (no grid) status:", soraFallbackResult.status);
             setTrailerStatusRecord(jobId, `final-fallback-${soraFallbackResult.status}`);

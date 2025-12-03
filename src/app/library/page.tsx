@@ -10,6 +10,7 @@ import { Navbar } from "@/components/Navbar";
 // Note: LIBRARY_LOAD_STORAGE_KEY no longer needed - we use URL-based routing now
 import { calculateShowCompletion, getCompletionBadgeVariant } from "@/lib/show-completion";
 import { getShowUrl } from "@/lib/slug";
+import { getPosterDisplayUrl } from "@/lib/image-utils";
 
 type LibraryShow = {
   id: string;
@@ -172,14 +173,15 @@ export default function LibraryPage() {
                   <div className="relative h-0 w-full pb-[150%]">
                     {show.libraryPosterUrl || show.posterUrl ? (
                       <Image
-                        src={show.libraryPosterUrl || show.posterUrl || ""}
+                        src={getPosterDisplayUrl(show.libraryPosterUrl || show.posterUrl)}
                         alt={show.showTitle || show.title}
                         fill
                         className="object-cover transition duration-300 group-hover:scale-[1.01]"
                         sizes="(min-width: 1536px) 16vw, (min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
                         loading={index < 8 ? "eager" : "lazy"}
-                        quality={80}
                         onLoad={() => setImageLoadCount(prev => prev + 1)}
+                        placeholder="blur"
+                        blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAYH/8QAIBAAAgEEAgMBAAAAAAAAAAAAAQIDBBEABQYSITFBUf/EABQBAQAAAAAAAAAAAAAAAAAAAAX/xAAdEQACAQQDAAAAAAAAAAAAAAABAgADBAURITFB/9oADAMBAAIRAxEAPwCVq+P7K0lptzPcvM9Wq/aqIv8ATRj5YZHY+aVGLMxJJJJyxm/P/9k="
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-transparent">

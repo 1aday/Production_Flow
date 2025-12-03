@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle, Sparkles, Users, Film, PlayCircle, Boxes, Clapperboard, Zap, RefreshCw } from "lucide-react";
+import { ChevronDown, Copy, Loader2, SendHorizontal, Library, Plus, X, Clock, Settings, FileText, Sliders, ListChecks, Download, Eye, ArrowLeft, AlertCircle, Sparkles, Users, Film, PlayCircle, Boxes, Clapperboard, Zap, RefreshCw, Check } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,10 @@ import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { LIBRARY_LOAD_STORAGE_KEY, STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
+import { getPosterDisplayUrl, getThumbnailUrl } from "@/lib/image-utils";
+
+// Blur placeholder for progressive image loading
+const BLUR_PLACEHOLDER = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFgABAQEAAAAAAAAAAAAAAAAAAAYH/8QAIBAAAgEEAgMBAAAAAAAAAAAAAQIDBBEABQYSITFBUf/EABQBAQAAAAAAAAAAAAAAAAAAAAX/xAAdEQACAQQDAAAAAAAAAAAAAAABAgADBAURITFB/9oADAMBAAIRAxEAPwCVq+P7K0lptzPcvM9Wq/aqIv8ATRj5YZHY+aVGLMxJJJJyxm/P/9k=";
 import { calculateShowCompletion } from "@/lib/show-completion";
 import { addBackgroundTask, updateBackgroundTask, removeBackgroundTask, getShowTasks } from "@/lib/background-tasks";
 import { getShowUrl } from "@/lib/slug";
@@ -906,12 +910,13 @@ function CharacterDossierContent({
                     {portraitUrl ? (
                       <Image
                         key={portraitUrl}
-                        src={portraitUrl}
+                        src={getPosterDisplayUrl(portraitUrl)}
                         alt={`${doc.character} portrait`}
                         fill
                         className="object-cover"
                         sizes="(min-width: 768px) 360px, 100vw"
-                        unoptimized={portraitUrl.includes('replicate.delivery')}
+                        placeholder="blur"
+                        blurDataURL={BLUR_PLACEHOLDER}
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(229,9,20,0.25),_transparent)]">
@@ -1280,9 +1285,12 @@ function ResultView({
   trailerOriginalPrompt,
   trailerAdjustedPrompt,
   onGenerateTrailer,
+  onRetryTrailerWithSelectedCharacters,
   buildDefaultTrailerPrompt,
   onRegenerateGrid,
   onRegeneratePoster,
+  trailerSelectedCharacters,
+  setTrailerSelectedCharacters,
   editedLibraryPosterPrompt,
   setEditedLibraryPosterPrompt,
   onClearTrailer,
@@ -1380,10 +1388,13 @@ function ResultView({
   trailerOriginalPrompt: string | null;
   trailerAdjustedPrompt: string | null;
   onGenerateTrailer: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => void;
+  onRetryTrailerWithSelectedCharacters: (model?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', customPrompt?: string) => void;
   buildDefaultTrailerPrompt: () => string;
   buildDefaultLibraryPosterPrompt: () => string;
   onRegenerateGrid: () => void;
   onRegeneratePoster: (customPrompt?: string) => void;
+  trailerSelectedCharacters: Set<string>;
+  setTrailerSelectedCharacters: (value: Set<string>) => void;
   editedLibraryPosterPrompt: string;
   setEditedLibraryPosterPrompt: (value: string) => void;
   onClearTrailer: () => void;
@@ -1893,9 +1904,39 @@ function ResultView({
     >
       <div className="space-y-4">
         {trailerLoading ? (
-          <div className="flex items-center gap-2 px-2 py-2 text-xs text-foreground/50">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-            Rendering trailer…
+          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="absolute inset-0 h-8 w-8 animate-ping opacity-20 rounded-full bg-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground/90">
+                  {trailerStatus === "generating-grid" 
+                    ? "Generating new character grid..." 
+                    : trailerStatus === "adjusting-prompt"
+                    ? "AI is optimizing prompt..."
+                    : "Rendering trailer..."}
+                </p>
+                <p className="text-xs text-foreground/50 mt-0.5">
+                  {trailerStatus === "generating-grid"
+                    ? "Creating grid with selected characters"
+                    : trailerStatus === "adjusting-prompt"
+                    ? "Making prompt content-filter friendly"
+                    : trailerElapsed > 0
+                    ? `${Math.floor(trailerElapsed / 1000)}s elapsed • Usually takes 5-10 minutes`
+                    : "This usually takes 5-10 minutes"}
+                </p>
+              </div>
+            </div>
+            {trailerElapsed > 0 && trailerStatus !== "generating-grid" && (
+              <div className="w-full bg-black/30 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-primary to-orange-500 rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.min(95, (trailerElapsed / 600000) * 100)}%` }}
+                />
+              </div>
+            )}
           </div>
         ) : trailerUrl ? (
           <div className="overflow-hidden rounded-2xl sm:rounded-3xl border border-white/10 bg-black/60 shadow-[0_12px_40px_rgba(0,0,0,0.55)] sm:shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
@@ -1921,142 +1962,348 @@ function ResultView({
         )}
         {trailerError ? (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-4">
+            {/* Error Header with Retry Stage Indicator */}
             <div>
-              <p className="text-sm font-semibold text-amber-200">Trailer generation failed</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-amber-200">Trailer generation failed</p>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
+                  Attempt {trailerRetryCount + 1}
+                </span>
+              </div>
               <p className="mt-1 text-xs text-amber-200/80 break-words leading-relaxed">{trailerError}</p>
             </div>
             
-            {/* Edit Prompt Section - Always visible on error */}
-            <div className="space-y-3 pt-2 border-t border-amber-500/20">
-              <p className="text-xs font-medium text-amber-200/90">Edit prompt & retry:</p>
-              
-              {/* Find & Replace */}
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="flex-1">
-                  <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-1">Find</label>
-                  <input
-                    type="text"
-                    value={trailerFindText}
-                    onChange={(e) => setTrailerFindText(e.target.value)}
-                    placeholder="Text to find..."
-                    className="w-full rounded-lg border border-white/20 bg-black/60 px-3 py-2 text-xs text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none"
-                  />
+            {/* STAGE 1: First failure - Simple retry with AI rewrite option */}
+            {trailerRetryCount < 2 && (
+              <div className="space-y-3 pt-2 border-t border-amber-500/20">
+                <div className="flex items-center gap-2 text-xs text-foreground/70">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span>AI will automatically rewrite the prompt to avoid content filters</span>
                 </div>
-                <div className="flex-1">
-                  <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-1">Replace with</label>
-                  <input
-                    type="text"
-                    value={trailerReplaceText}
-                    onChange={(e) => setTrailerReplaceText(e.target.value)}
-                    placeholder="Replacement text..."
-                    className="w-full rounded-lg border border-white/20 bg-black/60 px-3 py-2 text-xs text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none"
-                  />
+                
+                {/* Show what AI adjusted if it already did */}
+                {trailerUsedLlmAdjustment && trailerLlmAdjustmentReason && (
+                  <div className="rounded-lg bg-primary/10 border border-primary/20 p-3 text-xs">
+                    <p className="font-medium text-primary">AI Adjustment Applied:</p>
+                    <p className="text-foreground/70 mt-1">{trailerLlmAdjustmentReason}</p>
+                  </div>
+                )}
+                
+                {/* Model Selector */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-2">Select model:</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "veo-3.1", label: "VEO 3.1", desc: "Fast, reliable" },
+                      { id: "sora-2", label: "Sora 2", desc: "High quality" },
+                      { id: "sora-2-pro", label: "Sora 2 Pro", desc: "Best quality" },
+                    ].map((model) => (
+                      <button
+                        key={model.id}
+                        type="button"
+                        onClick={() => setTrailerRetryModel(model.id as "sora-2" | "sora-2-pro" | "veo-3.1")}
+                        className={`p-2 rounded-lg border text-left transition-all ${
+                          trailerRetryModel === model.id
+                            ? "border-primary/50 bg-primary/15"
+                            : "border-white/15 bg-black/30 hover:border-white/25"
+                        }`}
+                      >
+                        <p className={`text-xs font-medium ${trailerRetryModel === model.id ? "text-foreground" : "text-foreground/80"}`}>
+                          {model.label}
+                        </p>
+                        <p className="text-[10px] text-foreground/50">{model.desc}</p>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (trailerFindText) {
-                        // Auto-load prompt if not yet loaded
-                        const promptToUse = editedTrailerPrompt || (buildDefaultTrailerPrompt ? buildDefaultTrailerPrompt() : "");
-                        if (promptToUse) {
-                          // Case-insensitive replace using RegExp
-                          const regex = new RegExp(trailerFindText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-                          onSetEditedTrailerPrompt(promptToUse.replace(regex, trailerReplaceText));
-                          setTrailerFindText("");
-                          setTrailerReplaceText("");
-                        }
-                      }
-                    }}
-                    disabled={!trailerFindText}
-                    className="rounded-lg text-xs h-[34px] whitespace-nowrap"
-                  >
-                    Replace All
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Prompt Editor */}
-              <Textarea
-                value={editedTrailerPrompt}
-                onChange={(e) => onSetEditedTrailerPrompt(e.target.value)}
-                onFocus={(e) => {
-                  if (!e.target.value && blueprint) {
-                    const defaultPrompt = buildDefaultTrailerPrompt();
-                    onSetEditedTrailerPrompt(defaultPrompt);
-                  }
-                }}
-                placeholder="Click to load default prompt, then edit as needed..."
-                className="min-h-[350px] max-h-[500px] text-xs font-mono resize-y bg-black/40 border-white/15 overflow-auto"
-              />
-              
-              {/* Model Selector */}
-              <div>
-                <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-2">Select model for retry:</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: "veo-3.1", label: "VEO 3.1", desc: "Fast, reliable" },
-                    { id: "sora-2", label: "Sora 2", desc: "High quality" },
-                    { id: "sora-2-pro", label: "Sora 2 Pro", desc: "Best quality" },
-                  ].map((model) => (
-                    <button
-                      key={model.id}
-                      type="button"
-                      onClick={() => setTrailerRetryModel(model.id as "sora-2" | "sora-2-pro" | "veo-3.1")}
-                      className={`p-2 rounded-lg border text-left transition-all ${
-                        trailerRetryModel === model.id
-                          ? "border-primary/50 bg-primary/15"
-                          : "border-white/15 bg-black/30 hover:border-white/25"
-                      }`}
-                    >
-                      <p className={`text-xs font-medium ${trailerRetryModel === model.id ? "text-foreground" : "text-foreground/80"}`}>
-                        {model.label}
-                      </p>
-                      <p className="text-[10px] text-foreground/50">{model.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-1">
+                
                 <Button
                   type="button"
-                  onClick={() => {
-                    if (editedTrailerPrompt) {
-                      onGenerateTrailer(trailerRetryModel, editedTrailerPrompt);
-                    } else {
-                      onGenerateTrailer(trailerRetryModel);
-                    }
-                  }}
+                  onClick={() => onGenerateTrailer(trailerRetryModel)}
                   disabled={trailerLoading}
-                  className="flex-1 rounded-full text-sm"
+                  className="w-full rounded-full text-sm"
                 >
                   {trailerLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Retrying...
+                      {trailerAdjustingPrompt ? "AI rewriting prompt..." : "Retrying..."}
                     </>
                   ) : (
-                    `Retry with ${trailerRetryModel === "veo-3.1" ? "VEO 3.1" : trailerRetryModel === "sora-2-pro" ? "Sora 2 Pro" : "Sora 2"}`
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Retry with AI-Optimized Prompt
+                    </>
                   )}
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    onSetEditedTrailerPrompt("");
-                    setTrailerFindText("");
-                    setTrailerReplaceText("");
-                  }}
-                  className="rounded-full text-sm"
-                >
-                  Clear
-                </Button>
+                
+                <p className="text-[10px] text-center text-foreground/40">
+                  If this fails, you&apos;ll be able to manually edit the prompt and select characters
+                </p>
               </div>
-            </div>
+            )}
+            
+            {/* STAGE 2: Multiple failures - Full manual editing + character selection */}
+            {trailerRetryCount >= 2 && (
+              <div className="space-y-3 pt-2 border-t border-amber-500/20">
+                <div className="flex items-center gap-2 text-xs">
+                  <AlertCircle className="w-4 h-4 text-amber-400" />
+                  <span className="text-amber-200/90">Automatic retries exhausted. Manual intervention needed.</span>
+                </div>
+                
+                {/* Show AI adjustment info if used */}
+                {trailerUsedLlmAdjustment && (
+                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs space-y-2">
+                    <p className="font-medium text-amber-200">AI tried to adjust the prompt but still failed:</p>
+                    {trailerLlmAdjustmentReason && (
+                      <p className="text-foreground/60">{trailerLlmAdjustmentReason}</p>
+                    )}
+                  </div>
+                )}
+                
+                <p className="text-xs font-medium text-amber-200/90">Edit prompt & select characters:</p>
+                
+                {/* Find & Replace */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-1">Find</label>
+                    <input
+                      type="text"
+                      value={trailerFindText}
+                      onChange={(e) => setTrailerFindText(e.target.value)}
+                      placeholder="Text to find..."
+                      className="w-full rounded-lg border border-white/20 bg-black/60 px-3 py-2 text-xs text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-1">Replace with</label>
+                    <input
+                      type="text"
+                      value={trailerReplaceText}
+                      onChange={(e) => setTrailerReplaceText(e.target.value)}
+                      placeholder="Replacement text..."
+                      className="w-full rounded-lg border border-white/20 bg-black/60 px-3 py-2 text-xs text-foreground placeholder:text-foreground/40 focus:border-primary/60 focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (trailerFindText) {
+                          const promptToUse = editedTrailerPrompt || (buildDefaultTrailerPrompt ? buildDefaultTrailerPrompt() : "");
+                          if (promptToUse) {
+                            const regex = new RegExp(trailerFindText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                            onSetEditedTrailerPrompt(promptToUse.replace(regex, trailerReplaceText));
+                            setTrailerFindText("");
+                            setTrailerReplaceText("");
+                          }
+                        }
+                      }}
+                      disabled={!trailerFindText}
+                      className="rounded-lg text-xs h-[34px] whitespace-nowrap"
+                    >
+                      Replace All
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Prompt Editor */}
+                <Textarea
+                  value={editedTrailerPrompt}
+                  onChange={(e) => onSetEditedTrailerPrompt(e.target.value)}
+                  onFocus={(e) => {
+                    if (!e.target.value && blueprint) {
+                      const defaultPrompt = buildDefaultTrailerPrompt();
+                      onSetEditedTrailerPrompt(defaultPrompt);
+                    }
+                  }}
+                  placeholder="Click to load default prompt, then edit as needed..."
+                  className="min-h-[300px] max-h-[450px] text-xs font-mono resize-y bg-black/40 border-white/15 overflow-auto"
+                />
+                
+                {/* Model Selector */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-2">Select model for retry:</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "veo-3.1", label: "VEO 3.1", desc: "Fast, reliable" },
+                      { id: "sora-2", label: "Sora 2", desc: "High quality" },
+                      { id: "sora-2-pro", label: "Sora 2 Pro", desc: "Best quality" },
+                    ].map((model) => (
+                      <button
+                        key={model.id}
+                        type="button"
+                        onClick={() => setTrailerRetryModel(model.id as "sora-2" | "sora-2-pro" | "veo-3.1")}
+                        className={`p-2 rounded-lg border text-left transition-all ${
+                          trailerRetryModel === model.id
+                            ? "border-primary/50 bg-primary/15"
+                            : "border-white/15 bg-black/30 hover:border-white/25"
+                        }`}
+                      >
+                        <p className={`text-xs font-medium ${trailerRetryModel === model.id ? "text-foreground" : "text-foreground/80"}`}>
+                          {model.label}
+                        </p>
+                        <p className="text-[10px] text-foreground/50">{model.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Character Selection for Retry Grid */}
+                {characterSeeds && characterSeeds.length > 0 && Object.keys(characterPortraits).length > 0 && (
+                  <div className="pt-3 border-t border-amber-500/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-[10px] uppercase tracking-wider text-foreground/50">
+                        Select characters for new grid:
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const withPortraits = characterSeeds
+                              .filter(seed => characterPortraits[seed.id])
+                              .map(seed => seed.id);
+                            setTrailerSelectedCharacters(new Set(withPortraits));
+                          }}
+                          className="text-[10px] text-primary/80 hover:text-primary underline"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTrailerSelectedCharacters(new Set())}
+                          className="text-[10px] text-foreground/50 hover:text-foreground/70 underline"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                      {characterSeeds.map((seed) => {
+                        const portrait = characterPortraits[seed.id];
+                        if (!portrait) return null;
+                        const isSelected = trailerSelectedCharacters.has(seed.id);
+                        return (
+                          <button
+                            key={seed.id}
+                            type="button"
+                            onClick={() => {
+                              const newSet = new Set(trailerSelectedCharacters);
+                              if (isSelected) {
+                                newSet.delete(seed.id);
+                              } else {
+                                newSet.add(seed.id);
+                              }
+                              setTrailerSelectedCharacters(newSet);
+                            }}
+                            className={`relative rounded-lg border-2 overflow-hidden transition-all ${
+                              isSelected
+                                ? "border-primary ring-2 ring-primary/30 scale-[1.02]"
+                                : "border-white/10 opacity-60 hover:opacity-80"
+                            }`}
+                          >
+                            <div className="aspect-square relative">
+                              <Image
+                                src={getThumbnailUrl(portrait)}
+                                alt={seed.name}
+                                fill
+                                className="object-cover"
+                                sizes="80px"
+                                placeholder="blur"
+                                blurDataURL={BLUR_PLACEHOLDER}
+                              />
+                              {isSelected && (
+                                <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                                  <Check className="w-3 h-3 text-white" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="px-1.5 py-1 bg-black/60 text-center">
+                              <p className="text-[10px] text-foreground/80 truncate">{seed.name}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-[10px] text-foreground/50">
+                      {trailerSelectedCharacters.size} of {characterSeeds.filter(s => characterPortraits[s.id]).length} characters selected
+                      {trailerSelectedCharacters.size < 4 && trailerSelectedCharacters.size > 0 && (
+                        <span className="text-amber-400 ml-1">(minimum 4 required)</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        if (editedTrailerPrompt) {
+                          onGenerateTrailer(trailerRetryModel, editedTrailerPrompt);
+                        } else {
+                          onGenerateTrailer(trailerRetryModel);
+                        }
+                      }}
+                      disabled={trailerLoading}
+                      className="flex-1 rounded-full text-sm"
+                    >
+                      {trailerLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Retrying...
+                        </>
+                      ) : (
+                        `Retry with ${trailerRetryModel === "veo-3.1" ? "VEO 3.1" : trailerRetryModel === "sora-2-pro" ? "Sora 2 Pro" : "Sora 2"}`
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        onSetEditedTrailerPrompt("");
+                        setTrailerFindText("");
+                        setTrailerReplaceText("");
+                      }}
+                      className="rounded-full text-sm"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  
+                  {/* Retry with New Character Grid button */}
+                  {trailerSelectedCharacters.size >= 4 && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        if (editedTrailerPrompt) {
+                          onRetryTrailerWithSelectedCharacters(trailerRetryModel, editedTrailerPrompt);
+                        } else {
+                          onRetryTrailerWithSelectedCharacters(trailerRetryModel);
+                        }
+                      }}
+                      disabled={trailerLoading || trailerSelectedCharacters.size < 4}
+                      className="w-full rounded-full text-sm bg-emerald-600/20 border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-200"
+                    >
+                      {trailerLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating new grid...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Retry with New Grid ({trailerSelectedCharacters.size} characters)
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
         {!trailerError && (
@@ -2729,18 +2976,26 @@ function ResultView({
                             )}
                           </div>
                         )}
-                        {/* Cancel button */}
-                        <button
-                          type="button"
+                        {/* Cancel button - using span to avoid nested button */}
+                        <span
+                          role="button"
+                          tabIndex={0}
                           onClick={(e) => {
                             e.stopPropagation();
                             e.preventDefault();
                             onCancelPortrait(seed.id);
                           }}
-                          className="mt-2 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-[10px] font-medium text-foreground/80 hover:bg-white/20 hover:text-foreground transition-colors"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              onCancelPortrait(seed.id);
+                            }
+                          }}
+                          className="mt-2 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-[10px] font-medium text-foreground/80 hover:bg-white/20 hover:text-foreground transition-colors cursor-pointer"
                         >
                           Cancel
-                        </button>
+                        </span>
                       </div>
                     ) : !portraitLoaded ? (
                       /* Light loading state: image downloading */
@@ -2750,12 +3005,13 @@ function ResultView({
                     ) : null}
                     <Image
                       key={portraitUrl}
-                      src={portraitUrl}
+                      src={getPosterDisplayUrl(portraitUrl)}
                       alt={`${seed.name} portrait`}
                       fill
                       className="object-cover object-center transition-opacity duration-500"
                       sizes="(min-width: 768px) 280px, 100vw"
-                      unoptimized={portraitUrl.includes('replicate.delivery')}
+                      placeholder="blur"
+                      blurDataURL={BLUR_PLACEHOLDER}
                       onLoad={(e) => {
                         console.log(`🖼️ Image onLoad fired for ${seed.id}`);
                         e.currentTarget.style.opacity = "1";
@@ -3146,12 +3402,13 @@ function ResultView({
               <div className="relative h-0 w-full pb-[100%]">
                 {portraitUrl ? (
                   <Image
-                    src={portraitUrl}
+                    src={getThumbnailUrl(portraitUrl)}
                     alt={seed.name}
                     fill
                     className="object-cover"
                     sizes="80px"
-                    unoptimized={portraitUrl.includes('replicate.delivery')}
+                    placeholder="blur"
+                    blurDataURL={BLUR_PLACEHOLDER}
                   />
                 ) : isLoading ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/60">
@@ -3172,16 +3429,37 @@ function ResultView({
         <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-black/50 to-black/60 p-6 shadow-[0_12px_40px_rgba(229,9,20,0.3)]">
           <div className="flex items-center gap-4">
             <div className="relative">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <div className="absolute inset-0 animate-ping">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <div className="absolute inset-0 animate-ping opacity-30">
                 <div className="h-full w-full rounded-full border-2 border-primary/30" />
               </div>
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground/90">Generating Trailer</p>
-              <p className="mt-1 text-xs text-foreground/60">Rendering 12s blockbuster trailer with Sora 2...</p>
-              <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/10">
-                <div className="h-full w-full animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+              <p className="text-base font-semibold text-foreground/90">
+                {trailerStatus === "generating-grid" 
+                  ? "Generating New Character Grid..." 
+                  : trailerStatus === "adjusting-prompt"
+                  ? "AI Optimizing Prompt..."
+                  : "Generating Trailer"}
+              </p>
+              <p className="mt-1 text-sm text-foreground/60">
+                {trailerStatus === "generating-grid"
+                  ? "Creating grid with selected characters"
+                  : trailerStatus === "adjusting-prompt"
+                  ? "Rewriting prompt to be content-filter friendly"
+                  : trailerElapsed > 0
+                  ? `${Math.floor(trailerElapsed / 1000)}s elapsed • Usually takes 5-10 minutes`
+                  : "Rendering blockbuster trailer • Usually takes 5-10 minutes"}
+              </p>
+              <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                {trailerElapsed > 0 && trailerStatus !== "generating-grid" ? (
+                  <div 
+                    className="h-full bg-gradient-to-r from-primary to-orange-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${Math.min(95, (trailerElapsed / 600000) * 100)}%` }}
+                  />
+                ) : (
+                  <div className="h-full w-full animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+                )}
               </div>
             </div>
           </div>
@@ -3713,28 +3991,135 @@ function ResultView({
                     </div>
                   </div>
                   
+                  {/* Character Selection for New Grid */}
+                  {characterSeeds && characterSeeds.length > 0 && Object.keys(characterPortraits).length > 0 && (
+                    <div className="space-y-3 pt-4 border-t border-white/10">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-foreground/50">Select characters for new grid (optional):</p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const withPortraits = characterSeeds
+                                .filter(seed => characterPortraits[seed.id])
+                                .map(seed => seed.id);
+                              setTrailerSelectedCharacters(new Set(withPortraits));
+                            }}
+                            className="text-[10px] text-primary/80 hover:text-primary underline"
+                          >
+                            Select All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTrailerSelectedCharacters(new Set())}
+                            className="text-[10px] text-foreground/50 hover:text-foreground/70 underline"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                        {characterSeeds.map((seed) => {
+                          const portrait = characterPortraits[seed.id];
+                          if (!portrait) return null;
+                          const isSelected = trailerSelectedCharacters.has(seed.id);
+                          return (
+                            <button
+                              key={seed.id}
+                              type="button"
+                              onClick={() => {
+                                const newSet = new Set(trailerSelectedCharacters);
+                                if (isSelected) {
+                                  newSet.delete(seed.id);
+                                } else {
+                                  newSet.add(seed.id);
+                                }
+                                setTrailerSelectedCharacters(newSet);
+                              }}
+                              className={`relative rounded-lg border-2 overflow-hidden transition-all ${
+                                isSelected
+                                  ? "border-primary ring-2 ring-primary/30 scale-[1.02]"
+                                  : "border-white/10 opacity-50 hover:opacity-70"
+                              }`}
+                            >
+                              <div className="aspect-square relative">
+                                <Image
+                                  src={getThumbnailUrl(portrait)}
+                                  alt={seed.name}
+                                  fill
+                                  className="object-cover"
+                                  sizes="80px"
+                                  placeholder="blur"
+                                  blurDataURL={BLUR_PLACEHOLDER}
+                                />
+                                {isSelected && (
+                                  <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                                    <Check className="w-2.5 h-2.5 text-white" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="px-1 py-0.5 bg-black/70 text-center">
+                                <p className="text-[9px] text-foreground/70 truncate">{seed.name}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[10px] text-foreground/40">
+                        {trailerSelectedCharacters.size > 0 ? (
+                          <>
+                            {trailerSelectedCharacters.size} of {characterSeeds.filter(s => characterPortraits[s.id]).length} selected
+                            {trailerSelectedCharacters.size < 4 && (
+                              <span className="text-amber-400 ml-1">(minimum 4 required for new grid)</span>
+                            )}
+                          </>
+                        ) : (
+                          "Select characters to create a new grid, or leave empty to use current grid"
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  
                   {/* Action Buttons */}
-                  <div className="flex gap-3 pt-2">
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        onClearTrailerError?.();
-                        onGenerateTrailer(trailerRetryModel, editedTrailerPrompt || undefined);
-                      }}
-                      className="flex-1"
-                    >
-                      Retry with {trailerRetryModel === "veo-3.1" ? "VEO 3.1" : trailerRetryModel === "sora-2-pro" ? "Sora 2 Pro" : "Sora 2"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        onClearTrailerError?.();
-                        onSetEditedTrailerPrompt("");
-                      }}
-                    >
-                      Clear
-                    </Button>
+                  <div className="flex flex-col gap-3 pt-2">
+                    <div className="flex gap-3">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          onClearTrailerError?.();
+                          onGenerateTrailer(trailerRetryModel, editedTrailerPrompt || undefined);
+                        }}
+                        className="flex-1"
+                      >
+                        Retry with {trailerRetryModel === "veo-3.1" ? "VEO 3.1" : trailerRetryModel === "sora-2-pro" ? "Sora 2 Pro" : "Sora 2"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          onClearTrailerError?.();
+                          onSetEditedTrailerPrompt("");
+                          setTrailerSelectedCharacters(new Set());
+                        }}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                    
+                    {/* Retry with New Grid Button */}
+                    {trailerSelectedCharacters.size >= 4 && (
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          onClearTrailerError?.();
+                          onRetryTrailerWithSelectedCharacters(trailerRetryModel, editedTrailerPrompt || undefined);
+                        }}
+                        className="w-full bg-emerald-600/30 hover:bg-emerald-600/40 border-emerald-500/40 text-emerald-200"
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Retry with New Grid ({trailerSelectedCharacters.size} characters)
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -3791,12 +4176,13 @@ function ResultView({
                           <div className="relative h-0 w-full pb-[100%]">
                             {portraitUrl ? (
                               <Image
-                                src={portraitUrl}
+                                src={getThumbnailUrl(portraitUrl)}
                                 alt={seed.name}
                                 fill
                                 className="object-cover transition-opacity duration-500"
                                 sizes="120px"
-                                unoptimized={portraitUrl.includes('replicate.delivery')}
+                                placeholder="blur"
+                                blurDataURL={BLUR_PLACEHOLDER}
                               />
                             ) : isLoading ? (
                               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-black/60">
@@ -3878,12 +4264,13 @@ function ResultView({
                           <div className="relative h-0 w-full pb-[100%]">
                             {portraitUrl ? (
                               <Image
-                                src={portraitUrl}
+                                src={getThumbnailUrl(portraitUrl)}
                                 alt={seed.name}
                                 fill
                                 className="object-cover transition-opacity duration-500"
                                 sizes="120px"
-                                unoptimized={portraitUrl.includes('replicate.delivery')}
+                                placeholder="blur"
+                                blurDataURL={BLUR_PLACEHOLDER}
                               />
                             ) : isLoading ? (
                               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-black/60">
@@ -3921,12 +4308,23 @@ function ResultView({
               <div className="mt-6 px-4">
                 <TrailerModelSelector
                   currentModel={trailerModel || undefined}
-                  onRegenerate={(model) => {
+                  onRegenerate={(model, customPrompt) => {
                     console.log("🔄 Regenerating trailer with model:", model);
-                    void onGenerateTrailer(model);
+                    void onGenerateTrailer(model, customPrompt);
+                  }}
+                  onRegenerateWithNewGrid={(model, customPrompt, selectedCharacterIds) => {
+                    console.log("🔄 Regenerating trailer with new grid:", model, selectedCharacterIds?.length, "characters");
+                    // Filter the selected characters and trigger the retry
+                    if (selectedCharacterIds && selectedCharacterIds.length >= 4) {
+                      setTrailerSelectedCharacters(new Set(selectedCharacterIds));
+                      void onRetryTrailerWithSelectedCharacters(model, customPrompt);
+                    }
                   }}
                   isLoading={trailerLoading}
                   disabled={trailerLoading || !portraitGridUrl}
+                  characterSeeds={characterSeeds || undefined}
+                  characterPortraits={characterPortraits}
+                  defaultPrompt={buildDefaultTrailerPrompt()}
                 />
               </div>
             )}
@@ -7388,11 +7786,12 @@ export function Console({ initialShowId }: ConsoleProps) {
     console.log("   characterPortraits:", Object.keys(characterPortraits).length);
     console.log("   Current digest:", trailerDigestRef.current);
     
-    // Clear any previous error and digest to allow retry
+    // Clear any previous error, trailer, and digest to allow retry
     setTrailerError(null);
     setTrailerStatus(null);
+    setTrailerUrl(null); // Clear old trailer to show loading state
     trailerDigestRef.current = ""; // Clear digest to allow retry with same grid
-    console.log("   Cleared error and digest for fresh start");
+    console.log("   Cleared error, trailer, and digest for fresh start");
     
     if (!blueprint) {
       console.log("❌ No blueprint - aborting");
@@ -7737,6 +8136,197 @@ export function Console({ initialShowId }: ConsoleProps) {
     videoGenModel,
     trailerRetryCount,
     trailerError,
+  ]);
+
+  // Retry trailer with a new character grid based on selected characters
+  const retryTrailerWithSelectedCharacters = useCallback(async (
+    requestedModel?: 'sora-2' | 'sora-2-pro' | 'veo-3.1' | 'auto', 
+    customPrompt?: string
+  ) => {
+    if (!blueprint) {
+      setTrailerError("Blueprint missing.");
+      return;
+    }
+
+    if (trailerSelectedCharacters.size < 4) {
+      setTrailerError("Need at least 4 characters selected for the grid.");
+      return;
+    }
+
+    // Build portraits data from selected characters
+    const portraitsData = characterSeeds
+      ?.filter(seed => trailerSelectedCharacters.has(seed.id))
+      .map(seed => {
+        const url = characterPortraits[seed.id];
+        if (!url) return null;
+        return { id: seed.id, name: seed.name, url };
+      })
+      .filter((entry): entry is { id: string; name: string; url: string } => Boolean(entry)) || [];
+
+    if (portraitsData.length < 4) {
+      setTrailerError("Not enough portraits for selected characters. Need at least 4.");
+      return;
+    }
+
+    console.log("🎬 Retrying trailer with new character grid...");
+    console.log(`   Selected ${portraitsData.length} characters:`, portraitsData.map(p => p.name).join(", "));
+
+    // Clear previous state - including old trailer to show loading state
+    setTrailerError(null);
+    setTrailerUrl(null); // Clear old trailer immediately
+    setTrailerStatus("generating-grid");
+    setTrailerLoading(true); // Show loading state immediately
+    setPortraitGridLoading(true);
+    
+    try {
+      // Step 1: Generate new character grid with selected characters
+      console.log("📊 Generating new character grid with selected characters...");
+      const gridResponse = await fetch("/api/characters/portrait-grid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          portraits: portraitsData,
+          columns: Math.min(5, portraitsData.length),
+        }),
+      });
+
+      if (!gridResponse.ok) {
+        const errorBody = await gridResponse.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorBody.error || `Grid generation failed (${gridResponse.status})`);
+      }
+
+      const gridResult = (await gridResponse.json()) as { url?: string };
+      if (!gridResult.url) {
+        throw new Error("Grid generation returned no URL");
+      }
+
+      console.log("✅ New character grid generated!");
+      setPortraitGridUrl(gridResult.url);
+      portraitGridDigestRef.current = JSON.stringify(portraitsData.map(p => p.url));
+      setPortraitGridLoading(false);
+
+      // Step 2: Now generate trailer with the new grid
+      // We need to call generateTrailer but with the new grid URL
+      // Since generateTrailer uses the portraitGridUrl state, we need to wait a tick
+      // for the state to update, or pass it directly
+
+      // Actually, let's just generate the trailer directly here to avoid timing issues
+      const modelToUse = requestedModel || videoGenModel || 'veo-3.1';
+      const jobId = typeof crypto?.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `trailer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      setTrailerLoading(true);
+      setTrailerStatus("starting");
+      setTrailerModel(modelToUse);
+      setTrailerStartTime(Date.now());
+      setTrailerElapsed(0);
+
+      // Create background task for trailer
+      if (currentShowId) {
+        addBackgroundTask({
+          id: jobId,
+          type: 'trailer',
+          showId: currentShowId,
+          status: 'starting',
+          stepNumber: 8,
+          metadata: {
+            showTitle: blueprint.show_title || "Untitled Series",
+          },
+        });
+      }
+
+      // Build the prompt
+      const finalPrompt = customPrompt || buildDefaultTrailerPrompt();
+
+      // Create a clean, serializable copy of blueprint data
+      const cleanBlueprint: Record<string, unknown> = {
+        show_title: String(blueprint.show_title || ""),
+        show_logline: String(blueprint.show_logline || ""),
+      };
+
+      if (blueprint.production_style) {
+        const ps = blueprint.production_style;
+        cleanBlueprint.production_style = {
+          medium: ps.medium ? String(ps.medium) : undefined,
+          cinematic_references: Array.isArray(ps.cinematic_references) 
+            ? ps.cinematic_references.map(String).filter(Boolean)
+            : [],
+          visual_treatment: ps.visual_treatment ? String(ps.visual_treatment) : undefined,
+          stylization_level: ps.stylization_level ? String(ps.stylization_level) : undefined,
+        };
+      }
+
+      console.log("🎬 Generating trailer with new grid and prompt...");
+      const response = await fetch("/api/trailer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: blueprint.show_title ?? "Untitled Series",
+          logline: blueprint.show_logline ?? "",
+          characterGridUrl: gridResult.url,
+          show: cleanBlueprint,
+          jobId,
+          model: modelToUse,
+          customPrompt: finalPrompt,
+        }),
+      });
+
+      startTrailerStatusPolling(jobId, currentShowId || undefined);
+
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? `Failed to generate trailer (${response.status})`);
+      }
+
+      const result = (await response.json()) as { url?: string; model?: string };
+      
+      if (!result.url) {
+        throw new Error("Trailer response missing URL.");
+      }
+
+      console.log("✅ Trailer generated successfully!");
+      setTrailerModel(result.model || "sora-2");
+      setTrailerStatus("succeeded");
+      setTrailerUrl(result.url);
+      setTrailerRetryCount(0);
+      setTrailerSelectedCharacters(new Set()); // Clear selection after success
+
+      if (currentShowId) {
+        updateBackgroundTask(jobId, { status: 'succeeded', outputUrl: result.url });
+        setTimeout(() => removeBackgroundTask(jobId), 5000);
+      }
+
+      playSuccessChime();
+
+    } catch (err) {
+      console.error("Failed to retry trailer with selected characters:", err);
+      const message = err instanceof Error ? err.message : "Unable to generate trailer.";
+      setTrailerError(message);
+      setTrailerUrl(null);
+      setTrailerStatus("failed");
+      setTrailerStartTime(null);
+      setTrailerRetryCount(prev => prev + 1);
+    } finally {
+      setPortraitGridLoading(false);
+      stopTrailerStatusPolling();
+      trailerStatusJobIdRef.current = null;
+      setTrailerLoading(false);
+      setTimeout(() => {
+        setTrailerStatus(null);
+        setTrailerStartTime(null);
+        setTrailerElapsed(0);
+      }, 3000);
+    }
+  }, [
+    blueprint,
+    characterSeeds,
+    characterPortraits,
+    trailerSelectedCharacters,
+    currentShowId,
+    videoGenModel,
+    startTrailerStatusPolling,
+    stopTrailerStatusPolling,
   ]);
 
   // REMOVED: Old auto-poster effect - We only use library poster now
@@ -9580,6 +10170,9 @@ TRAILER REQUIREMENTS:
             buildDefaultTrailerPrompt={buildDefaultTrailerPrompt}
             buildDefaultLibraryPosterPrompt={buildDefaultLibraryPosterPrompt}
             onGenerateTrailer={(model, customPrompt) => void generateTrailer(model, customPrompt)}
+            onRetryTrailerWithSelectedCharacters={(model, customPrompt) => void retryTrailerWithSelectedCharacters(model, customPrompt)}
+            trailerSelectedCharacters={trailerSelectedCharacters}
+            setTrailerSelectedCharacters={setTrailerSelectedCharacters}
             onRegenerateGrid={() => {
               // Manual grid generation - works with any available portraits
               if (!characterSeeds || characterSeeds.length === 0) return;

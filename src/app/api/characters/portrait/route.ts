@@ -315,7 +315,7 @@ export async function POST(request: Request) {
         input: {
           prompt,
           aspect_ratio: "1:1",
-          output_format: "png",
+          output_format: "png", // PNG required for video generation input
           safety_tolerance: 2,
         },
       });
@@ -327,8 +327,8 @@ export async function POST(request: Request) {
         input: {
           prompt,
           aspect_ratio: "1:1",
-          resolution: "2K",
-          output_format: "png",
+          resolution: "2K", // Keep 2K for video generation compatibility
+          output_format: "png", // PNG required for video generation input
           safety_filter_level: "block_only_high",
         },
       });
