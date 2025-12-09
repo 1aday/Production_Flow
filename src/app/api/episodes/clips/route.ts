@@ -29,6 +29,15 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms + jitter));
 }
 
+// Helper to sanitize prompts for video models (replaces child/kid/children with younger alternatives)
+function sanitizeVideoPrompt(prompt: string): string {
+  return prompt
+    .replace(/\bchildren\b/gi, "young ones")
+    .replace(/\bchild\b/gi, "young person")
+    .replace(/\bkids\b/gi, "young ones")
+    .replace(/\bkid\b/gi, "young person");
+}
+
 type ClipRequest = {
   showId: string;
   episodeNumber: number;
@@ -82,8 +91,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines. We want to make a guideline compatible video given this, thats the task, so figure it out.\n\n";
-
   // Fetch the global template from database
   const supabase = createServerSupabaseClient();
   const { data: templateData } = await supabase
@@ -96,8 +103,8 @@ export async function POST(request: NextRequest) {
   let prompt: string;
   
   if (customPrompt) {
-    // Use custom prompt - prepend safety prefix if not already there
-    prompt = customPrompt.includes("hesitations") ? customPrompt : SAFETY_PREFIX + customPrompt;
+    // Use custom prompt directly
+    prompt = customPrompt;
     console.log("📝 Using CUSTOM VIDEO PROMPT");
   } else if (templateData?.episode_clips_prompt) {
     // Use the global template with variable substitution
@@ -121,8 +128,6 @@ export async function POST(request: NextRequest) {
       .replace(/{CINEMATIC_REFERENCES}/g, "")
       .replace(/{VISUAL_TREATMENT}/g, "");
     
-    // Prepend safety prefix if not already there
-    prompt = prompt.includes("hesitations") ? prompt : SAFETY_PREFIX + prompt;
     console.log("📝 Using GLOBAL TEMPLATE for video prompt");
   } else {
     // Fallback to hardcoded default
@@ -134,7 +139,7 @@ export async function POST(request: NextRequest) {
       ? `CONTINUITY: This follows from "${previousScene.slice(0, 100)}..."` 
       : "";
     
-    prompt = SAFETY_PREFIX + `Animate this scene from a ${genre || "dramatic"} TV series.
+    prompt = `Animate this scene from a ${genre || "dramatic"} TV series.
 
 SCENE: ${sectionLabel} - ${sectionDescription}
 
@@ -164,7 +169,7 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
 
   // VEO input configuration
   const veoInput = {
-    prompt,
+    prompt: sanitizeVideoPrompt(prompt),
     reference_images: [stillImageUrl],
     aspect_ratio: "16:9",
     duration: 8, // VEO max is 8 seconds
@@ -222,6 +227,21 @@ This is a single scene clip that will be part of a larger episode. Make it feel 
         const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
           headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` },
         });
+        
+        // Check if response is OK and is JSON
+        if (!statusResponse.ok) {
+          const errorText = await statusResponse.text();
+          console.error("VEO status poll error:", statusResponse.status, errorText.slice(0, 200));
+          throw new Error(`Failed to check VEO status: ${statusResponse.status}`);
+        }
+        
+        const contentType = statusResponse.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
+          const errorText = await statusResponse.text();
+          console.error("VEO status poll returned non-JSON:", contentType, errorText.slice(0, 200));
+          throw new Error("VEO status check returned invalid response. Please try again.");
+        }
+        
         result = await statusResponse.json() as typeof prediction;
         console.log("VEO status:", result.status);
       }

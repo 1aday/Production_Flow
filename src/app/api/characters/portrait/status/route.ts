@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
         headers: {
           "Authorization": `Bearer ${replicateToken}`,
         },
-        // Add timeout to prevent hanging
-        signal: AbortSignal.timeout(10000), // 10 second timeout
+        // Add timeout to prevent hanging (3 min - Replicate can be slow)
+        signal: AbortSignal.timeout(180000), // 3 minute timeout
       });
     } catch (fetchError) {
       const errorMsg = fetchError instanceof Error ? fetchError.message : "Failed to connect to Replicate API";
@@ -73,6 +73,17 @@ export async function GET(request: NextRequest) {
         },
         { status: 200 } // Return 200 so frontend handles this as a "failed" prediction
       );
+    }
+
+    // Validate content-type is JSON
+    const contentType = statusResponse.headers.get("content-type");
+    if (!contentType?.includes("application/json")) {
+      const responseText = await statusResponse.text();
+      console.error("Portrait status returned non-JSON:", contentType, responseText.slice(0, 200));
+      return NextResponse.json({
+        status: null,
+        detail: "Portrait status check returned invalid response. Please try again.",
+      }, { status: 200 });
     }
 
     const prediction = await statusResponse.json() as { 

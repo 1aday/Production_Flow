@@ -145,8 +145,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Build the prompt - use custom prompt if provided, otherwise use template/default
-    const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
-    
     // Fetch the global template from database
     const supabase = createServerSupabaseClient();
     const { data: templateData } = await supabase
@@ -158,8 +156,8 @@ export async function POST(request: NextRequest) {
     let prompt: string;
     
     if (customPrompt) {
-      // Use custom prompt - prepend safety prefix if not already there
-      prompt = customPrompt.includes("hesitations") ? customPrompt : SAFETY_PREFIX + customPrompt;
+      // Use custom prompt directly
+      prompt = customPrompt;
       console.log("📝 Using CUSTOM PROMPT");
     } else if (templateData?.episode_stills_prompt) {
       // Use the global template with variable substitution
@@ -189,8 +187,6 @@ export async function POST(request: NextRequest) {
         .replace(/{CINEMATIC_REFERENCES}/g, "")
         .replace(/{VISUAL_TREATMENT}/g, "");
       
-      // Prepend safety prefix if not already there
-      prompt = prompt.includes("hesitations") ? prompt : SAFETY_PREFIX + prompt;
       console.log("📝 Using GLOBAL TEMPLATE for stills prompt");
     } else {
       // Fallback to hardcoded default
@@ -206,7 +202,7 @@ export async function POST(request: NextRequest) {
         ? `Setting: ${setting}.`
         : "";
 
-      prompt = SAFETY_PREFIX + (characterGridUrl 
+      prompt = (characterGridUrl 
         ? `Create a detailed scene for "${sectionLabel}" of episode "${episodeTitle}":
 
 SCENE DESCRIPTION: ${sectionDescription}
@@ -249,101 +245,71 @@ Style: Cinematic TV production still, dramatic lighting, rich color palette, hig
     console.log(prompt);
     console.log("--- END PROMPT ---\n");
 
-    // Build the request body
-    const requestBody = {
-      input: {
-        prompt,
-        image_input: characterGridUrl ? [characterGridUrl] : undefined,
-        aspect_ratio: "16:9",
-        resolution: "2K",
-        output_format: "png", // PNG for video generation compatibility
-        safety_filter_level: "block_only_high",
-      },
-    };
-
-    console.log("--- FULL API REQUEST BODY ---");
-    console.log(JSON.stringify(requestBody, null, 2));
-    console.log("--- END REQUEST BODY ---\n");
-
-    // Use Nano Banana Pro for fast generation
-    const createResponse = await fetch(
-      "https://api.replicate.com/v1/models/google/nano-banana-pro/predictions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      }
-    );
-
-    console.log("API Response Status:", createResponse.status);
-
-    if (!createResponse.ok) {
-      const errorBody = await createResponse.text();
-      console.error("❌ Nano Banana Pro API ERROR:");
-      console.error("Status:", createResponse.status);
-      console.error("Body:", errorBody);
-      throw new Error(
-        `Failed to create prediction: ${createResponse.status} - ${errorBody}`
-      );
-    }
-
-    const prediction = (await createResponse.json()) as {
-      id: string;
-      status: string;
-      error?: string;
-      output?: string | string[];
-    };
-
-    console.log("\n--- PREDICTION RESPONSE ---");
-    console.log(JSON.stringify(prediction, null, 2));
-    console.log("--- END PREDICTION RESPONSE ---\n");
-    console.log("✅ Prediction created:", prediction.id);
-    console.log("   Initial status:", prediction.status);
-
-    // Poll for completion (max 60 seconds)
-    let result = prediction;
-    let pollCount = 0;
-    const maxPolls = 30;
-
-    while (
-      (result.status === "starting" || result.status === "processing") &&
-      pollCount < maxPolls
-    ) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      pollCount++;
-
-      const pollResponse = await fetch(
-        `https://api.replicate.com/v1/predictions/${prediction.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (pollResponse.ok) {
-        result = await pollResponse.json();
-        console.log(`   Poll ${pollCount}: ${result.status}`);
-      }
-    }
-
-    if (result.status !== "succeeded") {
-      console.error("Prediction failed or timed out:", result);
+    // Use fal.ai for Nano Banana Pro
+    const falKey = process.env.FAL_KEY;
+    if (!falKey) {
       return NextResponse.json(
-        { error: result.error || "Generation timed out" },
+        { error: "Missing FAL_KEY environment variable for Nano Banana Pro" },
         { status: 500 }
       );
     }
 
+    // Note: fal.ai Nano Banana Pro doesn't support image input for reference
+    if (characterGridUrl) {
+      console.log("Note: fal.ai Nano Banana Pro doesn't support image reference, using prompt only");
+    }
+
+    const falRequestBody = {
+      prompt,
+      aspect_ratio: "16:9",
+      resolution: "2K",
+      output_format: "png",
+      num_images: 1,
+    };
+
+    console.log("--- FULL API REQUEST BODY (fal.ai) ---");
+    console.log(JSON.stringify(falRequestBody, null, 2));
+    console.log("--- END REQUEST BODY ---\n");
+
+    // Use Nano Banana Pro via fal.ai for fast generation
+    const falResponse = await fetch(
+      "https://fal.run/fal-ai/nano-banana-pro",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Key ${falKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(falRequestBody),
+      }
+    );
+
+    console.log("API Response Status:", falResponse.status);
+
+    if (!falResponse.ok) {
+      const errorBody = await falResponse.text();
+      console.error("❌ Fal.ai Nano Banana Pro API ERROR:");
+      console.error("Status:", falResponse.status);
+      console.error("Body:", errorBody);
+      throw new Error(
+        `Failed to generate still: ${falResponse.status} - ${errorBody}`
+      );
+    }
+
+    const falResult = (await falResponse.json()) as {
+      images?: Array<{ url: string }>;
+      description?: string;
+    };
+
+    console.log("\n--- FAL.AI RESPONSE ---");
+    console.log("Images count:", falResult.images?.length || 0);
+    console.log("--- END RESPONSE ---\n");
+    console.log("✅ Nano Banana Pro (fal.ai) completed");
+
     // Extract the image URL
     let imageUrl: string | undefined;
-    if (Array.isArray(result.output) && result.output.length > 0) {
-      imageUrl = result.output[0];
-    } else if (typeof result.output === "string") {
-      imageUrl = result.output;
+    if (falResult.images && falResult.images.length > 0) {
+      imageUrl = falResult.images[0].url;
     }
 
     if (!imageUrl) {

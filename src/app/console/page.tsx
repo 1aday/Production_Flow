@@ -377,7 +377,7 @@ type CharacterBehavior =
 };
 
 type ModelId = "gpt-5" | "gpt-4o";
-type ImageModelId = "gpt-image" | "flux" | "nano-banana-pro";
+type ImageModelId = "gpt-image" | "flux" | "nano-banana-pro" | "seedream";
 type VideoGenerationModelId = "sora-2" | "sora-2-pro" | "veo-3.1";
 
 const MODEL_OPTIONS: Array<{
@@ -416,6 +416,11 @@ const IMAGE_MODEL_OPTIONS: Array<{
     id: "nano-banana-pro",
     label: "Nano Banana Pro",
     description: "Google's model with 2K resolution output",
+  },
+  {
+    id: "seedream",
+    label: "Seedream 4.5",
+    description: "ByteDance's model with up to 4K resolution",
   },
 ];
 
@@ -913,6 +918,7 @@ function CharacterDossierContent({
                         sizes="(min-width: 768px) 360px, 100vw"
                         placeholder="blur"
                         blurDataURL={BLUR_PLACEHOLDER}
+                        unoptimized={!portraitUrl.includes('supabase.co')}
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(229,9,20,0.25),_transparent)]">
@@ -2118,6 +2124,34 @@ function ResultView({
                   className="min-h-[300px] max-h-[450px] text-xs font-mono resize-y bg-black/40 border-white/15 overflow-auto"
                 />
                 
+                {/* Copy Prompt Button */}
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      const promptToCopy = editedTrailerPrompt || buildDefaultTrailerPrompt();
+                      if (promptToCopy) {
+                        await navigator.clipboard.writeText(promptToCopy);
+                        // Show a brief visual feedback
+                        const btn = document.activeElement as HTMLButtonElement;
+                        if (btn) {
+                          const originalText = btn.textContent;
+                          btn.textContent = "Copied!";
+                          setTimeout(() => { btn.textContent = originalText; }, 1500);
+                        }
+                      }
+                    }}
+                    className="text-xs text-foreground/60 hover:text-foreground gap-1.5"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy Full Prompt
+                  </Button>
+                </div>
+                
                 {/* Model Selector */}
                 <div>
                   <label className="text-[10px] uppercase tracking-wider text-foreground/50 block mb-2">Select model for retry:</label>
@@ -2923,7 +2957,7 @@ function ResultView({
                   )}
                 >
                   <div className="relative h-0 w-full max-w-full pb-[100%]">
-                    {/* Full loading state: still generating */}
+                    {/* Loading state: still generating - blur placeholder handles "downloading" state */}
                     {portraitLoading ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/80 p-2 z-10">
                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -2961,11 +2995,6 @@ function ResultView({
                           Cancel
                         </span>
                       </div>
-                    ) : !portraitLoaded ? (
-                      /* Light loading state: image downloading */
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10">
-                        <div className="h-4 w-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-                      </div>
                     ) : null}
                     <Image
                       key={portraitUrl}
@@ -2976,6 +3005,8 @@ function ResultView({
                       sizes="(min-width: 768px) 280px, 100vw"
                       placeholder="blur"
                       blurDataURL={BLUR_PLACEHOLDER}
+                      // Skip Next.js optimization for external URLs (fal.ai/Replicate) - faster loading
+                      unoptimized={!portraitUrl.includes('supabase.co')}
                       onLoad={(e) => {
                         console.log(`🖼️ Image onLoad fired for ${seed.id}`);
                         e.currentTarget.style.opacity = "1";
@@ -3306,7 +3337,6 @@ function ResultView({
                     type="button"
                     variant="outline"
                     onClick={() => void handleCopyPortraitPrompt(seed.id)}
-                    disabled={portraitLoading}
                     className="w-full justify-center rounded-full text-sm transition-all duration-200"
                   >
                     <Copy className="mr-2 h-4 w-4" />
@@ -3373,6 +3403,7 @@ function ResultView({
                     sizes="80px"
                     placeholder="blur"
                     blurDataURL={BLUR_PLACEHOLDER}
+                    unoptimized={!portraitUrl.includes('supabase.co')}
                   />
                 ) : isLoading ? (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/60">
@@ -3929,6 +3960,32 @@ function ResultView({
                     className="w-full min-h-[350px] max-h-[500px] rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-sm text-foreground placeholder:text-foreground/30 focus:border-primary/50 focus:outline-none font-mono overflow-auto resize-y"
                   />
                   
+                  {/* Copy Prompt Button */}
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const promptToCopy = editedTrailerPrompt || (buildDefaultTrailerPrompt ? buildDefaultTrailerPrompt() : "");
+                        if (promptToCopy) {
+                          await navigator.clipboard.writeText(promptToCopy);
+                          // Show brief visual feedback
+                          const btn = document.activeElement as HTMLButtonElement;
+                          if (btn) {
+                            const originalText = btn.textContent;
+                            btn.textContent = "✓ Copied!";
+                            setTimeout(() => { btn.textContent = originalText; }, 1500);
+                          }
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-foreground/60 hover:text-foreground hover:bg-white/5 transition-colors"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      Copy Full Prompt
+                    </button>
+                  </div>
+                  
                   {/* Model Selection */}
                   <div className="space-y-2">
                     <p className="text-xs text-foreground/50">Select model for retry:</p>
@@ -4147,6 +4204,7 @@ function ResultView({
                                 sizes="120px"
                                 placeholder="blur"
                                 blurDataURL={BLUR_PLACEHOLDER}
+                                unoptimized={!portraitUrl.includes('supabase.co')}
                               />
                             ) : isLoading ? (
                               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-black/60">
@@ -4235,6 +4293,7 @@ function ResultView({
                                 sizes="120px"
                                 placeholder="blur"
                                 blurDataURL={BLUR_PLACEHOLDER}
+                                unoptimized={!portraitUrl.includes('supabase.co')}
                               />
                             ) : isLoading ? (
                               <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-black/60">
@@ -4296,8 +4355,31 @@ function ResultView({
           
           {/* Show Poster - 1 column (1/4 width) - RIGHT SIDE */}
           <div className="lg:col-span-1 w-full">
-            <div className="w-full max-w-[280px] sm:max-w-xs md:max-w-sm mx-auto lg:max-w-none lg:mx-0">
+            <div className="w-full max-w-[280px] sm:max-w-xs md:max-w-sm mx-auto lg:max-w-none lg:mx-0 space-y-3">
               {simplePosterImage}
+              {/* Regenerate Poster Button */}
+              {libraryPosterUrl && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void onRegeneratePoster()}
+                  disabled={libraryPosterLoading}
+                  className="w-full rounded-full text-xs border-white/10 hover:border-white/20 hover:bg-white/5"
+                >
+                  {libraryPosterLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-3 w-3" />
+                      Regenerate Poster
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -5679,7 +5761,7 @@ export function Console({ initialShowId }: ConsoleProps) {
     
     // Load image model preference from home page settings
     const storedImageModel = window.localStorage.getItem("production-flow.image-model");
-    if (storedImageModel && (storedImageModel === "gpt-image" || storedImageModel === "flux" || storedImageModel === "nano-banana-pro")) {
+    if (storedImageModel && (storedImageModel === "gpt-image" || storedImageModel === "flux" || storedImageModel === "nano-banana-pro" || storedImageModel === "seedream")) {
       setImageModel(storedImageModel as ImageModelId);
     }
     
@@ -5724,9 +5806,17 @@ export function Console({ initialShowId }: ConsoleProps) {
     window.localStorage.setItem("production-flow.autopilot-mode", autopilotMode ? "true" : "false");
   }, [autopilotMode]);
 
-  // Persist image model changes to localStorage
+  // Track if initial load has completed to prevent overwriting user's saved preference
+  const imageModelInitializedRef = useRef(false);
+  
+  // Persist image model changes to localStorage (skip initial mount)
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Skip the first render to avoid overwriting the user's saved preference
+    if (!imageModelInitializedRef.current) {
+      imageModelInitializedRef.current = true;
+      return;
+    }
     window.localStorage.setItem("production-flow.image-model", imageModel);
   }, [imageModel]);
 
@@ -6007,42 +6097,18 @@ export function Console({ initialShowId }: ConsoleProps) {
   }, [currentShowId, stopTrailerStatusPolling]);
 
 
-  // Resume trailer polling on mount if there's an active job
+  // DISABLED: Auto-resume trailer polling on mount
+  // User preference: generation should be manually triggered, not auto-resumed on refresh
   useEffect(() => {
-    // Skip if we're already polling
-    if (trailerStatusPollRef.current) return;
-    
+    // Clear any stale trailer jobs from localStorage on mount
     try {
       const savedJob = localStorage.getItem('production-flow.trailer-job');
-      if (!savedJob) return;
-      
-      const { jobId, showId, startedAt } = JSON.parse(savedJob);
-      const elapsed = Date.now() - startedAt;
-      
-      // Job is too old, clear it
-      if (elapsed >= 600000) {
-        console.log("⏰ Trailer job expired (>10 min), clearing");
+      if (savedJob) {
+        console.log("🧹 Clearing stale trailer job from localStorage (auto-resume disabled)");
         localStorage.removeItem('production-flow.trailer-job');
-        return;
       }
-      
-      // If currentShowId matches OR isn't set yet, resume polling
-      const shouldResume = !currentShowId || showId === currentShowId;
-      
-      if (jobId && shouldResume) {
-        console.log("🔄 Resuming trailer polling for job:", jobId);
-        console.log(`   Show ID: ${showId}, Current: ${currentShowId || 'not set yet'}`);
-        console.log(`   Elapsed time: ${Math.floor(elapsed / 1000)}s`);
-        
-        trailerStatusJobIdRef.current = jobId;
-        setTrailerLoading(true);
-        setTrailerStatus("processing");
-        setTrailerStartTime(startedAt);
-        setTrailerElapsed(Math.floor(elapsed / 1000));
-        startTrailerStatusPolling(jobId, showId);
-      }
-    } catch (e) {
-      console.warn("Failed to resume trailer job:", e);
+    } catch {
+      // Ignore
     }
     
     return () => {
@@ -6638,8 +6704,18 @@ export function Console({ initialShowId }: ConsoleProps) {
                     });
                     
                     if (retryResponse.ok) {
-                      const retryResult = await retryResponse.json() as { jobId?: string };
-                      if (retryResult.jobId) {
+                      const retryResult = await retryResponse.json() as { jobId?: string; status?: string; imageUrl?: string };
+                      
+                      // Handle synchronous result (fal.ai)
+                      if (retryResult.imageUrl && retryResult.status === "succeeded") {
+                        console.log(`✅ Retry completed synchronously for stuck portrait (fal.ai)`);
+                        setCharacterPortraits((prev) => ({ ...prev, [characterId]: retryResult.imageUrl! }));
+                        setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+                        setCharacterPortraitLoaded((prev) => ({ ...prev, [characterId]: false }));
+                        portraitJobsRef.current.delete(characterId);
+                        portraitRetryCountRef.current.delete(characterId);
+                        portraitLlmAdjustedPromptRef.current.delete(characterId);
+                      } else if (retryResult.jobId) {
                         console.log(`✅ Retry started for stuck portrait: ${retryResult.jobId}`);
                         portraitJobsRef.current.set(characterId, retryResult.jobId);
                         portraitStartTimesRef.current.set(characterId, Date.now());
@@ -7002,8 +7078,19 @@ export function Console({ initialShowId }: ConsoleProps) {
                       throw new Error(`Retry failed: ${retryResponse.status}`);
                     }
                     
-                    const retryResult = await retryResponse.json() as { jobId?: string };
-                    if (retryResult.jobId) {
+                    const retryResult = await retryResponse.json() as { jobId?: string; status?: string; imageUrl?: string };
+                    
+                    // Handle synchronous result (fal.ai)
+                    if (retryResult.imageUrl && retryResult.status === "succeeded") {
+                      console.log(`✅ Retry completed synchronously (fal.ai)`);
+                      setCharacterPortraits((prev) => ({ ...prev, [characterId]: retryResult.imageUrl! }));
+                      setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+                      setCharacterPortraitLoaded((prev) => ({ ...prev, [characterId]: false }));
+                      portraitJobsRef.current.delete(characterId);
+                      portraitRetryCountRef.current.delete(characterId);
+                      portraitStartTimesRef.current.delete(characterId);
+                      portraitLlmAdjustedPromptRef.current.delete(characterId);
+                    } else if (retryResult.jobId) {
                       console.log(`✅ Retry started with new job ID: ${retryResult.jobId}`);
                       portraitJobsRef.current.set(characterId, retryResult.jobId);
                       // Reset start time for the new attempt
@@ -7111,13 +7198,39 @@ export function Console({ initialShowId }: ConsoleProps) {
           throw new Error(body?.error ?? fallback);
         }
 
-        const result = (await response.json()) as { jobId?: string; status?: string };
-        if (!result.jobId) {
-          throw new Error("Portrait API did not return job ID.");
-        }
+        const result = (await response.json()) as { jobId?: string; status?: string; imageUrl?: string };
         
         // Clean up abort controller - request completed successfully
         portraitAbortControllersRef.current.delete(characterId);
+        
+        // Handle synchronous result (fal.ai returns image directly)
+        if (result.imageUrl && result.status === "succeeded") {
+          console.log(`✅ Portrait generated synchronously for ${characterId} (fal.ai)`);
+          
+          setCharacterPortraits((prev) => ({
+            ...prev,
+            [characterId]: result.imageUrl!,
+          }));
+          setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+          setCharacterPortraitLoaded((prev) => ({ ...prev, [characterId]: false })); // Will be set to true when Image.onLoad fires
+          portraitJobsRef.current.delete(characterId);
+          
+          // Update background task
+          if (targetShowId) {
+            updateBackgroundTask(jobId, {
+              status: 'succeeded',
+              completedAt: Date.now(),
+              outputUrl: result.imageUrl,
+            });
+            setTimeout(() => removeBackgroundTask(jobId), 5000);
+          }
+          return;
+        }
+        
+        // Handle async result (Replicate requires polling)
+        if (!result.jobId) {
+          throw new Error("Portrait API did not return job ID.");
+        }
         
         // CRITICAL: Update the jobId to use the ACTUAL prediction ID from Replicate
         const actualJobId = result.jobId;
@@ -7427,9 +7540,15 @@ export function Console({ initialShowId }: ConsoleProps) {
               
               setCharacterVideos((prev) => {
                 const existing = prev[characterId] || [];
+                const newUrl = data.outputUrl ?? "";
+                // DEDUPE: Don't add if URL already exists (prevents duplicates on page reload/resume)
+                if (!newUrl || existing.includes(newUrl)) {
+                  console.log(`⏭️ Video URL already exists for ${characterId}, skipping duplicate`);
+                  return prev;
+                }
                 return {
                   ...prev,
-                  [characterId]: [data.outputUrl ?? "", ...existing].filter(Boolean),
+                  [characterId]: [newUrl, ...existing],
                 };
               });
               
@@ -7942,7 +8061,19 @@ export function Console({ initialShowId }: ConsoleProps) {
         let adjustedPromptForDisplay: string | null = null;
         
         // Build the base prompt that will be used (either custom or default)
-        const basePrompt = customPrompt || buildDefaultTrailerPrompt();
+        // If custom prompt includes our display header, extract just the prompt text
+        let basePrompt: string;
+        if (customPrompt) {
+          if (customPrompt.includes("=== YOUR EDITABLE PROMPT TEXT ===")) {
+            // Extract just the prompt part after the marker
+            const parts = customPrompt.split("=== YOUR EDITABLE PROMPT TEXT ===");
+            basePrompt = parts[1]?.trim() || customPrompt;
+          } else {
+            basePrompt = customPrompt;
+          }
+        } else {
+          basePrompt = buildTrailerPromptText();
+        }
         
         if (trailerRetryCount >= LLM_ADJUSTMENT_THRESHOLD) {
           console.log("🤖 Auto-adjusting prompt with LLM (attempt #" + (trailerRetryCount + 1) + ")...");
@@ -8263,8 +8394,19 @@ export function Console({ initialShowId }: ConsoleProps) {
         });
       }
 
-      // Build the prompt
-      const finalPrompt = customPrompt || buildDefaultTrailerPrompt();
+      // Build the prompt - extract just the text if it includes our display header
+      let finalPrompt: string;
+      if (customPrompt) {
+        if (customPrompt.includes("=== YOUR EDITABLE PROMPT TEXT ===")) {
+          // Extract just the prompt part after the marker
+          const parts = customPrompt.split("=== YOUR EDITABLE PROMPT TEXT ===");
+          finalPrompt = parts[1]?.trim() || customPrompt;
+        } else {
+          finalPrompt = customPrompt;
+        }
+      } else {
+        finalPrompt = buildTrailerPromptText();
+      }
 
       // Create a clean, serializable copy of blueprint data
       const cleanBlueprint: Record<string, unknown> = {
@@ -8841,28 +8983,9 @@ export function Console({ initialShowId }: ConsoleProps) {
     console.log("🔄 Loading show, reset auto-gen checks");
     setShowPromptInput(false); // Hide input when loading existing show
     
-    // Check if there's an active trailer job for this show
-    let hasActiveTrailerJob = false;
-    try {
-      const savedJob = localStorage.getItem('production-flow.trailer-job');
-      if (savedJob) {
-        const { jobId, showId: jobShowId, startedAt } = JSON.parse(savedJob);
-        const elapsed = Date.now() - startedAt;
-        // If job is for this show and recent, don't stop it
-        if (jobId && jobShowId === showId && elapsed < 600000) {
-          hasActiveTrailerJob = true;
-          console.log("🔄 Active trailer job detected, will resume polling");
-        }
-      }
-    } catch (e) {
-      // Ignore
-    }
-    
-    // Only stop polling if no active job for this show
-    if (!hasActiveTrailerJob) {
-      stopTrailerStatusPolling();
-      trailerStatusJobIdRef.current = null;
-    }
+    // Always stop polling when loading a show (auto-resume disabled)
+    stopTrailerStatusPolling();
+    trailerStatusJobIdRef.current = null;
     
     setIsLoadingShow(true);
     try {
@@ -8904,7 +9027,12 @@ export function Console({ initialShowId }: ConsoleProps) {
       setCharacterPortraitLoading({});
       setCharacterPortraitLoaded({});
       setCharacterPortraitErrors({});
-      setCharacterVideos(show.characterVideos || {});
+      // DEDUPE: Clean up any duplicate video URLs that may have accumulated
+      const deduplicatedVideos: Record<string, string[]> = {};
+      for (const [charId, urls] of Object.entries(show.characterVideos || {})) {
+        deduplicatedVideos[charId] = [...new Set(urls as string[])];
+      }
+      setCharacterVideos(deduplicatedVideos);
       setCharacterVideoLoading({});
       setCharacterVideoErrors({});
       setSelectedVideoIndex({});
@@ -8915,44 +9043,17 @@ export function Console({ initialShowId }: ConsoleProps) {
       setTrailerUrl(show.trailerUrl || null);
       setTrailerError(null);
       
-      // Check if there's an active trailer job - don't clear state if so
-      let hasActiveTrailerJob = false;
+      // Always reset trailer state on show load (auto-resume disabled)
+      // Clear any stale trailer job from localStorage
       try {
-        const savedJob = localStorage.getItem('production-flow.trailer-job');
-        if (savedJob) {
-          const { jobId, showId: jobShowId, startedAt } = JSON.parse(savedJob);
-          const elapsed = Date.now() - startedAt;
-          if (jobId && jobShowId === show.id && elapsed < 600000) {
-            hasActiveTrailerJob = true;
-            console.log("⏸️ Active trailer job detected - preserving trailer state");
-          }
-        }
-      } catch (e) {
+        localStorage.removeItem('production-flow.trailer-job');
+      } catch {
         // Ignore
       }
-      
-      // Only clear trailer state if no active job
-      if (!hasActiveTrailerJob) {
-        setTrailerStatus(null);
-        setTrailerElapsed(0);
-        setTrailerStartTime(null);
-        setTrailerLoading(false);
-      } else {
-        // Preserve/restore loading state for active job
-        console.log("🔄 Trailer job active - restoring loading state");
-        setTrailerLoading(true);
-        try {
-          const savedJob = localStorage.getItem('production-flow.trailer-job');
-          if (savedJob) {
-            const { startedAt } = JSON.parse(savedJob);
-            setTrailerStartTime(startedAt);
-            setTrailerElapsed(Date.now() - startedAt);
-            setTrailerStatus("processing");
-          }
-        } catch (e) {
-          // Ignore
-        }
-      }
+      setTrailerStatus(null);
+      setTrailerElapsed(0);
+      setTrailerStartTime(null);
+      setTrailerLoading(false);
       
       setPosterAvailable(true);
       setCurrentShowId(show.id);
@@ -9014,48 +9115,25 @@ export function Console({ initialShowId }: ConsoleProps) {
         portraitGridDigestRef.current = "";
       }
       posterDigestRef.current = "";
-      // Only set trailer digest if trailer actually exists OR is actively processing
+      // Only set trailer digest if trailer actually exists
       if (show.trailerUrl) {
         trailerDigestRef.current = show.portraitGridUrl ?? "";
-      } else if (hasActiveTrailerJob) {
-        // If trailer is currently processing, set digest to prevent duplicate generation
-        trailerDigestRef.current = show.portraitGridUrl ?? "";
-        console.log("ℹ️  Trailer job active - preventing duplicate auto-generation");
       } else {
         trailerDigestRef.current = "";
-        console.log("ℹ️  No trailer in show - will allow auto-generation");
+        console.log("ℹ️  No trailer in show - will allow manual generation");
       }
       console.log("✅ Show loaded successfully");
       
-      // Check for any in-progress background tasks for this show
+      // DISABLED: Auto-resume of background tasks
+      // User preference: generation should be manually triggered, not auto-resumed on refresh
+      // Just clear stale tasks instead of resuming them
       if (typeof window !== 'undefined') {
         const activeTasks = getShowTasks(show.id);
         if (activeTasks.length > 0) {
-          console.log(`📋 Found ${activeTasks.length} active background tasks for this show`);
+          console.log(`🧹 Clearing ${activeTasks.length} stale background tasks (auto-resume disabled)`);
           activeTasks.forEach(task => {
-            console.log(`   - ${task.type} (${task.characterId || 'show-level'}): ${task.status}`);
-            
-            // Restore loading state and start polling for in-progress tasks
-            if (task.characterId) {
-              if (task.type === 'portrait' && (task.status === 'starting' || task.status === 'processing')) {
-                console.log(`   🔄 Resuming portrait polling for ${task.characterId}`);
-                setCharacterPortraitLoading(prev => ({
-                  ...prev,
-                  [task.characterId!]: true,
-                }));
-                portraitJobsRef.current.set(task.characterId, task.id);
-                // TODO: Start portrait polling (will be added in useEffect below)
-              } else if (task.type === 'video' && (task.status === 'starting' || task.status === 'processing')) {
-                console.log(`   🔄 Resuming video polling for ${task.characterId}`);
-                setCharacterVideoLoading(prev => ({
-                  ...prev,
-                  [task.characterId!]: true,
-                }));
-                videoJobsRef.current.set(task.characterId, task.id);
-                videoStartTimesRef.current.set(task.characterId, Date.now());
-                // TODO: Start video polling (will be added in useEffect below)
-              }
-            }
+            console.log(`   - Clearing: ${task.type} (${task.characterId || 'show-level'}): ${task.status}`);
+            removeBackgroundTask(task.id);
           });
         }
       }
@@ -9104,22 +9182,8 @@ export function Console({ initialShowId }: ConsoleProps) {
       // Small delay to ensure state has propagated before allowing saves
       setTimeout(() => {
         setIsLoadingShow(false);
-        
-        // Re-check for active trailer job now that show is loaded
-        if (hasActiveTrailerJob) {
-          try {
-            const savedJob = localStorage.getItem('production-flow.trailer-job');
-            if (savedJob) {
-              const { jobId } = JSON.parse(savedJob);
-              if (jobId && !trailerStatusPollRef.current) {
-                console.log("🔄 Re-triggering trailer polling after show load");
-                startTrailerStatusPolling(jobId, show.id);
-              }
-            }
-          } catch (e) {
-            // Ignore
-          }
-        }
+        // DISABLED: Auto-resume trailer polling after show load
+        // User preference: generation should be manually triggered
       }, 1000);
     } catch (error) {
       console.error("Failed to load show:", error);
@@ -9304,6 +9368,102 @@ export function Console({ initialShowId }: ConsoleProps) {
   }, [blueprint, stylizationGuardrails]);
 
   const buildDefaultTrailerPrompt = useCallback(() => {
+    if (!blueprint) return "";
+    
+    const showTitle = blueprint.show_title || "Untitled Show";
+    const logline = blueprint.show_logline || "";
+    const productionStyle = blueprint.production_style;
+    const productionMedium = productionStyle?.medium || "";
+    const cinematicReferences = (productionStyle?.cinematic_references || []).join(", ");
+    const visualTreatment = productionStyle?.visual_treatment || "";
+    const stylizationLevel = productionStyle?.stylization_level || "";
+
+    let promptText: string;
+    
+    // Use the global template if available
+    if (trailerTemplate) {
+      promptText = trailerTemplate
+        .replace(/{SHOW_TITLE}/g, showTitle)
+        .replace(/{LOGLINE}/g, logline)
+        .replace(/{PRODUCTION_MEDIUM}/g, productionMedium)
+        .replace(/{CINEMATIC_REFERENCES}/g, cinematicReferences)
+        .replace(/{VISUAL_TREATMENT}/g, visualTreatment)
+        .replace(/{STYLIZATION_LEVEL}/g, stylizationLevel);
+    } else {
+      // Fallback to hardcoded default
+      promptText = `Create an iconic teaser trailer for the series "${showTitle}".
+
+${logline}
+
+TRAILER REQUIREMENTS:
+
+1. OPENING TITLE CARD: Begin with a striking title card displaying "${showTitle}" in beautiful, bold typography that matches the show's aesthetic. The title should be elegant, memorable, and set the tone for what follows. Hold for 2-3 seconds.
+
+2. VOICEOVER NARRATION: Include a professional, CINEMATIC trailer voiceover that sounds like an ACTUAL movie trailer - NOT someone reading a script or explaining the show:
+   
+   CRITICAL: The voiceover must be ENGAGING, DRAMATIC, and ICONIC - like the voice actors in real Hollywood trailers.
+   
+   Genre-Specific Voice Direction:
+   - For COMEDY: The "In a World" guy doing comedy - dry wit, impeccable timing, knowing irony. Think: casual cool meets sharp humor
+   - For ACTION: Deep, gravelly, INTENSE voice (think: Hans Zimmer trailer narrator). Every word drips with stakes and danger
+   - For HORROR: Whispered menace, bone-chilling calm before the storm. Not explaining - HAUNTING
+   - For DRAMA: Emotional power, thoughtful gravitas, pulls at heartstrings. Raw and real
+   - For ADVENTURE: Epic, wonder-struck, makes you FEEL the journey. Grand and inspiring
+   
+   VOICEOVER STYLE RULES:
+   ✓ Short, punchy phrases that PUNCTUATE visuals
+   ✓ Build tension and intrigue with each line
+   ✓ Use trailer-speak: fragments, dramatic pauses, building rhythm
+   ✓ Match the energy of what's on screen
+   ✓ End lines on power words that hit hard
+   ✓ Create mystery - DON'T explain everything
+   
+   ✗ NEVER sound like: "This is a show about..." or "Meet the characters who..."
+   ✗ NEVER be explanatory or expository
+   ✗ NEVER use boring, flat narration
+   ✗ NEVER sound like a documentary narrator
+
+3. Study the character grid reference image to understand the cast, weaving them into the narrative
+4. Create a well-paced, exciting montage that captures the show's core vibe and genre
+5. Showcase the MOST INTERESTING and ICONIC moments that would make viewers want to watch
+6. Build anticipation and intrigue through dynamic editing, compelling visuals, and punchy narration`;
+    }
+
+    // Build complete API payload structure showing what gets sent to each model
+    const fullPayloadDisplay = `
+=== FULL API PAYLOAD STRUCTURE ===
+(This is exactly what gets sent to the video generation API)
+
+=== SORA 2 / SORA 2 PRO ===
+{
+  "input": {
+    "prompt": "<YOUR PROMPT TEXT BELOW>",
+    "input_reference": "${portraitGridUrl || '<character_grid_url>'}",
+    "seconds": 12,
+    "resolution": "1920x1080"
+  }
+}
+
+=== VEO 3.1 ===
+{
+  "input": {
+    "prompt": "<YOUR PROMPT TEXT BELOW>",
+    "reference_images": ["${portraitGridUrl || '<character_grid_url>'}"],
+    "aspect_ratio": "16:9",
+    "duration": 8,
+    "resolution": "1080p",
+    "generate_audio": true
+  }
+}
+
+=== YOUR EDITABLE PROMPT TEXT ===
+${promptText}`;
+
+    return fullPayloadDisplay;
+  }, [blueprint, trailerTemplate, portraitGridUrl]);
+
+  // Also provide just the prompt text for when we need to send to API
+  const buildTrailerPromptText = useCallback(() => {
     if (!blueprint) return "";
     
     const showTitle = blueprint.show_title || "Untitled Show";
@@ -9527,7 +9687,7 @@ TRAILER REQUIREMENTS:
     }
   }, [blueprint, posterAvailable, portraitGridUrl, canGenerateLibraryPoster, buildDefaultLibraryPosterPrompt, imageModel, currentShowId]);
 
-  const saveCurrentShow = useCallback(async (forceLibraryPoster = false) => {
+  const saveCurrentShow = useCallback(async (forceLibraryPoster = false, overrideLibraryPosterUrl?: string | null) => {
     if (!blueprint) return;
     if (!currentShowId) return; // Don't save if no ID yet
     if (isLoadingShow) {
@@ -9536,7 +9696,8 @@ TRAILER REQUIREMENTS:
     }
 
     // Generate library poster ONLY if forced or meets all requirements
-    let finalLibraryPosterUrl = libraryPosterUrl;
+    // Use override URL if provided (fixes stale closure issue when called right after generation)
+    let finalLibraryPosterUrl = overrideLibraryPosterUrl ?? libraryPosterUrl;
     
     console.log("💾 Save params:", {
       forceLibraryPoster,
@@ -9729,8 +9890,8 @@ TRAILER REQUIREMENTS:
       const newUrl = await generateLibraryPoster();
       if (newUrl) {
         console.log("✅ Library poster auto-generated:", newUrl.slice(0, 80) + "...");
-        // Save the show with the new poster
-        setTimeout(() => void saveCurrentShow(false), 500);
+        // Save the show with the new poster - pass the URL directly to avoid stale closure
+        setTimeout(() => void saveCurrentShow(false, newUrl), 500);
       }
     }, 1500);
     
@@ -10324,9 +10485,8 @@ TRAILER REQUIREMENTS:
                 const newUrl = await generateLibraryPoster(customPrompt);
                 if (newUrl) {
                   console.log("✅ New poster generated:", newUrl.slice(0, 80) + "...");
-                  // The new URL is already set by generateLibraryPoster
-                  // Save the show with the new poster
-                  await saveCurrentShow(false);
+                  // Save the show with the new poster - pass URL directly to avoid stale closure
+                  await saveCurrentShow(false, newUrl);
                   console.log("✅ Show saved with new poster");
                 } else {
                   console.warn("⚠️ Poster generation returned null");

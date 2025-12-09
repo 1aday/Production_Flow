@@ -26,14 +26,17 @@ export async function GET(request: NextRequest) {
         headers: {
           "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
         },
+        // 3 minute timeout - Replicate can be slow
+        signal: AbortSignal.timeout(180000),
       });
     } catch (fetchError) {
-      console.error(`❌ Network error fetching from Replicate:`, fetchError);
+      const errorMsg = fetchError instanceof Error ? fetchError.message : "Failed to connect to Replicate API";
+      console.warn(`⚠️ Transient network error fetching from Replicate (will retry):`, errorMsg);
       return NextResponse.json(
         { 
-          error: "Network error",
-          detail: fetchError instanceof Error ? fetchError.message : "Failed to connect to Replicate API",
-          status: null
+          status: null,
+          detail: `Network error: ${errorMsg}`,
+          isTransient: true,
         },
         { status: 200 } // Return 200 so frontend can handle gracefully
       );
@@ -59,6 +62,17 @@ export async function GET(request: NextRequest) {
         },
         { status: 200 } // Return 200 so frontend handles this as a "failed" prediction
       );
+    }
+    
+    // Validate content-type is JSON
+    const contentType = statusResponse.headers.get("content-type");
+    if (!contentType?.includes("application/json")) {
+      const responseText = await statusResponse.text();
+      console.error("Video status returned non-JSON:", contentType, responseText.slice(0, 200));
+      return NextResponse.json({
+        status: null,
+        detail: "Video status check returned invalid response. Please try again.",
+      }, { status: 200 });
     }
     
     const prediction = await statusResponse.json() as { 

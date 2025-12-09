@@ -33,7 +33,7 @@ CRITICAL RULES:
    FOR COMEDY/SITCOM → "Pixar-style 3D animation" or "Aardman claymation" or "Cartoon Network 2D style"
    FOR DRAMA/THRILLER → "Anime aesthetic" or "Graphic novel illustration style" or "Rotoscoped animation"
    FOR FANTASY/ADVENTURE → "Studio Ghibli hand-drawn animation" or "Disney 3D animation" or "Laika stop-motion"
-   FOR KIDS SHOW → "Pixar-style 3D animation" or "2D cel animation" or "Paper cutout animation"
+   FOR FAMILY SHOW → "Pixar-style 3D animation" or "2D cel animation" or "Paper cutout animation"
    FOR PRESTIGE/SERIOUS → "Arcane painterly style" or "Spider-Verse stylized 3D" or "Comic book visual style"
    FOR QUIRKY/INDIE → "Claymation (Wallace & Gromit style)" or "Stop-motion puppet animation" or "Mixed media animation"
    
@@ -51,11 +51,16 @@ CRITICAL RULES:
 
 7. MATERIALS & TEXTURES - Use animation terminology:
    WRONG: "realistic skin", "natural textures", "photographic finish"
-   RIGHT: "stylized skin tones", "painterly textures", "animated surface treatment", "illustrated finish", "cartoon shading"
+   RIGHT: "stylized surfaces", "painterly textures", "animated surface treatment", "illustrated finish", "cartoon shading"
 
 8. SPECIES DESIGN - Always animated/stylized:
    - "surface_finish": Use "matte cartoon", "painterly finish", "cel-shaded", "illustrated treatment"
    - NEVER: "realistic", "natural", "photographic"
+
+9. FORBIDDEN CONTENT WORDS - NEVER USE THESE:
+   - "child", "child-like", "childish", "kids", "kid-like", "young child", "toddler", "infant", "minor", "underage"
+   - Instead use: "playful", "bouncy", "innocent", "spirited", "energetic", "whimsical", "curious", "youthful energy"
+   - Do NOT describe gender, skin color, eye color, hair color, voice, or accent details
 
 Include a compelling "show_logline" and detailed "poster_description".`;
 
@@ -101,7 +106,7 @@ CRITICAL RULES:
    - Choose what serves the story best - don't default to animation
 
 5. VISUAL TREATMENT - Match your medium choice:
-   - For cinematic/realistic: "photorealistic rendering", "cinematic lighting", "naturalistic textures", "realistic skin and materials", "theatrical cinematography", "dramatic realism"
+   - For cinematic/realistic: "photorealistic rendering", "cinematic lighting", "naturalistic textures", "realistic materials", "theatrical cinematography", "dramatic realism"
    - For animation: "animated", "illustrated", "stylized", "painterly"
    - IGNORE schema field descriptions that suggest non-photorealistic - those are guidelines only
 
@@ -110,16 +115,21 @@ CRITICAL RULES:
    - For animation: Pixar, Ghibli, Spider-Verse, etc.
 
 7. MATERIALS & TEXTURES - Match the medium:
-   - Realistic: "realistic skin with pores and imperfections", "natural textures", "photographic materials", "practical costume fabrics", "real-world surfaces"
+   - Realistic: "realistic textures with detail", "natural textures", "photographic materials", "practical costume fabrics", "real-world surfaces"
    - Animated: "stylized surfaces", "painterly textures", "cartoon shading"
 
 8. SPECIES DESIGN - Match the medium:
-   - Realistic: surface_finish should be "realistic skin texture", "naturalistic", "photographic", "lifelike", "practical makeup and prosthetics"
+   - Realistic: surface_finish should be "realistic texture", "naturalistic", "photographic", "lifelike", "practical makeup and prosthetics"
    - Animated: "matte cartoon", "painterly finish", "cel-shaded"
 
 9. POSTER_DESCRIPTION - Be vivid and match the style:
    - For realistic shows: Describe a cinematic movie poster with real actors, dramatic lighting, photographic quality
    - For animated: Describe in the animation style chosen
+
+10. FORBIDDEN CONTENT WORDS - NEVER USE THESE (regardless of guardrails):
+   - "child", "child-like", "childish", "kids", "kid-like", "young child", "toddler", "infant", "minor", "underage"
+   - Instead use: "playful", "bouncy", "innocent", "spirited", "energetic", "whimsical", "curious", "youthful energy"
+   - Do NOT describe gender, skin color, eye color, hair color, voice, or accent details
 
 REMEMBER: The user has disabled stylization guardrails. You are FREE to choose photorealistic, live-action, cinematic styles. Interpret their request broadly and pick what best serves their creative vision.
 
@@ -328,7 +338,6 @@ ${schemaText}`,
         },
         temperature: 1,
         top_p: 1,
-        max_output_tokens: 2048,
         reasoning: {},
         tools: [],
         store: false,

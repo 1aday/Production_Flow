@@ -11,7 +11,7 @@ import { getShowUrl } from "@/lib/slug";
 import { cn } from "@/lib/utils";
 import { getPosterDisplayUrl } from "@/lib/image-utils";
 
-type ImageModelId = "gpt-image" | "flux" | "nano-banana-pro";
+type ImageModelId = "gpt-image" | "flux" | "nano-banana-pro" | "seedream";
 type VideoModelId = "sora-2" | "sora-2-pro" | "veo-3.1";
 
 const IMAGE_MODEL_OPTIONS: Array<{
@@ -33,6 +33,11 @@ const IMAGE_MODEL_OPTIONS: Array<{
     id: "nano-banana-pro",
     label: "Nano Banana Pro",
     description: "Google's 2K output",
+  },
+  {
+    id: "seedream",
+    label: "Seedream 4.5",
+    description: "ByteDance's up to 4K",
   },
 ];
 
@@ -147,8 +152,16 @@ export default function LandingPage() {
     );
   }, [stylizationGuardrails]);
 
+  // Track if initial load has completed to prevent overwriting user's saved preference
+  const imageModelInitializedRef = useRef(false);
+  
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Skip the first render to avoid overwriting the user's saved preference
+    if (!imageModelInitializedRef.current) {
+      imageModelInitializedRef.current = true;
+      return;
+    }
     window.localStorage.setItem("production-flow.image-model", imageModel);
   }, [imageModel]);
 
@@ -519,7 +532,7 @@ export default function LandingPage() {
                 "grid transition-all duration-300 ease-out border-t border-white/[0.06]",
                 settingsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
               )}>
-                <div className="overflow-hidden">
+                <div className="overflow-hidden min-h-0">
                   <div className="p-4 sm:p-5 space-y-4">
                     {/* Features Row */}
                     <div className="flex flex-wrap gap-2">

@@ -24,37 +24,12 @@
         "materiality": "stylized animated character",
         "physiology": "standard human anatomy"
       },
-      "gender_identity": "<male | female | non_binary | other>",
-      "skin_color": { "hex": "#CDAA8D", "description": "warm light-tan" },
-      "eye_color": { "hex": "#4A3B2A", "description": "brown", "patterning": "" },
-  
-      "has_hair": true,
-      "hair": {
-        "style": "short side-part",
-        "color_hex": "#3B2F2F",
-        "color_description": "dark brown",
-        "length": "short",
-        "texture": "wavy"
-      },
   
       "facial_hair": { "has_facial_hair": false, "style": "", "density": "light" },
   
       "build": { "body_type": "lean", "notes": "" },
   
-      "distinctive_features": "<One sentence describing scars, tattoos, prosthetics, unusual traits>",
-  
-      "voice": {
-        "descriptors": ["warm","measured","wry"],
-        "pitch_range": "mid",
-        "tempo": "moderate",
-        "timbre_notes": "slight rasp on emphasis"
-      },
-  
-      "accent": {
-        "style": "General North American",
-        "strength": "light",
-        "code_switching": "neutralizes in formal settings"
-      }
+      "distinctive_features": "<One sentence describing scars, tattoos, prosthetics, unusual traits>"
     },
   
     "look": {

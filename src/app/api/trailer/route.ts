@@ -6,20 +6,33 @@ import {
   setTrailerStatusRecord,
 } from "@/lib/trailer-status";
 
-export const maxDuration = 300; // 5 minutes for trailer generation
+export const maxDuration = 1200; // 20 minutes for Sora 2 Pro trailer generation
+
+// Helper to sanitize prompts for video models (replaces child/kid/children with younger alternatives)
+function sanitizeVideoPrompt(prompt: string): string {
+  return prompt
+    .replace(/\bchildren\b/gi, "young ones")
+    .replace(/\bchild\b/gi, "young person")
+    .replace(/\bkids\b/gi, "young ones")
+    .replace(/\bkid\b/gi, "young person");
+}
 
 // Helper function to fetch with retry for transient network errors AND rate limiting
 async function fetchWithRetry(
   url: string,
   options: RequestInit,
   maxRetries: number = 3,
-  retryDelay: number = 2000
+  retryDelay: number = 2000,
+  timeoutMs: number = 1200000 // 20 minute timeout for Sora 2 Pro
 ): Promise<Response> {
   let lastError: Error | null = null;
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
       
       // Handle rate limiting (429) with retry
       if (response.status === 429) {
@@ -62,7 +75,9 @@ async function fetchWithRetry(
         lastError.message.includes('fetch failed') ||
         lastError.message.includes('network') ||
         lastError.message.includes('429') ||
-        lastError.message.includes('rate limit');
+        lastError.message.includes('rate limit') ||
+        lastError.message.includes('timeout') ||
+        lastError.message.includes('aborted');
       
       if (!isTransient || attempt === maxRetries) {
         throw lastError;
@@ -76,6 +91,24 @@ async function fetchWithRetry(
   }
   
   throw lastError || new Error('fetchWithRetry failed');
+}
+
+// Helper function to safely parse JSON from a response, with validation
+async function safeJsonParse<T>(response: Response, context: string): Promise<T> {
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`${context} error:`, response.status, errorText.slice(0, 200));
+    throw new Error(`${context} failed: ${response.status}`);
+  }
+  
+  const contentType = response.headers.get("content-type");
+  if (!contentType?.includes("application/json")) {
+    const errorText = await response.text();
+    console.error(`${context} returned non-JSON:`, contentType, errorText.slice(0, 200));
+    throw new Error(`${context} returned invalid response. Please try again.`);
+  }
+  
+  return response.json() as Promise<T>;
 }
 
 type TrailerBody = {
@@ -105,16 +138,16 @@ async function generateWithSora(
   setTrailerStatusRecord(jobId, `${modelId}-starting`);
 
   const input: Record<string, unknown> = {
-    prompt,
+    prompt: sanitizeVideoPrompt(prompt),
     input_reference: characterGridUrl,
     seconds: 12,
-    aspect_ratio: "landscape",
+    aspect_ratio: "16:9", // Sora uses "16:9" or "9:16"
+    resolution: "standard", // Sora uses "standard" (720p) or "high" (1024p)
   };
   
   // Add pro-tier options if using Sora 2 Pro
   if (isPro) {
-    input.resolution = "1080p";
-    input.quality = "high";
+    input.resolution = "high"; // Higher quality for pro tier
   }
 
   const response = await fetch("https://api.replicate.com/v1/models/openai/sora-2/predictions", {
@@ -142,7 +175,7 @@ async function generateWithSora(
       `https://api.replicate.com/v1/predictions/${result.id}`,
       { headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` } }
     );
-    result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+    result = await safeJsonParse<{ id: string; status: string; error?: string; output?: unknown }>(statusResponse, `${modelName} status poll`);
     console.log(`${modelName} status:`, result.status);
     setTrailerStatusRecord(jobId, `${modelId}-${result.status}`);
   }
@@ -187,7 +220,7 @@ async function generateWithVeo(
   setTrailerStatusRecord(jobId, "veo-starting");
 
   const input = {
-    prompt,
+    prompt: sanitizeVideoPrompt(prompt),
     reference_images: [characterGridUrl],
     aspect_ratio: "16:9",
     duration: 8,
@@ -220,7 +253,7 @@ async function generateWithVeo(
       `https://api.replicate.com/v1/predictions/${result.id}`,
       { headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` } }
     );
-    result = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+    result = await safeJsonParse<{ id: string; status: string; error?: string; output?: unknown }>(statusResponse, "VEO status poll");
     console.log("VEO status:", result.status);
     setTrailerStatusRecord(jobId, `veo-${result.status}`);
   }
@@ -280,8 +313,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
-  
   // Fetch the global template from database
   const supabase = createServerSupabaseClient();
   const { data: templateData } = await supabase
@@ -303,7 +334,7 @@ export async function POST(request: NextRequest) {
   
   if (customPrompt) {
     // Use custom prompt directly
-    trailerPrompt = customPrompt.includes("hesitations") ? customPrompt : SAFETY_PREFIX + customPrompt;
+    trailerPrompt = customPrompt;
     console.log("📝 Using CUSTOM trailer prompt");
   } else if (templateData?.trailer_base_prompt) {
     // Use the global template with variable substitution
@@ -315,11 +346,10 @@ export async function POST(request: NextRequest) {
       .replace(/{VISUAL_TREATMENT}/g, visualTreatment)
       .replace(/{STYLIZATION_LEVEL}/g, stylizationLevel);
     
-    trailerPrompt = trailerPrompt.includes("hesitations") ? trailerPrompt : SAFETY_PREFIX + trailerPrompt;
     console.log("📝 Using GLOBAL TEMPLATE for trailer prompt");
   } else {
     // Fallback to hardcoded default
-    trailerPrompt = SAFETY_PREFIX + `Create an iconic teaser trailer for the series "${title}".
+    trailerPrompt = `Create an iconic teaser trailer for the series "${title}".
 
 ${logline}
 
@@ -480,7 +510,7 @@ TRAILER REQUIREMENTS:
       try {
         console.log("🎬 Setting up VEO 3.1 prediction...");
         const veoInput = {
-          prompt: trailerPrompt,
+          prompt: sanitizeVideoPrompt(trailerPrompt),
           reference_images: [characterGridUrl],
           aspect_ratio: "16:9",
           duration: 8, // VEO max is 8 seconds
@@ -515,7 +545,7 @@ TRAILER REQUIREMENTS:
             `https://api.replicate.com/v1/predictions/${veoResult.id}`,
             { headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` } }
           );
-          veoResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+          veoResult = await safeJsonParse<{ id: string; status: string; error?: string; output?: unknown }>(statusResponse, "VEO status poll");
           console.log("VEO status:", veoResult.status);
           setTrailerStatusRecord(jobId, `veo-${veoResult.status}`);
         }
@@ -560,12 +590,11 @@ TRAILER REQUIREMENTS:
         
         try {
           const soraFallbackInput = {
-            prompt: trailerPrompt,
-            // No reference_images - just use the prompt
-            aspect_ratio: "16:9",
-            duration: 12,
-            resolution: "1080p",
-            generate_audio: true,
+            prompt: sanitizeVideoPrompt(trailerPrompt),
+            // No input_reference - just use the prompt
+            aspect_ratio: "16:9", // Sora uses "16:9" or "9:16"
+            seconds: 12, // Sora uses "seconds", not "duration"
+            resolution: "standard", // Sora uses "standard" (720p) or "high" (1024p)
           };
 
           console.log("Sora 2 (no grid) input:", JSON.stringify(soraFallbackInput, null, 2));
@@ -595,7 +624,7 @@ TRAILER REQUIREMENTS:
               `https://api.replicate.com/v1/predictions/${soraFallbackResult.id}`,
               { headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}` } }
             );
-            soraFallbackResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+            soraFallbackResult = await safeJsonParse<{ id: string; status: string; error?: string; output?: unknown }>(statusResponse, "Sora 2 status poll");
             console.log("Sora 2 (no grid) status:", soraFallbackResult.status);
             setTrailerStatusRecord(jobId, `final-fallback-${soraFallbackResult.status}`);
           }

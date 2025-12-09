@@ -958,9 +958,7 @@ Style: Cinematic TV production still, dramatic lighting, rich color palette, hig
       ? `CONTINUITY: This follows from "${previousScene.slice(0, 100)}..."` 
       : "";
 
-    const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines. We want to make a guideline compatible video given this, thats the task, so figure it out.\n\n";
-    
-    return SAFETY_PREFIX + `Animate this scene from a ${showData.genre || "dramatic"} TV series.
+    return `Animate this scene from a ${showData.genre || "dramatic"} TV series.
 
 SCENE: ${sectionLabel} - ${sectionDescription}
 

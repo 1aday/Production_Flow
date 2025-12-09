@@ -6,7 +6,7 @@ export const maxDuration = 60;
 type RequestBody = {
   prompt: string; // Full prompt with style guide
   characterImageUrl: string;
-  imageModel?: "gpt-image" | "flux" | "nano-banana-pro"; // Selected image model
+  imageModel?: "gpt-image" | "flux" | "nano-banana-pro" | "seedream"; // Selected image model
   stylizationGuardrails?: boolean; // Whether to enforce stylization
   showData?: {
     show_title?: string;
@@ -249,8 +249,7 @@ Remember: The show title "${showTitle}" MUST be clearly visible with beautiful t
     }
     
     // Build the final poster prompt
-    const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
-    const posterPrompt = SAFETY_PREFIX + `${userPrompt}${styleGuidance}${posterRequirements}`;
+    const posterPrompt = `${userPrompt}${styleGuidance}${posterRequirements}`;
 
     console.log("\n=== LIBRARY POSTER GENERATION ===");
     console.log("✅ Show Title Being Used:", showTitle);
@@ -321,6 +320,20 @@ Remember: The show title "${showTitle}" MUST be clearly visible with beautiful t
           },
         });
         
+        // Check if response is OK and is JSON
+        if (!statusResponse.ok) {
+          const errorText = await statusResponse.text();
+          console.error("Status poll error:", statusResponse.status, errorText.slice(0, 200));
+          throw new Error(`Failed to check poster status: ${statusResponse.status}`);
+        }
+        
+        const contentType = statusResponse.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
+          const errorText = await statusResponse.text();
+          console.error("Status poll returned non-JSON:", contentType, errorText.slice(0, 200));
+          throw new Error("Poster status check returned invalid response. Please try again.");
+        }
+        
         gptResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
         console.log(`   Poll ${pollCount}: ${gptResult.status}`);
       }
@@ -337,11 +350,53 @@ Remember: The show title "${showTitle}" MUST be clearly visible with beautiful t
       console.log("   Output type:", typeof result);
       console.log("   Output preview:", JSON.stringify(result).slice(0, 200));
     } else if (selectedModel === "nano-banana-pro") {
-      // Use Nano Banana Pro for library poster
-      console.log("🎨 Using Nano Banana Pro for library poster");
+      // Use Nano Banana Pro /edit endpoint via fal.ai for library poster (with character reference)
+      console.log("🎨 Using Nano Banana Pro /edit (fal.ai) for library poster");
       
-      // Use direct API to ensure proper array handling
-      const createResponse = await fetch("https://api.replicate.com/v1/models/google/nano-banana-pro/predictions", {
+      const falKey = process.env.FAL_KEY;
+      if (!falKey) {
+        throw new Error("Missing FAL_KEY environment variable for Nano Banana Pro");
+      }
+      
+      console.log("   Using character grid as reference image:", characterImageUrl.slice(0, 60) + "...");
+
+      const falResponse = await fetch("https://fal.run/fal-ai/nano-banana-pro/edit", {
+        method: "POST",
+        headers: {
+          "Authorization": `Key ${falKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: posterPrompt,
+          image_urls: [characterImageUrl], // Use character grid as reference
+          aspect_ratio: "2:3",
+          resolution: "2K",
+          output_format: "png",
+          num_images: 1,
+        }),
+      });
+
+      if (!falResponse.ok) {
+        const errorBody = await falResponse.text();
+        console.error("Fal.ai Nano Banana Pro /edit API error:", errorBody);
+        throw new Error(`Failed to generate library poster with Nano Banana Pro /edit: ${falResponse.status} - ${errorBody}`);
+      }
+
+      const falResult = await falResponse.json() as { images?: Array<{ url: string }> };
+      console.log("✅ Nano Banana Pro /edit (fal.ai) completed");
+      
+      if (!falResult.images || falResult.images.length === 0) {
+        throw new Error("No images returned from Nano Banana Pro /edit");
+      }
+      
+      result = falResult.images[0].url;
+      console.log("   Output URL:", (result as string).slice(0, 100) + "...");
+    } else if (selectedModel === "seedream") {
+      // Use Seedream 4.5 for library poster
+      console.log("🎨 Using Seedream 4.5 for library poster");
+      
+      // Use direct API
+      const createResponse = await fetch("https://api.replicate.com/v1/models/bytedance/seedream-4.5/predictions", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -352,49 +407,60 @@ Remember: The show title "${showTitle}" MUST be clearly visible with beautiful t
             prompt: posterPrompt,
             image_input: [characterImageUrl], // Reference image array
             aspect_ratio: "2:3",
-            resolution: "2K",
-            output_format: "png", // PNG for compatibility
-            safety_filter_level: "block_only_high",
+            size: "2K",
           },
         }),
       });
 
       if (!createResponse.ok) {
         const errorBody = await createResponse.text();
-        console.error("Nano Banana Pro API error:", errorBody);
-        throw new Error(`Failed to create Nano Banana Pro prediction: ${createResponse.status} - ${errorBody}`);
+        console.error("Seedream 4.5 API error:", errorBody);
+        throw new Error(`Failed to create Seedream 4.5 prediction: ${createResponse.status} - ${errorBody}`);
       }
 
       const prediction = await createResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-      console.log("✅ Nano Banana Pro prediction created:", prediction.id);
+      console.log("✅ Seedream 4.5 prediction created:", prediction.id);
       console.log("   Initial status:", prediction.status);
 
       // Poll for completion
-      let nanoResult = prediction;
+      let seedreamResult = prediction;
       let pollCount = 0;
-      while (nanoResult.status === "starting" || nanoResult.status === "processing") {
+      while (seedreamResult.status === "starting" || seedreamResult.status === "processing") {
         pollCount++;
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${nanoResult.id}`, {
+        const statusResponse = await fetch(`https://api.replicate.com/v1/predictions/${seedreamResult.id}`, {
           headers: {
             "Authorization": `Bearer ${token}`,
           },
         });
         
-        nanoResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
-        console.log(`   Poll ${pollCount}: ${nanoResult.status}`);
+        if (!statusResponse.ok) {
+          const errorText = await statusResponse.text();
+          console.error("Status poll error:", statusResponse.status, errorText.slice(0, 200));
+          throw new Error(`Failed to check poster status: ${statusResponse.status}`);
+        }
+        
+        const contentType = statusResponse.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
+          const errorText = await statusResponse.text();
+          console.error("Status poll returned non-JSON:", contentType, errorText.slice(0, 200));
+          throw new Error("Poster status check returned invalid response. Please try again.");
+        }
+        
+        seedreamResult = await statusResponse.json() as { id: string; status: string; error?: string; output?: unknown };
+        console.log(`   Poll ${pollCount}: ${seedreamResult.status}`);
       }
 
-      console.log(`✅ Nano Banana Pro completed after ${pollCount} polls`);
-      console.log("   Final status:", nanoResult.status);
+      console.log(`✅ Seedream 4.5 completed after ${pollCount} polls`);
+      console.log("   Final status:", seedreamResult.status);
 
-      if (nanoResult.status === "failed") {
-        console.error("❌ Nano Banana Pro generation failed:", nanoResult.error);
-        throw new Error(nanoResult.error || "Nano Banana Pro generation failed");
+      if (seedreamResult.status === "failed") {
+        console.error("❌ Seedream 4.5 generation failed:", seedreamResult.error);
+        throw new Error(seedreamResult.error || "Seedream 4.5 generation failed");
       }
 
-      result = nanoResult.output;
+      result = seedreamResult.output;
       console.log("   Output type:", typeof result);
       console.log("   Output preview:", JSON.stringify(result).slice(0, 200));
     } else {

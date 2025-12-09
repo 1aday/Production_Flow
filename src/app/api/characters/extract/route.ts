@@ -16,9 +16,7 @@ type CharacterSeed = {
   summary: string;
   role?: string;
   vibe?: string;
-  // New fields for better portrait generation
-  gender?: string;
-  age_range?: string;
+  // Fields for better portrait generation
   species_hint?: string;
   key_visual_trait?: string;
 };
@@ -38,23 +36,13 @@ const structuredSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "name", "summary", "role", "vibe", "gender", "age_range", "species_hint", "key_visual_trait"],
+        required: ["id", "name", "summary", "role", "vibe", "species_hint", "key_visual_trait"],
         properties: {
           id: { type: "string", description: "kebab-case identifier" },
           name: { type: "string" },
           summary: { type: "string", description: "Brief character description (max 280 chars)" },
           role: { type: ["string", "null"], description: "Character role: Protagonist, Supporting, Antagonist, etc." },
           vibe: { type: ["string", "null"], description: "Personality/energy descriptor" },
-          gender: { 
-            type: ["string", "null"], 
-            enum: ["male", "female", "non_binary", "other", null],
-            description: "Character's gender presentation for visual generation" 
-          },
-          age_range: { 
-            type: ["string", "null"], 
-            enum: ["child", "teen", "young_adult", "adult", "middle_aged", "elderly", null],
-            description: "Approximate age range for visual generation" 
-          },
           species_hint: { 
             type: ["string", "null"], 
             enum: ["human", "humanoid", "creature", "robot", "animal", "other", null],
@@ -62,7 +50,7 @@ const structuredSchema = {
           },
           key_visual_trait: { 
             type: ["string", "null"], 
-            description: "Most distinctive physical feature (e.g., 'red curly hair', 'cybernetic arm', 'glowing eyes')" 
+            description: "Most distinctive physical feature (e.g., 'cybernetic arm', 'glowing eyes', 'distinctive hat')" 
           },
         },
       },
@@ -80,14 +68,16 @@ For each character provide ALL of the following:
 - "summary": Brief description (<= 280 characters)
 - "role": Character role (Protagonist, Supporting, Antagonist, Mentor, Comic Relief, etc.) or null
 - "vibe": Personality/energy descriptor (e.g., "mysterious and brooding", "cheerful optimist") or null
-- "gender": One of: "male", "female", "non_binary", "other", or null
-- "age_range": One of: "child", "teen", "young_adult", "adult", "middle_aged", "elderly", or null
 - "species_hint": One of: "human", "humanoid", "creature", "robot", "animal", "other", or null
-- "key_visual_trait": Most distinctive physical feature (e.g., "bright red hair", "mechanical arm", "scar across face") or null
+- "key_visual_trait": Most distinctive physical feature (e.g., "mechanical arm", "scar across face", "distinctive hat") or null
 
 Use concise language and ensure identifiers are unique.
 
-IMPORTANT: Avoid using "realistic" or "photorealistic" in summaries or vibes. Use terms like "cinematic", "theatrical", "stylized" instead.`;
+IMPORTANT CONTENT RULES:
+- Avoid using "realistic" or "photorealistic" in summaries or vibes. Use terms like "cinematic", "theatrical", "stylized" instead.
+- NEVER use words like "child", "child-like", "childish", "kids", "kid-like", "young child", "toddler", "infant", or similar age-related terms for minors.
+- Instead, use personality/energy descriptors like: "playful", "bouncy", "innocent", "spirited", "energetic", "whimsical", "curious", "youthful energy".
+- Do NOT include gender, skin color, eye color, hair details, voice, or accent descriptions.`;
 
 const systemPromptRealistic = `You are a casting researcher and story analyst.
 Given a show concept, list up to ten distinct characters that appear or should appear.
@@ -99,13 +89,16 @@ For each character provide ALL of the following:
 - "summary": Brief description (<= 280 characters)
 - "role": Character role (Protagonist, Supporting, Antagonist, Mentor, Comic Relief, etc.) or null
 - "vibe": Personality/energy descriptor (e.g., "mysterious and brooding", "cheerful optimist") or null
-- "gender": One of: "male", "female", "non_binary", "other", or null
-- "age_range": One of: "child", "teen", "young_adult", "adult", "middle_aged", "elderly", or null
 - "species_hint": One of: "human", "humanoid", "creature", "robot", "animal", "other", or null
-- "key_visual_trait": Most distinctive physical feature (e.g., "bright red hair", "mechanical arm", "scar across face") or null
+- "key_visual_trait": Most distinctive physical feature (e.g., "mechanical arm", "scar across face", "distinctive hat") or null
 
 Use concise language and ensure identifiers are unique.
-Use descriptive terms appropriate to the show's style - whether animated, stylized, realistic, or any other aesthetic.`;
+Use descriptive terms appropriate to the show's style - whether animated, stylized, realistic, or any other aesthetic.
+
+IMPORTANT CONTENT RULES:
+- NEVER use words like "child", "child-like", "childish", "kids", "kid-like", "young child", "toddler", "infant", or similar age-related terms for minors.
+- Instead, use personality/energy descriptors like: "playful", "bouncy", "innocent", "spirited", "energetic", "whimsical", "curious", "youthful energy".
+- Do NOT include gender, skin color, eye color, hair details, voice, or accent descriptions.`;
 
 const trimJSON = (input: unknown): string | undefined => {
   if (!input) return undefined;
@@ -146,9 +139,6 @@ const normalizeSeeds = (items: unknown): CharacterSeed[] => {
     const providedId =
       typeof record.id === "string" && record.id.trim() ? record.id : undefined;
 
-    // New fields
-    const gender = typeof record.gender === "string" ? record.gender : undefined;
-    const age_range = typeof record.age_range === "string" ? record.age_range : undefined;
     const species_hint = typeof record.species_hint === "string" ? record.species_hint : undefined;
     const key_visual_trait = typeof record.key_visual_trait === "string" ? record.key_visual_trait : undefined;
 
@@ -169,8 +159,6 @@ const normalizeSeeds = (items: unknown): CharacterSeed[] => {
       summary, 
       role, 
       vibe,
-      gender,
-      age_range,
       species_hint,
       key_visual_trait,
     };

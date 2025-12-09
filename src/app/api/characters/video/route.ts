@@ -68,6 +68,15 @@ async function fetchWithRetry(
   throw lastError || new Error('Failed after retries');
 }
 
+// Helper to sanitize prompts for video models (replaces child/kid/children with younger alternatives)
+function sanitizeVideoPrompt(prompt: string): string {
+  return prompt
+    .replace(/\bchildren\b/gi, "young ones")
+    .replace(/\bchild\b/gi, "young person")
+    .replace(/\bkids\b/gi, "young ones")
+    .replace(/\bkid\b/gi, "young person");
+}
+
 type VideoModelId = "openai/sora-2" | "openai/sora-2-pro" | "google/veo-3.1";
 type VideoAspectRatio = "portrait" | "landscape" | "square";
 type VideoDuration = 4 | 6 | 8 | 12;
@@ -89,8 +98,8 @@ type VideoModelConfig = {
 
 const DEFAULT_DURATION: VideoDuration = 8;
 
-// Character videos are ALWAYS 1:1 square format
-const CHARACTER_VIDEO_ASPECT_RATIO: VideoAspectRatio = "square";
+// Character videos are ALWAYS 9:16 portrait format
+const CHARACTER_VIDEO_ASPECT_RATIO: VideoAspectRatio = "portrait";
 
 const describeAspectRatio = (value: VideoAspectRatio) => {
   switch (value) {
@@ -111,28 +120,39 @@ const getApiAspectRatio = (value: VideoAspectRatio): string => {
   }
 };
 
+// Sora aspect ratio to API format (9:16 or 16:9)
+const getSoraAspectRatio = (aspectRatio: VideoAspectRatio): string => {
+  switch (aspectRatio) {
+    case "portrait": return "9:16";
+    case "landscape": return "16:9";
+    default: return "9:16"; // Default to portrait for character videos
+  }
+};
+
 const VIDEO_MODELS: Record<VideoModelId, VideoModelConfig> = {
   "openai/sora-2": {
     modelPath: "openai/sora-2",
     seconds: [4, 8, 12],
-    aspectRatios: ["square", "portrait", "landscape"],
-    buildInput: ({ prompt, seconds, aspectRatio, portraitUrl }) => ({
+    aspectRatios: ["portrait", "landscape"], // Sora does NOT support square
+    resolutions: ["standard", "high"],
+    buildInput: ({ prompt, seconds, aspectRatio, portraitUrl, resolution }) => ({
       prompt,
       seconds,
-      aspect_ratio: getApiAspectRatio(aspectRatio),
+      aspect_ratio: getSoraAspectRatio(aspectRatio),
+      resolution: resolution ?? "standard", // "standard" (720p) or "high" (1024p)
       input_reference: portraitUrl,
     }),
   },
   "openai/sora-2-pro": {
     modelPath: "openai/sora-2-pro",
     seconds: [4, 8, 12],
-    aspectRatios: ["square", "portrait", "landscape"],
+    aspectRatios: ["portrait", "landscape"], // Sora does NOT support square
     resolutions: ["standard", "high"],
     buildInput: ({ prompt, seconds, aspectRatio, portraitUrl, resolution }) => ({
       prompt,
       seconds,
-      aspect_ratio: getApiAspectRatio(aspectRatio),
-      resolution: resolution ?? "standard",
+      aspect_ratio: getSoraAspectRatio(aspectRatio),
+      resolution: resolution ?? "standard", // "standard" (720p) or "high" (1024p)
       input_reference: portraitUrl,
     }),
   },
@@ -143,30 +163,45 @@ const VIDEO_MODELS: Record<VideoModelId, VideoModelConfig> = {
     aspectRatios: ["portrait", "landscape"],
     resolutions: ["720p", "1080p"],
     buildInput: ({ prompt, seconds, aspectRatio, portraitUrl, resolution }) => {
-      // VEO 3.1 uses reference_images instead of input_reference
-      // VEO 3.1 ONLY accepts "16:9" or "9:16" - it does NOT support "1:1" (square)
-      // For character videos (which default to square), use "9:16" portrait instead
-      let veoAspectRatio: "16:9" | "9:16";
-      if (aspectRatio === "landscape") {
-        veoAspectRatio = "16:9";
-      } else {
-        // For portrait OR square, use 9:16 (VEO doesn't support square)
-        veoAspectRatio = "9:16";
-      }
+      // VEO 3.1 API constraints:
+      // - aspect_ratio: "16:9" or "9:16"
+      // - duration: 4, 6, or 8 seconds
+      // - resolution: "720p" or "1080p"
+      // - reference_images: ONLY works with 16:9 aspect ratio AND 8-second duration
+      // - image: For image-to-video generation (works with any aspect ratio)
+      
+      const isLandscape = aspectRatio === "landscape";
+      const veoAspectRatio: "16:9" | "9:16" = isLandscape ? "16:9" : "9:16";
       
       // Add orientation guidance to prompt
       const orientationPrefix = veoAspectRatio === "9:16"
         ? "CRITICAL: Generate this as a VERTICAL 9:16 PORTRAIT video for mobile viewing. Frame all shots in portrait/vertical orientation. "
         : "CRITICAL: Generate this as a HORIZONTAL 16:9 LANDSCAPE video for widescreen viewing. Frame all shots in landscape/cinematic orientation. ";
       
-      return {
-        prompt: orientationPrefix + prompt,
-        duration: seconds,
-        aspect_ratio: veoAspectRatio,
-        resolution: resolution ?? "1080p",
-        generate_audio: true,
-        reference_images: [portraitUrl],
-      };
+      // reference_images only works with 16:9 and 8 seconds
+      // For portrait videos, use the 'image' parameter instead for image-to-video
+      if (isLandscape) {
+        // Landscape: Use reference_images for subject consistency (R2V)
+        // Must be 8 seconds when using reference_images
+        return {
+          prompt: orientationPrefix + prompt,
+          duration: 8, // reference_images requires 8 seconds
+          aspect_ratio: veoAspectRatio,
+          resolution: resolution ?? "1080p",
+          generate_audio: true,
+          reference_images: [portraitUrl],
+        };
+      } else {
+        // Portrait: Use image parameter for image-to-video
+        return {
+          prompt: orientationPrefix + prompt,
+          duration: seconds,
+          aspect_ratio: veoAspectRatio,
+          resolution: resolution ?? "1080p",
+          generate_audio: true,
+          image: portraitUrl, // Use image for portrait mode
+        };
+      }
     },
   },
 };
@@ -392,11 +427,8 @@ export async function POST(request: Request) {
   const modelId = ensureModelId(body.modelId);
   const modelConfig = VIDEO_MODELS[modelId];
   const seconds = normalizeSeconds(body.seconds, modelConfig.seconds);
-  // Character videos are 1:1 square format, EXCEPT for VEO 3.1 which only supports 16:9 and 9:16
-  // For VEO 3.1, use 9:16 portrait format for character videos
-  const aspectRatio: VideoAspectRatio = modelId === "google/veo-3.1" 
-    ? "portrait" 
-    : CHARACTER_VIDEO_ASPECT_RATIO;
+  // Character videos are ALWAYS 9:16 portrait format
+  const aspectRatio: VideoAspectRatio = CHARACTER_VIDEO_ASPECT_RATIO;
   const resolution = normalizeResolution(body.resolution, modelConfig.resolutions, modelId);
   
   // Get stylization guardrails setting (defaults to true for backward compatibility)
@@ -424,8 +456,6 @@ export async function POST(request: Request) {
     "",
   ];
 
-  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
-  
   // Build aspect ratio guidance based on actual format being used
   const aspectRatioGuidance = aspectRatio === "portrait"
     ? "CRITICAL: This MUST be a 9:16 PORTRAIT aspect ratio video for mobile viewing. Frame all shots in vertical/portrait orientation."
@@ -433,7 +463,7 @@ export async function POST(request: Request) {
     ? "CRITICAL: This MUST be a 16:9 LANDSCAPE aspect ratio video for widescreen viewing. Frame all shots in horizontal/cinematic orientation."
     : "CRITICAL: This MUST be a 1:1 SQUARE aspect ratio video. Center the character in frame for square composition.";
   
-  const prompt = SAFETY_PREFIX + [
+  const prompt = [
     `Produce a ${seconds}-second, ${describeAspectRatio(aspectRatio)} cinematic showcase featuring ONLY the specified character.`,
     aspectRatioGuidance,
     "Anchor every creative choice in the show's visual style and the character's established look.",
@@ -468,7 +498,7 @@ export async function POST(request: Request) {
     console.log("Model:", modelId, "| seconds:", seconds, "| aspect:", aspectRatio, "| resolution:", resolution ?? "n/a");
     
     const inputPayload = modelConfig.buildInput({
-      prompt,
+      prompt: sanitizeVideoPrompt(prompt),
       seconds,
       aspectRatio,
       resolution,

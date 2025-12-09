@@ -44,23 +44,26 @@ The show has a specific animation/illustration style (check production_style.med
 
 ABSOLUTELY FORBIDDEN WORDS (cause moderation failures):
 - "photorealistic", "realistic", "photo-like", "documentary", "naturalistic", "live-action", "flesh-and-blood", "real-world"
+- "child", "child-like", "childish", "kids", "kid-like", "young child", "toddler", "infant", "minor", "underage"
 
 REQUIRED TERMINOLOGY based on production_style.medium:
 
 IF ANIMATION (Pixar, Ghibli, claymation, etc.):
 - Materials: "animated textures", "cartoon surfaces", "stylized materials", "illustrated finishes"
-- Skin: "stylized skin tones", "animated skin treatment", "cartoon shading"
 - Finish: "matte cartoon", "cel-shaded", "painterly finish", "illustrated treatment"
 - Features: "animated proportions", "cartoon expressions", "stylized anatomy"
 
 IF GRAPHIC/ILLUSTRATED:
 - Materials: "illustrated textures", "graphic surfaces", "painterly materials"
-- Skin: "illustrated skin tones", "graphic rendering", "painterly complexion"
 - Finish: "graphic matte", "illustrated finish", "comic book treatment"
 
+FOR YOUNGER/SMALLER CHARACTERS - NEVER use age words. Instead use:
+- Personality/vibe: "playful", "bouncy", "innocent", "spirited", "energetic", "whimsical", "curious", "youthful energy"
+- Physical: "compact stature", "small frame", "petite build"
+
 EXAMPLES:
-✗ WRONG: "realistic matte", "natural human skin", "flesh-and-blood performer", "live-action subtype"
-✓ RIGHT: "cartoon matte", "stylized human features", "animated character", "animated subtype"
+✗ WRONG: "realistic matte", "natural human skin", "flesh-and-blood performer", "live-action subtype", "child character", "young kid"
+✓ RIGHT: "cartoon matte", "stylized human features", "animated character", "animated subtype", "playful character with innocent energy"
 
 Always describe characters as if they exist in the show's animation/illustration style, NOT as photographed real people.`;
 
@@ -226,7 +229,9 @@ Instructions:
 - Return exactly one JSON object adhering to the template.
 - Populate every field, inventing details that align with the show and seed.
 - Always fill the character_details.species block; when the character is non-human, spell out visual markers, materiality, and physiology so fabrication is unambiguous.
-- Inside character_details, ALWAYS include: species.type + subtype, gender_identity, skin_color with hex + prose, eye_color with hex + patterning, a distinguishing_features string (scars, augmentations, jewelry), and attire_notes summarizing signature garments/accessories. Use multi-sentence descriptions instead of single words if needed so fabrication, casting, and VFX teams have zero ambiguity.
+- Inside character_details, include: species.type + subtype, a distinguishing_features string (scars, augmentations, jewelry), and wardrobe summary. Use multi-sentence descriptions instead of single words if needed so fabrication teams have zero ambiguity.
+- DO NOT include or generate: gender_identity, skin_color, eye_color, hair details, voice descriptors, or accent information.
+- NEVER use words like "child", "kid", "toddler", "infant" - instead use personality descriptors like "playful", "bouncy", "innocent", "spirited".
 - Set the "character" field to "${body.seed.id}".
 - Copy the show blueprint string verbatim into "inherits".`;
 

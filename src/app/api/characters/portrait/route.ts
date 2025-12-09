@@ -111,7 +111,7 @@ type PortraitBody = {
   character: unknown;
   customPrompt?: string;
   jobId?: string;
-  imageModel?: "gpt-image" | "flux" | "nano-banana-pro";
+  imageModel?: "gpt-image" | "flux" | "nano-banana-pro" | "seedream";
   stylizationGuardrails?: boolean;
   // Optional seed data for extra context
   seed?: {
@@ -281,9 +281,7 @@ export async function POST(request: Request) {
     console.log("✅ Show title NOT in characterJson");
   }
 
-  const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
-  
-  const prompt = SAFETY_PREFIX + (body.customPrompt || (() => {
+  const prompt = (body.customPrompt || (() => {
     // Build style header using slim extraction
     let styleHeader: string[] = [];
     
@@ -418,17 +416,61 @@ export async function POST(request: Request) {
         })
       );
     } else if (selectedModel === "nano-banana-pro") {
-      // Use Nano Banana Pro for portrait
-      console.log("🎨 Using Nano Banana Pro for portrait");
+      // Use Nano Banana Pro via fal.ai for portrait
+      console.log("🎨 Using Nano Banana Pro (fal.ai) for portrait");
+      
+      const falKey = process.env.FAL_KEY;
+      if (!falKey) {
+        throw new Error("Missing FAL_KEY environment variable for Nano Banana Pro");
+      }
+      
+      const falResponse = await fetchWithRetry(
+        "https://fal.run/fal-ai/nano-banana-pro",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Key ${falKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt,
+            aspect_ratio: "1:1",
+            resolution: "2K",
+            output_format: "png",
+            num_images: 1,
+          }),
+        },
+        3
+      );
+      
+      if (!falResponse.ok) {
+        const errorBody = await falResponse.text();
+        console.error("Fal.ai Nano Banana Pro API error:", errorBody);
+        throw new Error(`Failed to generate portrait with Nano Banana Pro: ${falResponse.status} - ${errorBody}`);
+      }
+      
+      const falResult = await falResponse.json() as { images?: Array<{ url: string }> };
+      
+      if (!falResult.images || falResult.images.length === 0) {
+        throw new Error("No images returned from Nano Banana Pro");
+      }
+      
+      // Return immediately with the image URL (no polling needed - fal.ai is synchronous)
+      return NextResponse.json({ 
+        jobId: `fal-complete-${Date.now()}`,
+        status: "succeeded",
+        imageUrl: falResult.images[0].url,
+      });
+    } else if (selectedModel === "seedream") {
+      // Use ByteDance Seedream 4.5 for portrait
+      console.log("🎨 Using Seedream 4.5 for portrait");
       prediction = await replicateWithRetry(() =>
         replicate.predictions.create({
-          model: "google/nano-banana-pro",
+          model: "bytedance/seedream-4.5",
           input: {
             prompt,
             aspect_ratio: "1:1",
-            resolution: "2K", // Keep 2K for video generation compatibility
-            output_format: "png", // PNG required for video generation input
-            safety_filter_level: "block_only_high",
+            size: "2K", // 2K resolution for video generation compatibility
           },
         })
       );
