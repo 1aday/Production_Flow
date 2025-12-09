@@ -224,7 +224,7 @@ type CharacterDocument = {
     function?: string;
     tags?: string[];
   };
-  biometrics?: {
+  character_details?: {
     species?: {
       type?: string;
       subtype?: string;
@@ -236,8 +236,6 @@ type CharacterDocument = {
     gender_identity?: string;
     distinguishing_features?: string;
     attire_notes?: string;
-    age_years?: { value?: number; approximate?: boolean };
-    ethnicity?: string;
     skin_color?: { hex?: string; description?: string };
     eye_color?: { hex?: string; description?: string; patterning?: string };
     has_hair?: boolean;
@@ -249,8 +247,6 @@ type CharacterDocument = {
       texture?: string;
     };
     facial_hair?: { has_facial_hair?: boolean; style?: string; density?: string };
-    height?: { value?: number; unit?: string; notes?: string };
-    weight?: { value?: number; unit?: string; notes?: string };
     build?: { body_type?: string; notes?: string };
     voice?: {
       descriptors?: string[];
@@ -349,7 +345,7 @@ type CharacterDocument = {
 };
 
 type CharacterSpecies =
-  CharacterDocument["biometrics"] extends { species?: infer T }
+  CharacterDocument["character_details"] extends { species?: infer T }
     ? NonNullable<T>
     : {
         type?: string;
@@ -449,7 +445,7 @@ let cachedAudioContext: AudioContext | null = null;
 
 const LOADING_MESSAGES = [
   "Locking show_logline and tone directives",
-  "Sequencing biometrics & species detail maps",
+  "Sequencing character details & species maps",
   "Balancing lighting matrices with camera grammar",
   "Curating wardrobe silhouettes and texture palettes",
   "Authoring behavioral rails & scene presence cues",
@@ -768,7 +764,7 @@ function CharacterDossierContent({
           ) : null}
 
           {species ? (
-            <DossierSection title="Biometrics & species">
+            <DossierSection title="Character Details">
               <div className="space-y-2">
                 {species.materiality ? (
                   <p>
@@ -2837,8 +2833,8 @@ function ResultView({
           const metadata = doc?.metadata ?? {};
           const tags = metadata.tags ?? [];
           const storyFunction = metadata.function;
-          const biometrics = doc?.biometrics;
-          const species = biometrics?.species as CharacterSpecies | undefined;
+          const characterDetails = doc?.character_details;
+          const species = characterDetails?.species as CharacterSpecies | undefined;
           const paletteAnchors = doc?.look?.palette?.anchors ?? [];
           const wardrobe = doc?.look?.wardrobe as CharacterWardrobe | undefined;
           const behavior = doc?.behavior_and_rules as CharacterBehavior | undefined;
@@ -2850,56 +2846,24 @@ function ResultView({
               value: [species.type, species.subtype].filter(Boolean).join(" · "),
             });
           }
-          if (isActive && biometrics?.age_years?.value !== undefined) {
-            const approx = biometrics.age_years.approximate ? "≈" : "";
-            quickFacts.push({
-              label: "Age",
-              value: `${approx}${biometrics.age_years.value}`,
-            });
-          }
-          if (isActive && biometrics?.ethnicity) {
-            quickFacts.push({ label: "Ethnicity", value: biometrics.ethnicity });
-          }
-          if (
-            isActive &&
-            biometrics?.height &&
-            biometrics.height.value !== undefined
-          ) {
-            const { value, unit, notes } = biometrics.height;
-            quickFacts.push({
-              label: "Height",
-              value: `${value}${unit ? ` ${unit}` : ""}${notes ? ` (${notes})` : ""}`,
-            });
-          }
-          if (
-            isActive &&
-            biometrics?.weight &&
-            biometrics.weight.value !== undefined
-          ) {
-            const { value, unit, notes } = biometrics.weight;
-            quickFacts.push({
-              label: "Weight",
-              value: `${value}${unit ? ` ${unit}` : ""}${notes ? ` (${notes})` : ""}`,
-            });
-          }
-          if (isActive && biometrics?.build?.body_type) {
+          if (isActive && characterDetails?.build?.body_type) {
             const buildNotes =
-              biometrics.build.notes && biometrics.build.notes.length
-                ? ` · ${biometrics.build.notes}`
+              characterDetails.build.notes && characterDetails.build.notes.length
+                ? ` · ${characterDetails.build.notes}`
                 : "";
             quickFacts.push({
               label: "Build",
-              value: `${biometrics.build.body_type}${buildNotes}`,
+              value: `${characterDetails.build.body_type}${buildNotes}`,
             });
           }
-          if (isActive && biometrics?.voice) {
+          if (isActive && characterDetails?.voice) {
             const voiceParts = [
-              biometrics.voice.descriptors && biometrics.voice.descriptors.length
-                ? biometrics.voice.descriptors.join(", ")
+              characterDetails.voice.descriptors && characterDetails.voice.descriptors.length
+                ? characterDetails.voice.descriptors.join(", ")
                 : null,
-              biometrics.voice.pitch_range,
-              biometrics.voice.tempo,
-              biometrics.voice.timbre_notes,
+              characterDetails.voice.pitch_range,
+              characterDetails.voice.tempo,
+              characterDetails.voice.timbre_notes,
             ].filter(Boolean) as string[];
             if (voiceParts.length) {
               quickFacts.push({
@@ -2908,11 +2872,11 @@ function ResultView({
               });
             }
           }
-          if (isActive && biometrics?.accent) {
+          if (isActive && characterDetails?.accent) {
             const accentParts = [
-              biometrics.accent.style,
-              biometrics.accent.strength,
-              biometrics.accent.code_switching,
+              characterDetails.accent.style,
+              characterDetails.accent.strength,
+              characterDetails.accent.code_switching,
             ].filter(Boolean) as string[];
             if (accentParts.length) {
               quickFacts.push({
@@ -2921,16 +2885,16 @@ function ResultView({
               });
             }
           }
-          if (isActive && biometrics?.tics) {
+          if (isActive && characterDetails?.tics) {
             const ticsParts: string[] = [];
-            if (biometrics.tics.motor?.length) {
-              ticsParts.push(`Motor: ${biometrics.tics.motor.join(", ")}`);
+            if (characterDetails.tics.motor?.length) {
+              ticsParts.push(`Motor: ${characterDetails.tics.motor.join(", ")}`);
             }
-            if (biometrics.tics.verbal?.length) {
-              ticsParts.push(`Verbal: ${biometrics.tics.verbal.join(", ")}`);
+            if (characterDetails.tics.verbal?.length) {
+              ticsParts.push(`Verbal: ${characterDetails.tics.verbal.join(", ")}`);
             }
-            if (biometrics.tics.frequency) {
-              ticsParts.push(biometrics.tics.frequency);
+            if (characterDetails.tics.frequency) {
+              ticsParts.push(characterDetails.tics.frequency);
             }
             if (ticsParts.length) {
               quickFacts.push({
@@ -3094,7 +3058,7 @@ function ResultView({
                         ) : null}
 
                         {species ? (
-                          <DossierSection title="Biometrics & species" defaultOpen={false}>
+                          <DossierSection title="Character Details" defaultOpen={false}>
                             <div className="space-y-2">
                               {species.materiality ? (
                                 <p>
@@ -5857,6 +5821,7 @@ export function Console({ initialShowId }: ConsoleProps) {
   const portraitStartTimesRef = useRef<Map<string, number>>(new Map()); // characterId -> start timestamp for timeout
   const portraitPollCountRef = useRef<Map<string, number>>(new Map()); // characterId -> poll count for stuck detection
   const portraitLlmAdjustedPromptRef = useRef<Map<string, string>>(new Map()); // characterId -> LLM-adjusted prompt
+  const portraitAbortControllersRef = useRef<Map<string, AbortController>>(new Map()); // characterId -> AbortController for canceling fetch
   const [portraitLlmAdjustments, setPortraitLlmAdjustments] = useState<Record<string, { used: boolean; reason?: string; adjustedPrompt?: string }>>({});
   const [portraitRetryCounts, setPortraitRetryCounts] = useState<Record<string, number>>({}); // characterId -> retry count for UI display;
   const videoJobsRef = useRef<Map<string, string>>(new Map()); // characterId -> jobId
@@ -6085,11 +6050,7 @@ export function Console({ initialShowId }: ConsoleProps) {
     };
   }, [currentShowId, startTrailerStatusPolling]);
 
-  useEffect(() => {
-    if (blueprint) {
-      playSuccessChime();
-    }
-  }, [blueprint]);
+  // Note: No sound for blueprint generation - only for images/videos
 
   // Update elapsed time for trailer generation
   useEffect(() => {
@@ -6159,7 +6120,7 @@ export function Console({ initialShowId }: ConsoleProps) {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ prompt: value, show: showData, model: chosenModel }),
+          body: JSON.stringify({ prompt: value, show: showData, model: chosenModel, stylizationGuardrails }),
         });
 
         if (!response.ok) {
@@ -6351,6 +6312,14 @@ export function Console({ initialShowId }: ConsoleProps) {
     (characterId: string) => {
       console.log(`🛑 Canceling portrait generation for: ${characterId}`);
       
+      // CRITICAL: Abort any ongoing fetch request FIRST
+      const existingAbortController = portraitAbortControllersRef.current.get(characterId);
+      if (existingAbortController) {
+        console.log(`   🛑 Aborting ongoing API request for ${characterId}`);
+        existingAbortController.abort();
+        portraitAbortControllersRef.current.delete(characterId);
+      }
+      
       // Clear polling interval
       const existingPoll = portraitPollsRef.current.get(characterId);
       if (existingPoll) {
@@ -6365,8 +6334,9 @@ export function Console({ initialShowId }: ConsoleProps) {
         console.log(`   🧹 Canceling background task ${existingJob} for ${characterId}`);
         updateBackgroundTask(existingJob, { status: 'canceled', error: 'Canceled by user' });
         setTimeout(() => removeBackgroundTask(existingJob), 3000);
-        portraitJobsRef.current.delete(characterId);
       }
+      // Always clear job ref, even if no showId
+      portraitJobsRef.current.delete(characterId);
       
       // Clear all refs
       portraitStartTimesRef.current.delete(characterId);
@@ -6374,7 +6344,7 @@ export function Console({ initialShowId }: ConsoleProps) {
       portraitPollCountRef.current.delete(characterId);
       portraitLlmAdjustedPromptRef.current.delete(characterId);
       
-      // Clear UI state
+      // Clear UI state - do this LAST to ensure everything is cleaned up
       setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
       setPortraitRetryCounts(prev => { const n = { ...prev }; delete n[characterId]; return n; });
       setPortraitLlmAdjustments(prev => { const n = { ...prev }; delete n[characterId]; return n; });
@@ -6401,6 +6371,15 @@ export function Console({ initialShowId }: ConsoleProps) {
       
       // FORCE CLEANUP: Always clear any potentially stuck state first
       // This ensures the restart works even for stuck/orphaned portraits
+      
+      // CRITICAL: Abort any ongoing fetch request FIRST
+      const existingAbortController = portraitAbortControllersRef.current.get(characterId);
+      if (existingAbortController) {
+        console.log(`   🛑 Aborting existing API request for ${characterId}`);
+        existingAbortController.abort();
+        portraitAbortControllersRef.current.delete(characterId);
+      }
+      
       const existingPoll = portraitPollsRef.current.get(characterId);
       if (existingPoll) {
         console.log(`   🧹 Force-clearing existing poll interval for ${characterId}`);
@@ -6839,9 +6818,6 @@ export function Console({ initialShowId }: ConsoleProps) {
               setPortraitRetryCounts(prev => { const n = { ...prev }; delete n[characterId]; return n; });
               // Note: Keep portraitLlmAdjustments briefly visible on success
               
-              // Play success sound
-              playSuccessChime();
-              
               // Portrait completed! 
               // Note: Library poster will auto-generate when portrait grid is ready (see useEffect below)
               console.log("✅ Portrait completed for:", characterId);
@@ -6853,6 +6829,8 @@ export function Console({ initialShowId }: ConsoleProps) {
               
               if (allPortraitsComplete) {
                 console.log("🎉 All portraits complete! Portrait grid will auto-generate, then poster will follow.");
+                // Play success sound only when ALL portraits are done (not per-portrait)
+                playSuccessChime();
               } else {
                 const completedCount = characterSeeds?.filter(seed => 
                   characterPortraits[seed.id] || seed.id === characterId
@@ -7100,6 +7078,10 @@ export function Console({ initialShowId }: ConsoleProps) {
         portraitPollsRef.current.set(characterId, pollInterval);
       };
 
+      // Create AbortController for this request
+      const abortController = new AbortController();
+      portraitAbortControllersRef.current.set(characterId, abortController);
+      
       try {
         const characterWithPrompt = customPrompt ? {
           ...doc,
@@ -7118,6 +7100,7 @@ export function Console({ initialShowId }: ConsoleProps) {
             jobId,
             imageModel, // Pass selected image model
           }),
+          signal: abortController.signal, // Use AbortController signal
         });
 
         if (!response.ok) {
@@ -7132,6 +7115,9 @@ export function Console({ initialShowId }: ConsoleProps) {
         if (!result.jobId) {
           throw new Error("Portrait API did not return job ID.");
         }
+        
+        // Clean up abort controller - request completed successfully
+        portraitAbortControllersRef.current.delete(characterId);
         
         // CRITICAL: Update the jobId to use the ACTUAL prediction ID from Replicate
         const actualJobId = result.jobId;
@@ -7149,6 +7135,23 @@ export function Console({ initialShowId }: ConsoleProps) {
         // Start polling for status using the ACTUAL job ID
         startPolling(actualJobId);
       } catch (err) {
+        // Clean up abort controller
+        portraitAbortControllersRef.current.delete(characterId);
+        
+        // Handle abort gracefully - user cancelled, don't show as error
+        if (err instanceof Error && err.name === 'AbortError') {
+          console.log(`🛑 Portrait API request aborted for ${characterId}`);
+          // Don't set error state - this was intentional cancellation
+          setCharacterPortraitLoading((prev) => ({ ...prev, [characterId]: false }));
+          // Update background task as canceled
+          if (currentShowId) {
+            updateBackgroundTask(jobId, { status: 'canceled', error: 'Canceled by user' });
+            setTimeout(() => removeBackgroundTask(jobId), 3000);
+          }
+          portraitJobsRef.current.delete(characterId);
+          return;
+        }
+        
         console.error("Portrait API call error:", err);
         const errorMessage = err instanceof Error ? err.message : "Failed to start portrait generation.";
         
@@ -7456,9 +7459,7 @@ export function Console({ initialShowId }: ConsoleProps) {
               }
               videoJobsRef.current.delete(characterId);
               videoStartTimesRef.current.delete(characterId);
-              
-              // Play success sound
-              playSuccessChime();
+              // Note: No sound for individual character videos - only trailer plays sound
             } else if (data.status === "failed" || data.status === null) {
               console.error(`❌ Video ${characterId} failed:`, data.detail);
               
@@ -10285,7 +10286,7 @@ TRAILER REQUIREMENTS:
                   if (result.url) {
                     setPortraitGridUrl(result.url);
                     portraitGridDigestRef.current = JSON.stringify(portraitsData.map(p => p.url));
-                    playSuccessChime();
+                    // Note: No sound for portrait grid - just composing existing images
                     
                     if (currentShowId) {
                       updateBackgroundTask(gridTaskId, {

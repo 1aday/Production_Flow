@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Sparkles, ArrowRight, Play, Loader2, Trash2, Zap, CheckCircle2, ChevronDown, Settings2, Clapperboard } from "lucide-react";
+import { Sparkles, ArrowRight, Play, Loader2, Trash2, Zap, CheckCircle2, ChevronDown, Settings2, Clapperboard, Maximize2, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/Navbar";
 import { STYLIZATION_GUARDRAILS_STORAGE_KEY } from "@/lib/constants";
@@ -180,7 +180,11 @@ export default function LandingPage() {
   const [hoveredShow, setHoveredShow] = useState<string | null>(null);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [isFullscreenEdit, setIsFullscreenEdit] = useState(false);
+  const [isScrollable, setIsScrollable] = useState(false);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fullscreenTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
@@ -191,13 +195,23 @@ export default function LandingPage() {
     textarea.style.height = 'auto';
     
     // Calculate new height - generous limits for long content
-    // Mobile: min 60px, max 200px | Desktop: min 72px, max 340px
+    // Mobile: min 60px, max 280px | Desktop: min 72px, max 400px
     const isMobile = window.innerWidth < 640;
     const minHeight = isMobile ? 60 : 72;
-    const maxHeight = isMobile ? 200 : 340;
+    const maxHeight = isMobile ? 280 : 400;
     const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
     
     textarea.style.height = `${newHeight}px`;
+    
+    // Check if content is scrollable
+    setIsScrollable(textarea.scrollHeight > maxHeight);
+  }, []);
+
+  // Handle scroll position tracking
+  const handleScroll = useCallback((e: React.UIEvent<HTMLTextAreaElement>) => {
+    const textarea = e.currentTarget;
+    const isAtBottom = textarea.scrollHeight - textarea.scrollTop - textarea.clientHeight < 20;
+    setIsScrolledToBottom(isAtBottom);
   }, []);
 
   // Adjust height when input changes
@@ -205,15 +219,99 @@ export default function LandingPage() {
     adjustTextareaHeight();
   }, [input, adjustTextareaHeight]);
 
+  // Focus fullscreen textarea when opened
+  useEffect(() => {
+    if (isFullscreenEdit && fullscreenTextareaRef.current) {
+      fullscreenTextareaRef.current.focus();
+      // Move cursor to end
+      fullscreenTextareaRef.current.selectionStart = fullscreenTextareaRef.current.value.length;
+    }
+  }, [isFullscreenEdit]);
+
   // Character count for UI feedback
   const charCount = input.length;
   const hasContent = charCount > 0;
+  const isLongContent = charCount > 500;
 
   return (
     <div className="min-h-screen bg-black text-foreground overflow-x-hidden w-full max-w-full">
       {/* Navigation Header */}
       <Navbar variant="transparent" />
       
+      {/* Fullscreen Edit Modal - for long content on mobile */}
+      {isFullscreenEdit && (
+        <div className="fixed inset-0 z-50 bg-black animate-in fade-in duration-200 flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-zinc-900/80 backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <FileText className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-white/80">Edit Prompt</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono text-white/40 tabular-nums">
+                {charCount.toLocaleString()}
+              </span>
+              <button
+                onClick={() => setIsFullscreenEdit(false)}
+                className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+              >
+                <X className="h-4 w-4 text-white/70" />
+              </button>
+            </div>
+          </div>
+          
+          {/* Textarea - Full height */}
+          <div className="flex-1 overflow-hidden">
+            <textarea
+              ref={fullscreenTextareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="What's your show about? Paste your script, story outline, or idea..."
+              className={cn(
+                "w-full h-full bg-black resize-none",
+                "px-4 py-4",
+                "text-[15px] text-white/95 placeholder:text-white/30",
+                "leading-[1.8] tracking-[0.01em]",
+                "focus:outline-none",
+                "scrollbar-thin"
+              )}
+            />
+          </div>
+          
+          {/* Footer */}
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-white/10 bg-zinc-900/80 backdrop-blur-xl">
+            <button
+              onClick={() => setIsFullscreenEdit(false)}
+              className="text-sm text-white/50 hover:text-white/80 transition-colors"
+            >
+              Cancel
+            </button>
+            <Button
+              onClick={() => {
+                setIsFullscreenEdit(false);
+                void handleSubmit();
+              }}
+              disabled={!input.trim() || isSubmitting}
+              className={cn(
+                "h-10 px-6 rounded-full font-semibold text-sm",
+                "bg-primary hover:bg-primary/90 text-white",
+                "shadow-[0_0_20px_rgba(229,9,20,0.4)]",
+                "disabled:shadow-none disabled:opacity-40"
+              )}
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  Generate Show
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Video Lightbox - Netflix style */}
       {videoLightbox ? (
         <div 
@@ -285,6 +383,7 @@ export default function LandingPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
+                  onScroll={handleScroll}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -299,13 +398,38 @@ export default function LandingPage() {
                     "px-5 sm:px-6 pt-5 sm:pt-6",
                     "pb-3 sm:pb-4",
                     "text-[15px] sm:text-[17px] text-white/95 placeholder:text-white/35",
-                    "leading-[1.7] tracking-[0.01em]",
+                    "leading-[1.8] tracking-[0.01em]",
                     "focus:outline-none",
                     // Custom scrollbar
-                    "scrollbar-thin"
+                    "scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent"
                   )}
                   style={{ height: 'auto' }}
                 />
+                
+                {/* Scroll fade indicator - shows when content is scrollable and not at bottom */}
+                {isScrollable && !isScrolledToBottom && (
+                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-zinc-900/90 to-transparent pointer-events-none rounded-b-2xl" />
+                )}
+                
+                {/* Expand button for mobile - shows when content is long */}
+                {isLongContent && (
+                  <button
+                    type="button"
+                    onClick={() => setIsFullscreenEdit(true)}
+                    className={cn(
+                      "absolute top-3 right-3 sm:hidden",
+                      "h-8 px-2.5 rounded-lg",
+                      "bg-white/10 hover:bg-white/20 backdrop-blur-sm",
+                      "flex items-center gap-1.5",
+                      "text-[10px] font-medium text-white/60 hover:text-white/80",
+                      "transition-all duration-200",
+                      "border border-white/10"
+                    )}
+                  >
+                    <Maximize2 className="h-3 w-3" />
+                    <span>Expand</span>
+                  </button>
+                )}
               </div>
 
               {/* Bottom Toolbar */}
@@ -345,14 +469,24 @@ export default function LandingPage() {
                     )} />
                   </button>
 
-                  {/* Character count - appears for long content */}
-                  {charCount > 100 && (
-                    <span className={cn(
-                      "text-[10px] font-mono tabular-nums px-2",
-                      charCount > 3000 ? "text-amber-400/60" : "text-white/30"
-                    )}>
-                      {charCount.toLocaleString()}
-                    </span>
+                  {/* Content stats - appears for longer content */}
+                  {isLongContent && (
+                    <button
+                      type="button"
+                      onClick={() => setIsFullscreenEdit(true)}
+                      className={cn(
+                        "flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[10px] font-medium transition-all",
+                        "bg-white/5 text-white/40 border border-white/10 hover:bg-white/10 hover:text-white/60"
+                      )}
+                    >
+                      <span className={cn(
+                        "font-mono tabular-nums",
+                        charCount > 5000 ? "text-amber-400/60" : ""
+                      )}>
+                        {charCount.toLocaleString()}
+                      </span>
+                      <Maximize2 className="h-3 w-3 opacity-50" />
+                    </button>
                   )}
                 </div>
 

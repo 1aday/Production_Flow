@@ -95,18 +95,15 @@ type CharacterDoc = {
     function?: string;
     tags?: string[];
   };
-  biometrics?: {
+  character_details?: {
     species?: {
       type?: string;
       subtype?: string;
       visual_markers?: string;
       materiality?: string;
     };
-    age_years?: { value: number };
     skin_color?: { hex: string; description: string };
     eye_color?: { hex: string; description: string };
-    height?: { value: number; unit: string; notes?: string };
-    weight?: { value: number; unit: string; notes?: string };
     build?: { body_type?: string; notes?: string };
     voice?: {
       descriptors?: string[];
@@ -1012,8 +1009,8 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                     {isExpanded && charDoc && (
                       <div className="border-t border-white/10 p-4 sm:p-6 space-y-6 sm:space-y-8">
                         
-                        {/* Biometrics */}
-                        {charDoc.biometrics && (
+                        {/* Character Details */}
+                        {charDoc.character_details && (
                           <div className="space-y-3 sm:space-y-4">
                             <h4 className="flex items-center gap-2 text-lg sm:text-xl font-semibold text-primary">
                               <User className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
@@ -1022,77 +1019,48 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                             
                             <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                               {/* Species */}
-                              {charDoc.biometrics.species && (
+                              {charDoc.character_details.species && (
                                 <div className="rounded-lg border border-white/10 bg-white/5 p-3 sm:p-4">
                                   <span className="text-[10px] sm:text-xs text-foreground/60 uppercase tracking-wide">Species</span>
-                                  <p className="mt-1 text-sm sm:text-base font-medium">{charDoc.biometrics.species.type}</p>
-                                  {charDoc.biometrics.species.subtype && (
-                                    <p className="text-xs sm:text-sm text-foreground/70">{charDoc.biometrics.species.subtype}</p>
+                                  <p className="mt-1 text-sm sm:text-base font-medium">{charDoc.character_details.species.type}</p>
+                                  {charDoc.character_details.species.subtype && (
+                                    <p className="text-xs sm:text-sm text-foreground/70">{charDoc.character_details.species.subtype}</p>
                                   )}
-                                  {charDoc.biometrics.species.visual_markers && (
-                                    <p className="mt-2 text-[10px] sm:text-xs text-foreground/60">{charDoc.biometrics.species.visual_markers}</p>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Height & Weight */}
-                              {charDoc.biometrics.height && (
-                                <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-                                  <span className="text-xs text-foreground/60 uppercase tracking-wide flex items-center gap-1">
-                                    <Ruler className="h-3 w-3" /> Height
-                                  </span>
-                                  <p className="mt-1 font-medium">
-                                    {charDoc.biometrics.height.value} {charDoc.biometrics.height.unit}
-                                  </p>
-                                  {charDoc.biometrics.height.notes && (
-                                    <p className="mt-1 text-xs text-foreground/60">{charDoc.biometrics.height.notes}</p>
-                                  )}
-                                </div>
-                              )}
-
-                              {charDoc.biometrics.weight && (
-                                <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-                                  <span className="text-xs text-foreground/60 uppercase tracking-wide flex items-center gap-1">
-                                    <Weight className="h-3 w-3" /> Weight
-                                  </span>
-                                  <p className="mt-1 font-medium">
-                                    {charDoc.biometrics.weight.value} {charDoc.biometrics.weight.unit}
-                                  </p>
-                                  {charDoc.biometrics.weight.notes && (
-                                    <p className="mt-1 text-xs text-foreground/60">{charDoc.biometrics.weight.notes}</p>
+                                  {charDoc.character_details.species.visual_markers && (
+                                    <p className="mt-2 text-[10px] sm:text-xs text-foreground/60">{charDoc.character_details.species.visual_markers}</p>
                                   )}
                                 </div>
                               )}
 
                               {/* Build */}
-                              {charDoc.biometrics.build && (
+                              {charDoc.character_details.build && (
                                 <div className="rounded-lg border border-white/10 bg-white/5 p-4">
                                   <span className="text-xs text-foreground/60 uppercase tracking-wide">Build</span>
-                                  <p className="mt-1 font-medium capitalize">{charDoc.biometrics.build.body_type}</p>
-                                  {charDoc.biometrics.build.notes && (
-                                    <p className="mt-1 text-xs text-foreground/60">{charDoc.biometrics.build.notes}</p>
+                                  <p className="mt-1 font-medium capitalize">{charDoc.character_details.build.body_type}</p>
+                                  {charDoc.character_details.build.notes && (
+                                    <p className="mt-1 text-xs text-foreground/60">{charDoc.character_details.build.notes}</p>
                                   )}
                                 </div>
                               )}
 
                               {/* Colors */}
-                              {charDoc.biometrics.skin_color && (
+                              {charDoc.character_details.skin_color && (
                                 <div className="rounded-lg border border-white/10 bg-white/5 p-4">
                                   <span className="text-xs text-foreground/60 uppercase tracking-wide">Skin/Surface</span>
                                   <div className="mt-2 flex items-center gap-2">
                                     <div
                                       className="h-8 w-8 rounded border border-white/20"
-                                      style={{ backgroundColor: charDoc.biometrics.skin_color.hex }}
+                                      style={{ backgroundColor: charDoc.character_details.skin_color.hex }}
                                     />
                                     <div>
-                                      <p className="text-sm font-medium">{charDoc.biometrics.skin_color.description}</p>
-                                      <p className="text-xs font-mono text-foreground/60">{charDoc.biometrics.skin_color.hex}</p>
+                                      <p className="text-sm font-medium">{charDoc.character_details.skin_color.description}</p>
+                                      <p className="text-xs font-mono text-foreground/60">{charDoc.character_details.skin_color.hex}</p>
                                     </div>
                                   </div>
                                 </div>
                               )}
 
-                              {charDoc.biometrics.eye_color && (
+                              {charDoc.character_details.eye_color && (
                                 <div className="rounded-lg border border-white/10 bg-white/5 p-4">
                                   <span className="text-xs text-foreground/60 uppercase tracking-wide flex items-center gap-1">
                                     <Eye className="h-3 w-3" /> Eyes
@@ -1100,11 +1068,11 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                                   <div className="mt-2 flex items-center gap-2">
                                     <div
                                       className="h-8 w-8 rounded-full border border-white/20"
-                                      style={{ backgroundColor: charDoc.biometrics.eye_color.hex }}
+                                      style={{ backgroundColor: charDoc.character_details.eye_color.hex }}
                                     />
                                     <div>
-                                      <p className="text-sm font-medium">{charDoc.biometrics.eye_color.description}</p>
-                                      <p className="text-xs font-mono text-foreground/60">{charDoc.biometrics.eye_color.hex}</p>
+                                      <p className="text-sm font-medium">{charDoc.character_details.eye_color.description}</p>
+                                      <p className="text-xs font-mono text-foreground/60">{charDoc.character_details.eye_color.hex}</p>
                                     </div>
                                   </div>
                                 </div>
@@ -1112,34 +1080,34 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                             </div>
 
                             {/* Voice */}
-                            {charDoc.biometrics.voice && (
+                            {charDoc.character_details.voice && (
                               <div className="rounded-lg border border-white/10 bg-white/5 p-5">
                                 <span className="text-xs text-foreground/60 uppercase tracking-wide flex items-center gap-1 mb-3">
                                   <Mic className="h-3 w-3" /> Voice Characteristics
                                 </span>
                                 <div className="grid gap-3 sm:grid-cols-3">
-                                  {charDoc.biometrics.voice.pitch_range && (
+                                  {charDoc.character_details.voice.pitch_range && (
                                     <div>
                                       <p className="text-xs text-foreground/60">Pitch</p>
-                                      <p className="text-sm font-medium capitalize">{charDoc.biometrics.voice.pitch_range}</p>
+                                      <p className="text-sm font-medium capitalize">{charDoc.character_details.voice.pitch_range}</p>
                                     </div>
                                   )}
-                                  {charDoc.biometrics.voice.tempo && (
+                                  {charDoc.character_details.voice.tempo && (
                                     <div>
                                       <p className="text-xs text-foreground/60">Tempo</p>
-                                      <p className="text-sm font-medium capitalize">{charDoc.biometrics.voice.tempo}</p>
+                                      <p className="text-sm font-medium capitalize">{charDoc.character_details.voice.tempo}</p>
                                     </div>
                                   )}
-                                  {charDoc.biometrics.voice.timbre_notes && (
+                                  {charDoc.character_details.voice.timbre_notes && (
                                     <div>
                                       <p className="text-xs text-foreground/60">Timbre</p>
-                                      <p className="text-sm font-medium capitalize">{charDoc.biometrics.voice.timbre_notes}</p>
+                                      <p className="text-sm font-medium capitalize">{charDoc.character_details.voice.timbre_notes}</p>
                                     </div>
                                   )}
                                 </div>
-                                {charDoc.biometrics.voice.descriptors && charDoc.biometrics.voice.descriptors.length > 0 && (
+                                {charDoc.character_details.voice.descriptors && charDoc.character_details.voice.descriptors.length > 0 && (
                                   <div className="mt-3 flex flex-wrap gap-1.5">
-                                    {charDoc.biometrics.voice.descriptors.map((desc: string, i: number) => (
+                                    {charDoc.character_details.voice.descriptors.map((desc: string, i: number) => (
                                       <Badge key={i} variant="secondary" className="text-xs">
                                         {desc}
                                       </Badge>
@@ -1150,27 +1118,27 @@ export default function ShowPageClient({ showId }: { showId: string }) {
                             )}
 
                             {/* Tics */}
-                            {charDoc.biometrics.tics && (
+                            {charDoc.character_details.tics && (
                               <div className="rounded-lg border border-white/10 bg-white/5 p-5">
                                 <span className="text-xs text-foreground/60 uppercase tracking-wide mb-3 block">
-                                  Behavioral Tics ({charDoc.biometrics.tics.frequency})
+                                  Behavioral Tics ({charDoc.character_details.tics.frequency})
                                 </span>
                                 <div className="grid gap-3 sm:grid-cols-2">
-                                  {charDoc.biometrics.tics.motor && charDoc.biometrics.tics.motor.length > 0 && (
+                                  {charDoc.character_details.tics.motor && charDoc.character_details.tics.motor.length > 0 && (
                                     <div>
                                       <p className="text-xs text-foreground/60 mb-1">Motor</p>
                                       <div className="space-y-1">
-                                        {charDoc.biometrics.tics.motor.map((tic: string, i: number) => (
+                                        {charDoc.character_details.tics.motor.map((tic: string, i: number) => (
                                           <p key={i} className="text-sm">• {tic}</p>
                                         ))}
                                       </div>
                                     </div>
                                   )}
-                                  {charDoc.biometrics.tics.verbal && charDoc.biometrics.tics.verbal.length > 0 && (
+                                  {charDoc.character_details.tics.verbal && charDoc.character_details.tics.verbal.length > 0 && (
                                     <div>
                                       <p className="text-xs text-foreground/60 mb-1">Verbal</p>
                                       <div className="space-y-1">
-                                        {charDoc.biometrics.tics.verbal.map((tic: string, i: number) => (
+                                        {charDoc.character_details.tics.verbal.map((tic: string, i: number) => (
                                           <p key={i} className="text-sm">• {tic}</p>
                                         ))}
                                       </div>

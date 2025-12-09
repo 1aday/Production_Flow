@@ -9,7 +9,6 @@ type ShowFormatRequest = {
     show_logline?: string;
     genre?: string;
     mood_keywords?: string[];
-    target_audience?: string;
     production_style?: {
       medium?: string;
       cinematic_references?: string[];
@@ -137,7 +136,6 @@ Title: "${body.blueprint.show_title || 'Untitled'}"
 Logline: ${body.blueprint.show_logline || 'Not provided'}
 Genre: ${body.blueprint.genre || 'Drama'}
 Mood: ${body.blueprint.mood_keywords?.join(', ') || 'Not specified'}
-Target Audience: ${body.blueprint.target_audience || 'Adult'}
 Style: ${body.blueprint.production_style?.medium || 'Not specified'}
 References: ${body.blueprint.production_style?.cinematic_references?.join(', ') || 'Not specified'}
 
@@ -180,6 +178,9 @@ Create a detailed, show-specific episode format that will make every episode fee
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+
+
 
 
 

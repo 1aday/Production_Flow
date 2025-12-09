@@ -14,7 +14,6 @@ export type SlimShowContext = {
   genre?: string;
   mood_keywords?: string[];
   tagline?: string;
-  target_audience?: string;
   style: {
     medium: string;
     stylization_level: string;
@@ -52,7 +51,6 @@ export type FullShowBlueprint = {
   genre?: string;
   mood_keywords?: string[];
   tagline?: string;
-  target_audience?: string;
   primary_palette?: string[];
   production_style?: {
     medium?: string;
@@ -90,15 +88,13 @@ export type FullCharacterDocument = {
     function?: string;
     tags?: string[];
   };
-  biometrics?: {
+  character_details?: {
     species?: {
       type?: string;
       subtype?: string;
       visual_markers?: string;
     };
-    age_years?: { value?: number };
     gender_identity?: string;
-    ethnicity?: string;
     skin_color?: { hex?: string; description?: string };
     eye_color?: { hex?: string; description?: string; patterning?: string };
     hair?: {
@@ -109,7 +105,6 @@ export type FullCharacterDocument = {
       texture?: string;
     };
     build?: { body_type?: string; notes?: string };
-    height?: { value?: number; unit?: string };
     voice?: { descriptors?: string[] };
     distinguishing_features?: string;
     attire_notes?: string;
@@ -151,7 +146,6 @@ export function extractSlimShowContext(show: FullShowBlueprint | unknown): SlimS
     genre: s.genre,
     mood_keywords: s.mood_keywords,
     tagline: s.tagline,
-    target_audience: s.target_audience,
     style: {
       medium: ps.medium || "Unknown style",
       stylization_level: ps.stylization_level || "moderately_stylized",
@@ -175,7 +169,7 @@ export function extractSlimCharacterContext(
   seed?: { gender?: string; age_range?: string; species_hint?: string; key_visual_trait?: string }
 ): SlimCharacterContext {
   const c = (character || {}) as FullCharacterDocument;
-  const bio = c.biometrics || {};
+  const bio = c.character_details || {};
   const look = c.look || {};
   const perf = c.performance || {};
   
@@ -197,9 +191,7 @@ export function extractSlimCharacterContext(
     id: c.character || "unknown",
     name: c.character || "Unknown Character",
     gender: bio.gender_identity || seed?.gender,
-    age_range: bio.age_years?.value 
-      ? inferAgeRange(bio.age_years.value) 
-      : seed?.age_range,
+    age_range: seed?.age_range,
     species_hint: bio.species?.type || seed?.species_hint,
     skin_tone: bio.skin_color?.hex ? {
       hex: bio.skin_color.hex,
@@ -221,18 +213,6 @@ export function extractSlimCharacterContext(
     pose_default: perf.pose_defaults,
     key_visual_trait: seed?.key_visual_trait,
   };
-}
-
-/**
- * Infer age range from numeric age
- */
-function inferAgeRange(age: number): string {
-  if (age < 13) return "child";
-  if (age < 20) return "teen";
-  if (age < 30) return "young_adult";
-  if (age < 50) return "adult";
-  if (age < 65) return "middle_aged";
-  return "elderly";
 }
 
 /**

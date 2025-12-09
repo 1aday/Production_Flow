@@ -11,16 +11,23 @@ Return a single JSON object that conforms to the provided schema. Do not add pro
 
 CRITICAL RULES:
 
-1. SHOW TITLE: If the user provides a show name/title, use it EXACTLY. Otherwise, create a catchy title.
+1. SHOW TITLE - HIGHEST PRIORITY: 
+   - If the user provides ANY show name/title in their prompt (look for phrases like "called", "titled", "named", or quoted text), you MUST use that EXACT title verbatim in the show_title field.
+   - Do NOT change it, do NOT "improve" it, do NOT make it "catchier" - use their words EXACTLY.
+   - Only invent a title if the user clearly did NOT provide one.
+   
+2. SHOW DESCRIPTION/LOGLINE - SECOND HIGHEST PRIORITY:
+   - If the user describes what the show is about, base your show_logline directly on their description.
+   - Expand and improve upon it for clarity, but preserve their core concept, characters, and premise.
+   - Do NOT replace their concept with a completely different idea.
 
-2. GENRE & METADATA (REQUIRED - fill these for better downstream generation):
+3. GENRE & METADATA (REQUIRED - fill these for better downstream generation):
    - "genre": Pick the PRIMARY genre from the enum (comedy, drama, thriller, horror, sci_fi, fantasy, action, adventure, mystery, romance, documentary, animation, family, crime)
    - "mood_keywords": 3-6 words capturing emotional tone (e.g., ["tense", "dark", "mysterious"] or ["whimsical", "heartfelt", "colorful"])
    - "tagline": Short punchy marketing line (max 80 chars) - NOT the logline, this is for posters (e.g., "In space, no one can hear you scream")
-   - "target_audience": Who is this for? (kids, family, teen, young_adult, adult, mature)
    - "primary_palette": 3-5 hex colors that define the show's look (e.g., ["#1A1A2E", "#16213E", "#E94560"])
 
-3. PRODUCTION STYLE - ABSOLUTELY CRITICAL:
+4. PRODUCTION STYLE - ABSOLUTELY CRITICAL:
    You MUST choose ONE specific animation/illustration style from the schema enum. Choose what best fits the show:
    
    FOR COMEDY/SITCOM → "Pixar-style 3D animation" or "Aardman claymation" or "Cartoon Network 2D style"
@@ -32,21 +39,21 @@ CRITICAL RULES:
    
    NEVER EVER choose anything with "live-action" - this leads to photorealistic results that get flagged!
 
-4. VISUAL TREATMENT must emphasize NON-PHOTOGRAPHIC qualities:
+5. VISUAL TREATMENT must emphasize NON-PHOTOGRAPHIC qualities:
    - Use words: "animated", "illustrated", "hand-crafted", "stylized", "cartoon", "painterly", "graphic"
    - Describe: "exaggerated proportions", "bold outlines", "visible brush strokes", "tactile textures"
    - NEVER use: "realistic", "naturalistic", "photographic", "documentary"
 
-5. CINEMATIC REFERENCES - Choose 2-4 from animation/stylized films:
+6. CINEMATIC REFERENCES - Choose 2-4 from animation/stylized films:
    Animation: Pixar films, Studio Ghibli, Wallace & Gromit, Spider-Verse, Laika, Aardman, Disney, Dreamworks
    Stylized: Wes Anderson films, Fantastic Mr Fox, Isle of Dogs, Grand Budapest Hotel
    Illustrated: Arcane, Love Death + Robots, Klaus, The Triplets of Belleville
 
-6. MATERIALS & TEXTURES - Use animation terminology:
+7. MATERIALS & TEXTURES - Use animation terminology:
    WRONG: "realistic skin", "natural textures", "photographic finish"
    RIGHT: "stylized skin tones", "painterly textures", "animated surface treatment", "illustrated finish", "cartoon shading"
 
-7. SPECIES DESIGN - Always animated/stylized:
+8. SPECIES DESIGN - Always animated/stylized:
    - "surface_finish": Use "matte cartoon", "painterly finish", "cel-shaded", "illustrated treatment"
    - NEVER: "realistic", "natural", "photographic"
 
@@ -60,16 +67,23 @@ You have FULL creative freedom. ALL visual styles are allowed including photorea
 
 CRITICAL RULES:
 
-1. SHOW TITLE: If the user provides a show name/title, use it EXACTLY. Otherwise, create a catchy title that fits their concept.
+1. SHOW TITLE - HIGHEST PRIORITY: 
+   - If the user provides ANY show name/title in their prompt (look for phrases like "called", "titled", "named", or quoted text), you MUST use that EXACT title verbatim in the show_title field.
+   - Do NOT change it, do NOT "improve" it, do NOT make it "catchier" - use their words EXACTLY.
+   - Only invent a title if the user clearly did NOT provide one.
+   
+2. SHOW DESCRIPTION/LOGLINE - SECOND HIGHEST PRIORITY:
+   - If the user describes what the show is about, base your show_logline directly on their description.
+   - Expand and improve upon it for clarity, but preserve their core concept, characters, and premise.
+   - Do NOT replace their concept with a completely different idea.
 
-2. GENRE & METADATA (REQUIRED - fill these for better downstream generation):
+3. GENRE & METADATA (REQUIRED - fill these for better downstream generation):
    - "genre": Pick the PRIMARY genre from the enum (comedy, drama, thriller, horror, sci_fi, fantasy, action, adventure, mystery, romance, documentary, animation, family, crime)
    - "mood_keywords": 3-6 words capturing emotional tone (e.g., ["gritty", "tense", "realistic"] or ["epic", "sweeping", "dramatic"])
    - "tagline": Short punchy marketing line (max 80 chars) - NOT the logline, this is for posters (e.g., "The truth has a price")
-   - "target_audience": Who is this for? (kids, family, teen, young_adult, adult, mature)
    - "primary_palette": 3-5 hex colors that define the show's look (e.g., ["#2C3E50", "#34495E", "#E74C3C"])
 
-3. PRODUCTION STYLE - FREELY CHOOSE based on user's creative vision:
+4. PRODUCTION STYLE - FREELY CHOOSE based on user's creative vision:
    
    FOR REALISTIC/CINEMATIC REQUESTS (drama, thriller, documentary, prestige TV, etc.):
    - Use: "Live-action cinematic style", "Photorealistic CGI", "Theatrical live-action", "Documentary realism", or "Prestige drama cinematography"
@@ -86,24 +100,24 @@ CRITICAL RULES:
    - Sci-fi epic? → "Photorealistic CGI" or cinematic style
    - Choose what serves the story best - don't default to animation
 
-4. VISUAL TREATMENT - Match your medium choice:
+5. VISUAL TREATMENT - Match your medium choice:
    - For cinematic/realistic: "photorealistic rendering", "cinematic lighting", "naturalistic textures", "realistic skin and materials", "theatrical cinematography", "dramatic realism"
    - For animation: "animated", "illustrated", "stylized", "painterly"
    - IGNORE schema field descriptions that suggest non-photorealistic - those are guidelines only
 
-5. CINEMATIC REFERENCES - Choose 2-4 that match your chosen style:
+6. CINEMATIC REFERENCES - Choose 2-4 that match your chosen style:
    - For realistic: Reference real films/directors (Fincher, Nolan, Villeneuve, Spielberg, Denis Villeneuve, Roger Deakins cinematography, HBO's The Wire, Breaking Bad, True Detective, etc.)
    - For animation: Pixar, Ghibli, Spider-Verse, etc.
 
-6. MATERIALS & TEXTURES - Match the medium:
+7. MATERIALS & TEXTURES - Match the medium:
    - Realistic: "realistic skin with pores and imperfections", "natural textures", "photographic materials", "practical costume fabrics", "real-world surfaces"
    - Animated: "stylized surfaces", "painterly textures", "cartoon shading"
 
-7. SPECIES DESIGN - Match the medium:
+8. SPECIES DESIGN - Match the medium:
    - Realistic: surface_finish should be "realistic skin texture", "naturalistic", "photographic", "lifelike", "practical makeup and prosthetics"
    - Animated: "matte cartoon", "painterly finish", "cel-shaded"
 
-8. POSTER_DESCRIPTION - Be vivid and match the style:
+9. POSTER_DESCRIPTION - Be vivid and match the style:
    - For realistic shows: Describe a cinematic movie poster with real actors, dramatic lighting, photographic quality
    - For animated: Describe in the animation style chosen
 
@@ -232,6 +246,32 @@ export async function POST(request: Request) {
   
   console.log("=== BLUEPRINT GENERATION ===");
   console.log("Stylization Guardrails:", useGuardrails ? "ON" : "OFF");
+  console.log("User Prompt:", prompt.slice(0, 200) + (prompt.length > 200 ? "..." : ""));
+  
+  // Try to detect if user specified a title (for logging purposes)
+  const titlePatterns = [
+    /called\s*["']([^"']+)["']/i,
+    /titled?\s*["']([^"']+)["']/i,
+    /named?\s*["']([^"']+)["']/i,
+    /["']([^"']+)["']\s*(?:is\s+)?(?:a|about|the)/i,
+    /show\s*["']([^"']+)["']/i,
+    /series\s*["']([^"']+)["']/i,
+  ];
+  
+  let detectedTitle: string | null = null;
+  for (const pattern of titlePatterns) {
+    const match = prompt.match(pattern);
+    if (match && match[1]) {
+      detectedTitle = match[1];
+      break;
+    }
+  }
+  
+  if (detectedTitle) {
+    console.log("📌 Detected user-provided title:", detectedTitle);
+  } else {
+    console.log("📌 No explicit title detected in prompt - model will create one");
+  }
 
   let selectedModel: ModelId = "gpt-5";
   if (model) {
@@ -263,16 +303,22 @@ export async function POST(request: Request) {
             role: "system" as const,
             type: "message" as const,
             content: `${systemDirective}
+
 Return JSON that adheres to the provided schema.`,
           },
           {
             role: "user" as const,
             type: "message" as const,
-            content: `Schema:
-${schemaText}
+            content: `=== USER'S SHOW REQUEST (READ CAREFULLY - USE THEIR TITLE AND DESCRIPTION) ===
 
-Briefing:
-${prompt}`,
+${prompt}
+
+=== END OF USER REQUEST ===
+
+REMEMBER: If the user specified a show title above, use it EXACTLY. If they described the show, base your logline on their description.
+
+Reference Schema (for JSON structure only):
+${schemaText}`,
           },
         ],
         text: {
@@ -326,6 +372,13 @@ ${prompt}`,
         );
       }
 
+      // Log generated title for debugging
+      const generatedTitle = (parsed as { show_title?: string })?.show_title;
+      console.log("✅ Generated show_title:", generatedTitle);
+      if (detectedTitle && generatedTitle && generatedTitle.toLowerCase() !== detectedTitle.toLowerCase()) {
+        console.warn("⚠️ TITLE MISMATCH! User wanted:", detectedTitle, "| Model generated:", generatedTitle);
+      }
+
       return NextResponse.json(
         {
           data: parsed,
@@ -337,11 +390,20 @@ ${prompt}`,
       );
     }
 
+    // Structure the prompt to emphasize user's title/description
+    const enhancedPrompt = `=== USER'S SHOW REQUEST (USE THEIR TITLE AND DESCRIPTION) ===
+
+${prompt}
+
+=== END OF USER REQUEST ===
+
+CRITICAL: If the user specified a show title above, use it EXACTLY in show_title. If they described the show concept, base your show_logline on their description - don't replace it with a different idea.`;
+
     const response = await client.responses.parse({
       model: "gpt-5",
       input: [
         { role: "system", content: systemDirective },
-        { role: "user", content: prompt },
+        { role: "user", content: enhancedPrompt },
       ],
       reasoning: { effort: "low" },
       text: {
@@ -406,6 +468,13 @@ ${prompt}`,
         },
         { status: 502 }
       );
+    }
+
+    // Log generated title for debugging
+    const generatedTitle = (parsed as { show_title?: string })?.show_title;
+    console.log("✅ Generated show_title:", generatedTitle);
+    if (detectedTitle && generatedTitle && generatedTitle.toLowerCase() !== detectedTitle.toLowerCase()) {
+      console.warn("⚠️ TITLE MISMATCH! User wanted:", detectedTitle, "| Model generated:", generatedTitle);
     }
 
     const rawJson =

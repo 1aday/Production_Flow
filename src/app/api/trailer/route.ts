@@ -8,7 +8,7 @@ import {
 
 export const maxDuration = 300; // 5 minutes for trailer generation
 
-// Helper function to fetch with retry for transient network errors
+// Helper function to fetch with retry for transient network errors AND rate limiting
 async function fetchWithRetry(
   url: string,
   options: RequestInit,
@@ -20,19 +20,49 @@ async function fetchWithRetry(
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await fetch(url, options);
+      
+      // Handle rate limiting (429) with retry
+      if (response.status === 429) {
+        const errorBody = await response.text();
+        let retryAfter = 10; // Default 10 seconds
+        
+        // Try to extract retry_after from response
+        try {
+          const parsed = JSON.parse(errorBody);
+          if (parsed.retry_after) {
+            retryAfter = Math.ceil(parsed.retry_after);
+          }
+        } catch {
+          // Use default
+        }
+        
+        if (attempt < maxRetries) {
+          // Add some jitter to avoid thundering herd
+          const waitTime = (retryAfter + Math.random() * 2) * 1000;
+          console.log(`⏳ Rate limited (429). Waiting ${Math.round(waitTime/1000)}s before retry ${attempt}/${maxRetries}...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+        
+        // Max retries exceeded
+        throw new Error(`Rate limited after ${maxRetries} retries: ${errorBody}`);
+      }
+      
       return response;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       const errorCode = (error as NodeJS.ErrnoException)?.code;
       
-      // Only retry on transient network errors
+      // Retry on transient network errors OR rate limit errors
       const isTransient = 
         errorCode === 'ECONNRESET' ||
         errorCode === 'ETIMEDOUT' ||
         errorCode === 'ECONNREFUSED' ||
         errorCode === 'ENOTFOUND' ||
         lastError.message.includes('fetch failed') ||
-        lastError.message.includes('network');
+        lastError.message.includes('network') ||
+        lastError.message.includes('429') ||
+        lastError.message.includes('rate limit');
       
       if (!isTransient || attempt === maxRetries) {
         throw lastError;

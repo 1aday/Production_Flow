@@ -10,6 +10,102 @@ import {
   type FullCharacterDocument,
 } from "@/lib/prompt-extraction";
 
+// Helper to make API requests with retry logic for rate limiting
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // If rate limited (429), wait and retry
+      if (response.status === 429) {
+        const errorBody = await response.text();
+        let retryAfter = 10; // Default 10 seconds
+        
+        // Try to extract retry_after from response
+        try {
+          const parsed = JSON.parse(errorBody);
+          if (parsed.retry_after) {
+            retryAfter = Math.ceil(parsed.retry_after);
+          }
+        } catch {
+          // Use default
+        }
+        
+        if (attempt < maxRetries) {
+          // Add some jitter to avoid thundering herd
+          const waitTime = (retryAfter + Math.random() * 2) * 1000;
+          console.log(`⏳ Rate limited (429). Waiting ${Math.round(waitTime/1000)}s before retry ${attempt + 1}/${maxRetries}...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+        
+        // Max retries exceeded
+        throw new Error(`Rate limited after ${maxRetries} retries: ${errorBody}`);
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry on non-rate-limit errors
+      if (!lastError.message.includes('429') && !lastError.message.includes('rate limit')) {
+        throw lastError;
+      }
+      
+      if (attempt >= maxRetries) {
+        throw lastError;
+      }
+    }
+  }
+  
+  throw lastError || new Error('Failed after retries');
+}
+
+// Helper to retry Replicate SDK calls with rate limit handling
+async function replicateWithRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Check if it's a rate limit error (429)
+      const is429 = lastError.message.includes('429') || 
+                    lastError.message.includes('rate limit') ||
+                    lastError.message.includes('throttled');
+      
+      if (is429 && attempt < maxRetries) {
+        // Extract retry_after if present, default to 10s
+        let retryAfter = 10;
+        const match = lastError.message.match(/(\d+)s/);
+        if (match) {
+          retryAfter = parseInt(match[1], 10);
+        }
+        
+        const waitTime = (retryAfter + Math.random() * 2) * 1000;
+        console.log(`⏳ Rate limited (429). Waiting ${Math.round(waitTime/1000)}s before retry ${attempt + 1}/${maxRetries}...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+      
+      throw lastError;
+    }
+  }
+  
+  throw lastError || new Error('Failed after retries');
+}
+
 type PortraitBody = {
   show: unknown;
   character: unknown;
@@ -310,52 +406,60 @@ export async function POST(request: Request) {
     if (selectedModel === "flux") {
       // Use FLUX for portrait
       console.log("🎨 Using FLUX 1.1 Pro for portrait");
-      prediction = await replicate.predictions.create({
-        model: "black-forest-labs/flux-1.1-pro",
-        input: {
-          prompt,
-          aspect_ratio: "1:1",
-          output_format: "png", // PNG required for video generation input
-          safety_tolerance: 2,
-        },
-      });
+      prediction = await replicateWithRetry(() => 
+        replicate.predictions.create({
+          model: "black-forest-labs/flux-1.1-pro",
+          input: {
+            prompt,
+            aspect_ratio: "1:1",
+            output_format: "png", // PNG required for video generation input
+            safety_tolerance: 2,
+          },
+        })
+      );
     } else if (selectedModel === "nano-banana-pro") {
       // Use Nano Banana Pro for portrait
       console.log("🎨 Using Nano Banana Pro for portrait");
-      prediction = await replicate.predictions.create({
-        model: "google/nano-banana-pro",
-        input: {
-          prompt,
-          aspect_ratio: "1:1",
-          resolution: "2K", // Keep 2K for video generation compatibility
-          output_format: "png", // PNG required for video generation input
-          safety_filter_level: "block_only_high",
-        },
-      });
+      prediction = await replicateWithRetry(() =>
+        replicate.predictions.create({
+          model: "google/nano-banana-pro",
+          input: {
+            prompt,
+            aspect_ratio: "1:1",
+            resolution: "2K", // Keep 2K for video generation compatibility
+            output_format: "png", // PNG required for video generation input
+            safety_filter_level: "block_only_high",
+          },
+        })
+      );
     } else {
       // Use GPT Image for portrait
       console.log("🎨 Using GPT Image 1 for portrait");
       
-      // Use direct API to avoid version lookup issues
+      // Use direct API to avoid version lookup issues (with retry for rate limiting)
       console.log("🌐 Creating GPT Image prediction with token:", `${replicateToken.slice(0, 8)}...`);
-      const createResponse = await fetch("https://api.replicate.com/v1/models/openai/gpt-image-1/predictions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${replicateToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-        input: {
-          prompt,
-            quality: "medium",
-          aspect_ratio: "1:1",
-          background: "auto",
-          number_of_images: 1,
-          moderation: "low",
-            openai_api_key: openaiKey,
+      const createResponse = await fetchWithRetry(
+        "https://api.replicate.com/v1/models/openai/gpt-image-1/predictions",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${replicateToken}`,
+            "Content-Type": "application/json",
           },
-        }),
-      });
+          body: JSON.stringify({
+            input: {
+              prompt,
+              quality: "medium",
+              aspect_ratio: "1:1",
+              background: "auto",
+              number_of_images: 1,
+              moderation: "low",
+              openai_api_key: openaiKey,
+            },
+          }),
+        },
+        3 // Max 3 retries
+      );
 
       if (!createResponse.ok) {
         const errorBody = await createResponse.text();

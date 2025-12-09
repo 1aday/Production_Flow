@@ -15,7 +15,7 @@
       "tags": ["human", "dialogue"]
     },
   
-    "biometrics": {
+    "character_details": {
       "species": {
         "type": "human",
         "subtype": "animated",
@@ -25,8 +25,6 @@
         "physiology": "standard human anatomy"
       },
       "gender_identity": "<male | female | non_binary | other>",
-      "age_years": { "value": 38, "approximate": false },
-      "ethnicity": "—",
       "skin_color": { "hex": "#CDAA8D", "description": "warm light-tan" },
       "eye_color": { "hex": "#4A3B2A", "description": "brown", "patterning": "" },
   
@@ -41,8 +39,6 @@
   
       "facial_hair": { "has_facial_hair": false, "style": "", "density": "light" },
   
-      "height": { "value": 180, "unit": "cm", "notes": "" },
-      "weight": { "value": 78, "unit": "kg", "notes": "" },
       "build": { "body_type": "lean", "notes": "" },
   
       "distinctive_features": "<One sentence describing scars, tattoos, prosthetics, unusual traits>",

@@ -39,11 +39,6 @@
         "maxLength": 80,
         "description": "Short, punchy marketing tagline for posters (e.g., 'In space, no one can hear you scream'). Different from logline - this is for marketing impact."
       },
-      "target_audience": {
-        "type": "string",
-        "enum": ["kids", "family", "teen", "young_adult", "adult", "mature"],
-        "description": "Primary target audience. Influences tone, complexity, and content."
-      },
       "primary_palette": {
         "type": "array",
         "minItems": 3,

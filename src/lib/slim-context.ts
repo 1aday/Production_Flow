@@ -14,7 +14,6 @@ export type SlimShowContext = {
   genre: string | null;
   mood_keywords: string[];
   tagline: string | null;
-  target_audience: string | null;
   primary_palette: string[];
   style: {
     medium: string;
@@ -37,7 +36,6 @@ export type SlimCharacterContext = {
   name: string;
   species: string;
   gender: string | null;
-  age: number | string | null;
   skin_tone: { hex: string; description: string } | null;
   eye_color: { hex: string; description: string } | null;
   hair: { color: string; style: string; length: string } | null;
@@ -68,7 +66,6 @@ type ShowBlueprint = {
   genre?: string;
   mood_keywords?: string[];
   tagline?: string;
-  target_audience?: string;
   primary_palette?: string[];
   production_style?: {
     medium?: string;
@@ -95,13 +92,12 @@ type CharacterDocument = {
   metadata?: {
     role?: string;
   };
-  biometrics?: {
+  character_details?: {
     species?: {
       type?: string;
       subtype?: string;
     };
     gender_identity?: string;
-    age_years?: { value?: number };
     skin_color?: { hex?: string; description?: string };
     eye_color?: { hex?: string; description?: string };
     hair?: {
@@ -135,7 +131,6 @@ export function extractSlimShowContext(show: ShowBlueprint | null | undefined): 
       genre: null,
       mood_keywords: [],
       tagline: null,
-      target_audience: null,
       primary_palette: [],
       style: {
         medium: 'Unknown',
@@ -164,7 +159,6 @@ export function extractSlimShowContext(show: ShowBlueprint | null | undefined): 
     genre: show.genre || null,
     mood_keywords: show.mood_keywords || [],
     tagline: show.tagline || null,
-    target_audience: show.target_audience || null,
     primary_palette: show.primary_palette || color.anchor_hex || [],
     style: {
       medium: productionStyle.medium || 'Unknown',
@@ -196,7 +190,6 @@ export function extractSlimCharacterContext(
       name: 'Unknown Character',
       species: 'human',
       gender: null,
-      age: null,
       skin_tone: null,
       eye_color: null,
       hair: null,
@@ -209,17 +202,17 @@ export function extractSlimCharacterContext(
     };
   }
 
-  const biometrics = character.biometrics || {};
+  const characterDetails = character.character_details || {};
   const look = character.look || {};
   const performance = character.performance || {};
 
   // Extract hair info
   let hair: SlimCharacterContext['hair'] = null;
-  if (biometrics.hair) {
+  if (characterDetails.hair) {
     hair = {
-      color: biometrics.hair.color_description || biometrics.hair.color_hex || '',
-      style: biometrics.hair.style || '',
-      length: biometrics.hair.length || '',
+      color: characterDetails.hair.color_description || characterDetails.hair.color_hex || '',
+      style: characterDetails.hair.style || '',
+      length: characterDetails.hair.length || '',
     };
   }
 
@@ -240,19 +233,18 @@ export function extractSlimCharacterContext(
   return {
     id: character.character || 'unknown',
     name: extractCharacterName(character),
-    species: biometrics.species?.type || 'human',
-    gender: biometrics.gender_identity || null,
-    age: biometrics.age_years?.value || null,
-    skin_tone: biometrics.skin_color ? {
-      hex: biometrics.skin_color.hex || '',
-      description: biometrics.skin_color.description || '',
+    species: characterDetails.species?.type || 'human',
+    gender: characterDetails.gender_identity || null,
+    skin_tone: characterDetails.skin_color ? {
+      hex: characterDetails.skin_color.hex || '',
+      description: characterDetails.skin_color.description || '',
     } : null,
-    eye_color: biometrics.eye_color ? {
-      hex: biometrics.eye_color.hex || '',
-      description: biometrics.eye_color.description || '',
+    eye_color: characterDetails.eye_color ? {
+      hex: characterDetails.eye_color.hex || '',
+      description: characterDetails.eye_color.description || '',
     } : null,
     hair,
-    build: biometrics.build?.body_type || null,
+    build: characterDetails.build?.body_type || null,
     distinctive_features: look.surface?.materials || null,
     wardrobe_summary: wardrobeSummary,
     expression_default: expressionDefault,
@@ -330,10 +322,6 @@ export function buildSlimPortraitPrompt(
     lines.push(`Gender: ${characterContext.gender}`);
   }
   
-  if (characterContext.age) {
-    lines.push(`Age: ${characterContext.age}`);
-  }
-  
   if (characterContext.build) {
     lines.push(`Build: ${characterContext.build}`);
   }
@@ -396,10 +384,6 @@ export function buildSlimTrailerPromptHeader(showContext: SlimShowContext): stri
   
   if (showContext.mood_keywords.length > 0) {
     lines.push(`Mood: ${showContext.mood_keywords.join(', ')}`);
-  }
-  
-  if (showContext.target_audience) {
-    lines.push(`Audience: ${showContext.target_audience}`);
   }
   
   lines.push('');

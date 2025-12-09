@@ -33,7 +33,7 @@ Use ChatGPT, Midjourney, or DALL-E:
 
 **Prompt suggestion:**
 ```
-Create a professional social media preview image (OpenGraph) for "Production Flow", an AI-powered show bible generator. 1200x630 pixels. Dark cinematic background with subtle grid pattern. Bold white text "PRODUCTION FLOW" at top. Subtext "AI Show Bible Generator" in elegant font. Accent color: Netflix red (#E50914). Modern, sleek, premium aesthetic. Cinematic film production theme. No actual film characters, just abstract elements and text.
+Create a professional social media preview image (OpenGraph) for "Production Flow", an AI-powered show bible generator. 1200x630 pixels. Dark cinematic background with subtle grid pattern. Bold white text "PRODUCTION FLOW" at top. Subtext "AI Show Bible Generator" in elegant font. . Modern, sleek, premium aesthetic. Cinematic film production theme. No actual film characters, just abstract elements and text.
 ```
 
 ### Option 4: Simple Text-Based (5 minutes)
@@ -156,6 +156,9 @@ After creating the image:
 ---
 
 **Once created, delete this file - it's just a guide!**
+
+
+
 
 
 

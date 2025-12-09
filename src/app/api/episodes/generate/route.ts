@@ -9,7 +9,6 @@ type EpisodesRequest = {
     show_logline?: string;
     genre?: string;
     mood_keywords?: string[];
-    target_audience?: string;
     tagline?: string;
   };
   characterSeeds?: Array<{
@@ -110,7 +109,6 @@ Logline: ${body.blueprint.show_logline || 'Not provided'}
 Tagline: ${body.blueprint.tagline || 'Not provided'}
 Genre: ${body.blueprint.genre || 'Drama'}
 Mood: ${body.blueprint.mood_keywords?.join(', ') || 'Not specified'}
-Target Audience: ${body.blueprint.target_audience || 'Adult'}
 
 MAIN CHARACTERS (use these IDs in featured_characters):
 ${body.characterSeeds?.map(c => `- ID: "${c.id}" | Name: ${c.name} | Role: ${c.role || 'Unknown'} | Vibe: ${c.vibe || 'Unknown'} | Summary: ${c.summary || 'No description'}`).join('\n') || 'No characters provided'}

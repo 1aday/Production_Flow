@@ -11,8 +11,65 @@ import {
 
 export const maxDuration = 60; // Reduced to 60s since we return immediately
 
+// Helper to make API requests with retry logic for rate limiting
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // If rate limited (429), wait and retry
+      if (response.status === 429) {
+        const errorBody = await response.text();
+        let retryAfter = 10; // Default 10 seconds
+        
+        // Try to extract retry_after from response
+        try {
+          const parsed = JSON.parse(errorBody);
+          if (parsed.retry_after) {
+            retryAfter = Math.ceil(parsed.retry_after);
+          }
+        } catch {
+          // Use default
+        }
+        
+        if (attempt < maxRetries) {
+          // Add some jitter to avoid thundering herd
+          const waitTime = (retryAfter + Math.random() * 2) * 1000;
+          console.log(`⏳ Rate limited (429). Waiting ${Math.round(waitTime/1000)}s before retry ${attempt + 1}/${maxRetries}...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+        
+        // Max retries exceeded
+        throw new Error(`Rate limited after ${maxRetries} retries: ${errorBody}`);
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry on non-rate-limit errors
+      if (!lastError.message.includes('429') && !lastError.message.includes('rate limit')) {
+        throw lastError;
+      }
+      
+      if (attempt >= maxRetries) {
+        throw lastError;
+      }
+    }
+  }
+  
+  throw lastError || new Error('Failed after retries');
+}
+
 type VideoModelId = "openai/sora-2" | "openai/sora-2-pro" | "google/veo-3.1";
-type VideoAspectRatio = "portrait" | "landscape";
+type VideoAspectRatio = "portrait" | "landscape" | "square";
 type VideoDuration = 4 | 6 | 8 | 12;
 type VideoResolution = "standard" | "high" | "720p" | "1080p";
 
@@ -32,30 +89,49 @@ type VideoModelConfig = {
 
 const DEFAULT_DURATION: VideoDuration = 8;
 
-const describeAspectRatio = (value: VideoAspectRatio) =>
-  value === "portrait" ? "9:16 portrait" : "16:9 landscape";
+// Character videos are ALWAYS 1:1 square format
+const CHARACTER_VIDEO_ASPECT_RATIO: VideoAspectRatio = "square";
+
+const describeAspectRatio = (value: VideoAspectRatio) => {
+  switch (value) {
+    case "portrait": return "9:16 portrait";
+    case "landscape": return "16:9 landscape";
+    case "square": return "1:1 square";
+    default: return "1:1 square";
+  }
+};
+
+// Convert aspect ratio to API format for each model
+const getApiAspectRatio = (value: VideoAspectRatio): string => {
+  switch (value) {
+    case "portrait": return "9:16";
+    case "landscape": return "16:9";
+    case "square": return "1:1";
+    default: return "1:1";
+  }
+};
 
 const VIDEO_MODELS: Record<VideoModelId, VideoModelConfig> = {
   "openai/sora-2": {
     modelPath: "openai/sora-2",
     seconds: [4, 8, 12],
-    aspectRatios: ["portrait", "landscape"],
+    aspectRatios: ["square", "portrait", "landscape"],
     buildInput: ({ prompt, seconds, aspectRatio, portraitUrl }) => ({
       prompt,
       seconds,
-      aspect_ratio: aspectRatio,
+      aspect_ratio: getApiAspectRatio(aspectRatio),
       input_reference: portraitUrl,
     }),
   },
   "openai/sora-2-pro": {
     modelPath: "openai/sora-2-pro",
     seconds: [4, 8, 12],
-    aspectRatios: ["portrait", "landscape"],
+    aspectRatios: ["square", "portrait", "landscape"],
     resolutions: ["standard", "high"],
     buildInput: ({ prompt, seconds, aspectRatio, portraitUrl, resolution }) => ({
       prompt,
       seconds,
-      aspect_ratio: aspectRatio,
+      aspect_ratio: getApiAspectRatio(aspectRatio),
       resolution: resolution ?? "standard",
       input_reference: portraitUrl,
     }),
@@ -63,17 +139,26 @@ const VIDEO_MODELS: Record<VideoModelId, VideoModelConfig> = {
   "google/veo-3.1": {
     modelPath: "google/veo-3.1",
     seconds: [4, 6, 8],
+    // VEO 3.1 ONLY supports 16:9 and 9:16 - NO square format!
     aspectRatios: ["portrait", "landscape"],
     resolutions: ["720p", "1080p"],
     buildInput: ({ prompt, seconds, aspectRatio, portraitUrl, resolution }) => {
       // VEO 3.1 uses reference_images instead of input_reference
-      // and different parameter names
-      const veoAspectRatio = aspectRatio === "portrait" ? "9:16" : "16:9";
-      // VEO 3.1 API has a known bug where it ignores aspect_ratio parameter
-      // Adding explicit orientation to prompt as workaround
-      const orientationPrefix = aspectRatio === "portrait" 
+      // VEO 3.1 ONLY accepts "16:9" or "9:16" - it does NOT support "1:1" (square)
+      // For character videos (which default to square), use "9:16" portrait instead
+      let veoAspectRatio: "16:9" | "9:16";
+      if (aspectRatio === "landscape") {
+        veoAspectRatio = "16:9";
+      } else {
+        // For portrait OR square, use 9:16 (VEO doesn't support square)
+        veoAspectRatio = "9:16";
+      }
+      
+      // Add orientation guidance to prompt
+      const orientationPrefix = veoAspectRatio === "9:16"
         ? "CRITICAL: Generate this as a VERTICAL 9:16 PORTRAIT video for mobile viewing. Frame all shots in portrait/vertical orientation. "
-        : "";
+        : "CRITICAL: Generate this as a HORIZONTAL 16:9 LANDSCAPE video for widescreen viewing. Frame all shots in landscape/cinematic orientation. ";
+      
       return {
         prompt: orientationPrefix + prompt,
         duration: seconds,
@@ -307,7 +392,11 @@ export async function POST(request: Request) {
   const modelId = ensureModelId(body.modelId);
   const modelConfig = VIDEO_MODELS[modelId];
   const seconds = normalizeSeconds(body.seconds, modelConfig.seconds);
-  const aspectRatio = normalizeAspectRatio(body.aspectRatio, modelConfig.aspectRatios);
+  // Character videos are 1:1 square format, EXCEPT for VEO 3.1 which only supports 16:9 and 9:16
+  // For VEO 3.1, use 9:16 portrait format for character videos
+  const aspectRatio: VideoAspectRatio = modelId === "google/veo-3.1" 
+    ? "portrait" 
+    : CHARACTER_VIDEO_ASPECT_RATIO;
   const resolution = normalizeResolution(body.resolution, modelConfig.resolutions, modelId);
   
   // Get stylization guardrails setting (defaults to true for backward compatibility)
@@ -337,8 +426,16 @@ export async function POST(request: Request) {
 
   const SAFETY_PREFIX = "If you have any hesitations about making this feel free to adjust it so its within guidelines.\n\n";
   
+  // Build aspect ratio guidance based on actual format being used
+  const aspectRatioGuidance = aspectRatio === "portrait"
+    ? "CRITICAL: This MUST be a 9:16 PORTRAIT aspect ratio video for mobile viewing. Frame all shots in vertical/portrait orientation."
+    : aspectRatio === "landscape"
+    ? "CRITICAL: This MUST be a 16:9 LANDSCAPE aspect ratio video for widescreen viewing. Frame all shots in horizontal/cinematic orientation."
+    : "CRITICAL: This MUST be a 1:1 SQUARE aspect ratio video. Center the character in frame for square composition.";
+  
   const prompt = SAFETY_PREFIX + [
     `Produce a ${seconds}-second, ${describeAspectRatio(aspectRatio)} cinematic showcase featuring ONLY the specified character.`,
+    aspectRatioGuidance,
     "Anchor every creative choice in the show's visual style and the character's established look.",
     resolution
       ? `Render using ${resolution === "high" ? "high (1024p)" : "standard (720p)"} fidelity while keeping likeness stable.`
@@ -386,14 +483,19 @@ export async function POST(request: Request) {
     
     console.log("Request body being sent:", requestBody);
     
-    const createResponse = await fetch(`https://api.replicate.com/v1/models/${modelConfig.modelPath}/predictions`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json",
+    // Use retry logic to handle rate limiting (429)
+    const createResponse = await fetchWithRetry(
+      `https://api.replicate.com/v1/models/${modelConfig.modelPath}/predictions`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: requestBody,
       },
-      body: requestBody,
-    });
+      3 // Max 3 retries for rate limiting
+    );
     
     if (!createResponse.ok) {
       const errorBody = await createResponse.text();
